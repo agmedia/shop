@@ -32,15 +32,22 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-5. Run migrations:
+5. After `.env` DB credentials are valid and the target database already exists, run migrations:
 ```bash
 php artisan migrate
 ```
 
-6. Seed data (after `.env` DB is ready):
+6. Seed data:
 ```bash
 php artisan db:seed
 ```
+Expected prompt:
+```text
+Seed large dummy webshop dataset (100 categories, 1000 products, 3000 orders, 500 users, etc.)? (yes/no) [no]:
+```
+- Answer `no` for standard local baseline data.
+- Answer `yes` when you need a large dummy dataset for performance/testing.
+- You can also force this non-interactively with `SEED_DUMMY_DATA=true`.
 
 7. Link storage:
 ```bash
@@ -86,4 +93,3 @@ php artisan optimize:clear
 php artisan test
 php artisan route:list
 ```
-
