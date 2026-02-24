@@ -11,6 +11,8 @@ use Illuminate\Support\Str;
 
 class AdminAgentService
 {
+    private const INTENT_CATEGORY_MANAGEMENT = 'category_management';
+
     private const TOOL_ENSURE_CATEGORY_PATH = 'ensure_category_path';
     private const TOOL_UPSERT_CATEGORY_TRANSLATION = 'upsert_category_translation';
     private const TOOL_ATTACH_PRODUCTS_BY_FILTER = 'attach_products_by_filter';
@@ -101,12 +103,14 @@ class AdminAgentService
 
         $targetName = (string) $path[array_key_last($path)];
 
+        $planTools = array_values(array_filter($tools, fn ($tool) => $this->isToolAllowed((string) ($tool['name'] ?? ''))));
+
         $plan = [
             'version' => 2,
-            'intent' => 'category_management',
+            'intent' => self::INTENT_CATEGORY_MANAGEMENT,
             'scope' => $scope,
             'locale' => $locale,
-            'tools' => array_values(array_filter($tools, fn ($tool) => $this->isToolAllowed((string) ($tool['name'] ?? '')))),
+            'tools' => $planTools,
             'target_name' => $targetName,
             'requested_by_user_id' => (int) $user->id,
         ];
@@ -118,12 +122,31 @@ class AdminAgentService
             ];
         }
 
+        $domain = $this->domainDefinition((string) $plan['intent']);
+        $functionSteps = array_values(array_filter(array_map(function (array $tool): array {
+            $toolName = (string) ($tool['name'] ?? '');
+            $meta = $this->toolDefinition($toolName);
+            if ($meta === []) {
+                return [];
+            }
+
+            return [
+                'name' => $toolName,
+                'title' => (string) ($meta['title'] ?? $toolName),
+                'description' => (string) ($meta['description'] ?? ''),
+                'params' => (array) ($meta['params'] ?? []),
+            ];
+        }, $planTools)));
+
         return [
             'ok' => true,
             'plan_id' => (string) Str::ulid(),
             'summary' => "Will process category '{$targetName}' in path '".implode(' > ', $path)."' (scope: {$scope}, locale: {$locale}).",
             'actions' => $actions,
             'warnings' => $warnings,
+            'domain_key' => (string) ($plan['intent'] ?? self::INTENT_CATEGORY_MANAGEMENT),
+            'domain_title' => (string) ($domain['title'] ?? 'Category Management'),
+            'function_steps' => $functionSteps,
             'plan' => $plan,
         ];
     }
@@ -669,6 +692,28 @@ class AdminAgentService
         }
 
         return $code;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function domainDefinition(string $domainKey): array
+    {
+        /** @var array<string, array<string, mixed>> $domains */
+        $domains = config('admin_ai.domains', []);
+
+        return $domains[$domainKey] ?? [];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function toolDefinition(string $toolName): array
+    {
+        /** @var array<string, array<string, mixed>> $functions */
+        $functions = config('admin_ai.functions', []);
+
+        return $functions[$toolName] ?? [];
     }
 
     private function isToolAllowed(string $toolName): bool

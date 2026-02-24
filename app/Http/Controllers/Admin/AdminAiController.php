@@ -41,6 +41,9 @@ class AdminAiController extends Controller
             'summary' => $result['summary'],
             'actions' => $result['actions'],
             'warnings' => $result['warnings'],
+            'domain_key' => $result['domain_key'] ?? null,
+            'domain_title' => $result['domain_title'] ?? null,
+            'function_steps' => $result['function_steps'] ?? [],
             'can_execute' => true,
         ]);
     }

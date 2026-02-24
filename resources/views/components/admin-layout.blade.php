@@ -503,6 +503,9 @@
             .admin-help-overlay.is-open {
                 display: flex;
             }
+            .admin-help-overlay--ai {
+                z-index: 82;
+            }
             .admin-help-modal {
                 width: min(64rem, 100%);
                 max-height: calc(100dvh - 2.5rem);
@@ -1189,6 +1192,69 @@
                     };
 
                     $helpEntry = $normalizeHelpEntry(is_array($helpEntry) ? $helpEntry : []);
+
+                    $aiConfig = config('admin_ai', []);
+                    $aiHelpEntry = is_array($aiConfig['help'] ?? null) ? $aiConfig['help'] : [];
+
+                    $aiDomains = is_array($aiConfig['domains'] ?? null) ? $aiConfig['domains'] : [];
+                    $aiTools = is_array($aiConfig['tools'] ?? null) ? $aiConfig['tools'] : [];
+                    $aiFunctions = is_array($aiConfig['functions'] ?? null) ? $aiConfig['functions'] : [];
+
+                    $enabledFunctionNames = array_values(array_filter(array_keys($aiTools), static fn ($toolName): bool => (bool) ($aiTools[$toolName] ?? false)));
+                    $enabledFunctionSections = [];
+                    foreach ($enabledFunctionNames as $toolName) {
+                        $functionMeta = is_array($aiFunctions[$toolName] ?? null) ? $aiFunctions[$toolName] : [];
+                        $enabledFunctionSections[] = [
+                            'title' => trim((string) ($functionMeta['title'] ?? $toolName)),
+                            'subtitle' => 'Domain function currently enabled for preview/execute plans.',
+                            'explanation' => [
+                                trim((string) ($functionMeta['description'] ?? 'No function description configured.')),
+                            ],
+                            'params' => is_array($functionMeta['params'] ?? null) ? $functionMeta['params'] : [],
+                        ];
+                    }
+
+                    $domainLines = [];
+                    foreach ($aiDomains as $domainKey => $domainMeta) {
+                        if (! is_array($domainMeta)) {
+                            continue;
+                        }
+                        $domainTitle = trim((string) ($domainMeta['title'] ?? $domainKey));
+                        $domainSummary = trim((string) ($domainMeta['summary'] ?? ''));
+                        $line = $domainTitle;
+                        if ($domainSummary !== '') {
+                            $line .= ': '.$domainSummary;
+                        }
+                        $domainLines[] = $line;
+                    }
+
+                    $fallbackNotice = trim((string) ($aiConfig['fallback']['notice'] ?? ''));
+                    $fallbackContact = trim((string) ($aiConfig['fallback']['contact'] ?? ''));
+                    if ($fallbackNotice !== '') {
+                        $fallbackLine = $fallbackNotice;
+                        if ($fallbackContact !== '') {
+                            $fallbackLine .= ' Contact: '.$fallbackContact;
+                        }
+                        $domainLines[] = $fallbackLine;
+                    }
+
+                    if ($domainLines !== []) {
+                        $aiHelpSections = is_array($aiHelpEntry['sections'] ?? null) ? $aiHelpEntry['sections'] : [];
+                        $aiHelpSections[] = [
+                            'title' => 'Configured Domains',
+                            'subtitle' => 'Runtime domain registry loaded from admin_ai config.',
+                            'explanation' => $domainLines,
+                            'params' => [],
+                        ];
+                        $aiHelpEntry['sections'] = $aiHelpSections;
+                    }
+
+                    if ($enabledFunctionSections !== []) {
+                        $aiHelpSections = is_array($aiHelpEntry['sections'] ?? null) ? $aiHelpEntry['sections'] : [];
+                        $aiHelpEntry['sections'] = array_merge($aiHelpSections, $enabledFunctionSections);
+                    }
+
+                    $aiHelpEntry = $normalizeHelpEntry($aiHelpEntry);
                 @endphp
 
                 <nav class="space-y-1 p-4">
@@ -1732,7 +1798,10 @@
                         <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Admin Agent</p>
                         <h2 id="admin-ai-title" class="mt-1 text-base font-semibold tracking-tight text-slate-900">Describe what you want to do</h2>
                     </div>
-                    <button type="button" id="admin-ai-close" class="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100">Close</button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="admin-ai-help-open" class="rounded-md border border-cyan-300 bg-cyan-50 px-2 py-1 text-xs font-semibold text-cyan-800 hover:bg-cyan-100">Domain Functions</button>
+                        <button type="button" id="admin-ai-close" class="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100">Close</button>
+                    </div>
                 </div>
                 <form id="admin-ai-form" class="admin-ai-modal-body">
                     <textarea
@@ -1743,6 +1812,8 @@
                     <p class="admin-ai-hint">Shortcut: press <strong>Space</strong> twice anywhere outside form inputs.</p>
                     <div id="admin-ai-preview" class="mt-4 hidden rounded-xl border border-slate-200 bg-slate-50 p-3">
                         <p id="admin-ai-summary" class="text-sm font-medium text-slate-800"></p>
+                        <p id="admin-ai-domain" class="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-700"></p>
+                        <ul id="admin-ai-functions" class="mt-2 list-disc space-y-1 pl-5 text-xs text-cyan-900"></ul>
                         <ul id="admin-ai-actions" class="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-700"></ul>
                         <ul id="admin-ai-warnings" class="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-700"></ul>
                     </div>
@@ -1752,6 +1823,30 @@
                         <button type="button" id="admin-ai-confirm-submit" class="hidden rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Confirm & Execute</button>
                     </div>
                 </form>
+            </div>
+        </div>
+        <div
+            id="admin-ai-help-overlay"
+            class="admin-help-overlay admin-help-overlay--ai"
+            aria-hidden="true"
+            data-help='@json($aiHelpEntry)'
+        >
+            <div class="admin-help-modal" role="dialog" aria-modal="true" aria-labelledby="admin-ai-help-title">
+                <div class="admin-help-modal-header flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">AI Manual</p>
+                        <h2 id="admin-ai-help-title" class="mt-1 text-base font-semibold tracking-tight text-slate-900"></h2>
+                    </div>
+                    <button type="button" id="admin-ai-help-close" class="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100">Close</button>
+                </div>
+                <div class="admin-help-modal-body">
+                    <p id="admin-ai-help-summary" class="text-sm text-slate-700"></p>
+                    <div id="admin-ai-help-sections" class="admin-help-sections"></div>
+                    <ul id="admin-ai-help-list" class="admin-help-list"></ul>
+                    <a id="admin-ai-help-manual-link" href="#" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-800 hover:bg-cyan-100">
+                        Open Manual
+                    </a>
+                </div>
             </div>
         </div>
         <div id="admin-ace-overlay" class="admin-ace-overlay" aria-hidden="true">
@@ -1840,159 +1935,198 @@
             })();
 
             (() => {
-                const overlay = document.getElementById('admin-help-overlay');
-                const openButton = document.getElementById('admin-help-open');
-                const closeButton = document.getElementById('admin-help-close');
-                const titleEl = document.getElementById('admin-help-title');
-                const summaryEl = document.getElementById('admin-help-summary');
-                const sectionsEl = document.getElementById('admin-help-sections');
-                const listEl = document.getElementById('admin-help-list');
-                const manualLinkEl = document.getElementById('admin-help-manual-link');
+                const setupHelpModal = ({
+                    overlayId,
+                    openButtonId,
+                    closeButtonId,
+                    titleId,
+                    summaryId,
+                    sectionsId,
+                    listId,
+                    manualLinkId,
+                    fallbackTitle = 'Page Help',
+                    fallbackSummary = 'Use this panel to manage the current section.',
+                }) => {
+                    const overlay = document.getElementById(overlayId);
+                    const openButton = document.getElementById(openButtonId);
+                    const closeButton = document.getElementById(closeButtonId);
+                    const titleEl = document.getElementById(titleId);
+                    const summaryEl = document.getElementById(summaryId);
+                    const sectionsEl = document.getElementById(sectionsId);
+                    const listEl = document.getElementById(listId);
+                    const manualLinkEl = document.getElementById(manualLinkId);
 
-                if (!overlay || !openButton || !closeButton || !titleEl || !summaryEl || !sectionsEl || !listEl || !manualLinkEl) return;
+                    if (!overlay || !openButton || !closeButton || !titleEl || !summaryEl || !sectionsEl || !listEl || !manualLinkEl) return;
 
-                const payload = (() => {
-                    const raw = overlay.dataset.help;
-                    if (!raw) return {};
-                    try {
-                        return JSON.parse(raw);
-                    } catch (error) {
-                        return {};
-                    }
-                })();
+                    const payload = (() => {
+                        const raw = overlay.dataset.help;
+                        if (!raw) return {};
+                        try {
+                            return JSON.parse(raw);
+                        } catch (error) {
+                            return {};
+                        }
+                    })();
 
-                const bullets = Array.isArray(payload.bullets) ? payload.bullets : [];
-                const sections = Array.isArray(payload.sections) ? payload.sections : [];
-                titleEl.textContent = String(payload.title || 'Page Help');
-                summaryEl.textContent = String(payload.summary || 'Use this panel to manage the current section.');
+                    const bullets = Array.isArray(payload.bullets) ? payload.bullets : [];
+                    const sections = Array.isArray(payload.sections) ? payload.sections : [];
+                    titleEl.textContent = String(payload.title || fallbackTitle);
+                    summaryEl.textContent = String(payload.summary || fallbackSummary);
 
-                sectionsEl.innerHTML = '';
-                sections.forEach((sectionPayload) => {
-                    if (!sectionPayload || typeof sectionPayload !== 'object') return;
+                    sectionsEl.innerHTML = '';
+                    sections.forEach((sectionPayload) => {
+                        if (!sectionPayload || typeof sectionPayload !== 'object') return;
 
-                    const items = Array.isArray(sectionPayload.items) ? sectionPayload.items : [];
-                    const subtitle = typeof sectionPayload.subtitle === 'string' ? sectionPayload.subtitle.trim() : '';
-                    const explanationRaw = sectionPayload.explanation;
-                    const explanation = Array.isArray(explanationRaw)
-                        ? explanationRaw.map((value) => String(value)).filter((value) => value.trim() !== '')
-                        : (typeof explanationRaw === 'string' && explanationRaw.trim() !== '' ? [explanationRaw] : []);
-                    const params = Array.isArray(sectionPayload.params) ? sectionPayload.params : [];
+                        const items = Array.isArray(sectionPayload.items) ? sectionPayload.items : [];
+                        const subtitle = typeof sectionPayload.subtitle === 'string' ? sectionPayload.subtitle.trim() : '';
+                        const explanationRaw = sectionPayload.explanation;
+                        const explanation = Array.isArray(explanationRaw)
+                            ? explanationRaw.map((value) => String(value)).filter((value) => value.trim() !== '')
+                            : (typeof explanationRaw === 'string' && explanationRaw.trim() !== '' ? [explanationRaw] : []);
+                        const params = Array.isArray(sectionPayload.params) ? sectionPayload.params : [];
 
-                    if (!items.length && subtitle === '' && explanation.length === 0 && params.length === 0) return;
+                        if (!items.length && subtitle === '' && explanation.length === 0 && params.length === 0) return;
 
-                    const section = document.createElement('section');
-                    section.className = 'admin-help-section';
+                        const section = document.createElement('section');
+                        section.className = 'admin-help-section';
 
-                    const sectionTitle = document.createElement('h3');
-                    sectionTitle.className = 'admin-help-section-title';
-                    sectionTitle.textContent = String(sectionPayload.title || 'Notes');
-                    section.appendChild(sectionTitle);
+                        const sectionTitle = document.createElement('h3');
+                        sectionTitle.className = 'admin-help-section-title';
+                        sectionTitle.textContent = String(sectionPayload.title || 'Notes');
+                        section.appendChild(sectionTitle);
 
-                    if (subtitle !== '') {
-                        const subtitleEl = document.createElement('p');
-                        subtitleEl.className = 'admin-help-section-subtitle';
-                        subtitleEl.textContent = subtitle;
-                        section.appendChild(subtitleEl);
-                    }
+                        if (subtitle !== '') {
+                            const subtitleEl = document.createElement('p');
+                            subtitleEl.className = 'admin-help-section-subtitle';
+                            subtitleEl.textContent = subtitle;
+                            section.appendChild(subtitleEl);
+                        }
 
-                    explanation.forEach((paragraph) => {
-                        const paragraphEl = document.createElement('p');
-                        paragraphEl.className = 'admin-help-paragraph';
-                        paragraphEl.textContent = paragraph;
-                        section.appendChild(paragraphEl);
-                    });
-
-                    if (params.length > 0) {
-                        const paramsWrap = document.createElement('div');
-                        paramsWrap.className = 'admin-help-params';
-
-                        params.forEach((row) => {
-                            if (!row || typeof row !== 'object') return;
-                            const key = String(row.key ?? row.name ?? '').trim();
-                            const value = String(row.value ?? row.description ?? '').trim();
-                            if (key === '' && value === '') return;
-
-                            const rowEl = document.createElement('div');
-                            rowEl.className = 'admin-help-param-row';
-
-                            const keyEl = document.createElement('div');
-                            keyEl.className = 'admin-help-param-key';
-                            keyEl.textContent = key || 'Parameter';
-
-                            const valueEl = document.createElement('div');
-                            valueEl.className = 'admin-help-param-value';
-                            valueEl.textContent = value;
-
-                            rowEl.append(keyEl, valueEl);
-                            paramsWrap.appendChild(rowEl);
+                        explanation.forEach((paragraph) => {
+                            const paragraphEl = document.createElement('p');
+                            paragraphEl.className = 'admin-help-paragraph';
+                            paragraphEl.textContent = paragraph;
+                            section.appendChild(paragraphEl);
                         });
 
-                        if (paramsWrap.childElementCount > 0) {
-                            section.appendChild(paramsWrap);
+                        if (params.length > 0) {
+                            const paramsWrap = document.createElement('div');
+                            paramsWrap.className = 'admin-help-params';
+
+                            params.forEach((row) => {
+                                if (!row || typeof row !== 'object') return;
+                                const key = String(row.key ?? row.name ?? '').trim();
+                                const value = String(row.value ?? row.description ?? '').trim();
+                                if (key === '' && value === '') return;
+
+                                const rowEl = document.createElement('div');
+                                rowEl.className = 'admin-help-param-row';
+
+                                const keyEl = document.createElement('div');
+                                keyEl.className = 'admin-help-param-key';
+                                keyEl.textContent = key || 'Parameter';
+
+                                const valueEl = document.createElement('div');
+                                valueEl.className = 'admin-help-param-value';
+                                valueEl.textContent = value;
+
+                                rowEl.append(keyEl, valueEl);
+                                paramsWrap.appendChild(rowEl);
+                            });
+
+                            if (paramsWrap.childElementCount > 0) {
+                                section.appendChild(paramsWrap);
+                            }
                         }
-                    }
 
-                    if (items.length > 0) {
-                        const sectionList = document.createElement('ul');
-                        sectionList.className = 'admin-help-list';
+                        if (items.length > 0) {
+                            const sectionList = document.createElement('ul');
+                            sectionList.className = 'admin-help-list';
 
-                        items.forEach((item) => {
+                            items.forEach((item) => {
+                                const li = document.createElement('li');
+                                li.textContent = String(item);
+                                sectionList.appendChild(li);
+                            });
+
+                            section.appendChild(sectionList);
+                        }
+
+                        sectionsEl.appendChild(section);
+                    });
+
+                    listEl.innerHTML = '';
+                    if (sectionsEl.childElementCount > 0) {
+                        listEl.classList.add('hidden');
+                    } else {
+                        bullets.forEach((item) => {
                             const li = document.createElement('li');
                             li.textContent = String(item);
-                            sectionList.appendChild(li);
+                            listEl.appendChild(li);
                         });
-
-                        section.appendChild(sectionList);
+                        listEl.classList.add('admin-help-list-flat');
+                        listEl.classList.remove('hidden');
+                    }
+                    if (sectionsEl.childElementCount > 0) {
+                        listEl.classList.remove('admin-help-list-flat');
                     }
 
-                    sectionsEl.appendChild(section);
-                });
+                    if (payload.manual_url) {
+                        manualLinkEl.href = String(payload.manual_url);
+                        manualLinkEl.classList.remove('hidden');
+                    } else {
+                        manualLinkEl.classList.add('hidden');
+                    }
 
-                listEl.innerHTML = '';
-                if (sectionsEl.childElementCount > 0) {
-                    listEl.classList.add('hidden');
-                } else {
-                    bullets.forEach((item) => {
-                        const li = document.createElement('li');
-                        li.textContent = String(item);
-                        listEl.appendChild(li);
+                    const open = () => {
+                        overlay.classList.add('is-open');
+                        overlay.setAttribute('aria-hidden', 'false');
+                    };
+
+                    const close = () => {
+                        overlay.classList.remove('is-open');
+                        overlay.setAttribute('aria-hidden', 'true');
+                    };
+
+                    openButton.addEventListener('click', open);
+                    closeButton.addEventListener('click', close);
+                    overlay.addEventListener('click', (event) => {
+                        if (event.target === overlay) {
+                            close();
+                        }
                     });
-                    listEl.classList.add('admin-help-list-flat');
-                    listEl.classList.remove('hidden');
-                }
-                if (sectionsEl.childElementCount > 0) {
-                    listEl.classList.remove('admin-help-list-flat');
-                }
 
-                if (payload.manual_url) {
-                    manualLinkEl.href = String(payload.manual_url);
-                    manualLinkEl.classList.remove('hidden');
-                } else {
-                    manualLinkEl.classList.add('hidden');
-                }
-
-                const open = () => {
-                    overlay.classList.add('is-open');
-                    overlay.setAttribute('aria-hidden', 'false');
+                    window.addEventListener('keydown', (event) => {
+                        if (event.key === 'Escape' && overlay.classList.contains('is-open')) {
+                            close();
+                        }
+                    });
                 };
 
-                const close = () => {
-                    overlay.classList.remove('is-open');
-                    overlay.setAttribute('aria-hidden', 'true');
-                };
-
-                openButton.addEventListener('click', open);
-                closeButton.addEventListener('click', close);
-                overlay.addEventListener('click', (event) => {
-                    if (event.target === overlay) {
-                        close();
-                    }
+                setupHelpModal({
+                    overlayId: 'admin-help-overlay',
+                    openButtonId: 'admin-help-open',
+                    closeButtonId: 'admin-help-close',
+                    titleId: 'admin-help-title',
+                    summaryId: 'admin-help-summary',
+                    sectionsId: 'admin-help-sections',
+                    listId: 'admin-help-list',
+                    manualLinkId: 'admin-help-manual-link',
+                    fallbackTitle: 'Page Help',
+                    fallbackSummary: 'Use this panel to manage the current section.',
                 });
 
-                window.addEventListener('keydown', (event) => {
-                    if (event.key === 'Escape' && overlay.classList.contains('is-open')) {
-                        close();
-                    }
+                setupHelpModal({
+                    overlayId: 'admin-ai-help-overlay',
+                    openButtonId: 'admin-ai-help-open',
+                    closeButtonId: 'admin-ai-help-close',
+                    titleId: 'admin-ai-help-title',
+                    summaryId: 'admin-ai-help-summary',
+                    sectionsId: 'admin-ai-help-sections',
+                    listId: 'admin-ai-help-list',
+                    manualLinkId: 'admin-ai-help-manual-link',
+                    fallbackTitle: 'AI Domain Functions',
+                    fallbackSummary: 'Use this panel to understand what the agent can do and how to prompt it.',
                 });
             })();
 
@@ -2007,14 +2141,17 @@
                 const confirmSubmitButton = document.getElementById('admin-ai-confirm-submit');
                 const previewBox = document.getElementById('admin-ai-preview');
                 const summaryEl = document.getElementById('admin-ai-summary');
+                const domainEl = document.getElementById('admin-ai-domain');
+                const functionsEl = document.getElementById('admin-ai-functions');
                 const actionsEl = document.getElementById('admin-ai-actions');
                 const warningsEl = document.getElementById('admin-ai-warnings');
                 const helpOverlay = document.getElementById('admin-help-overlay');
+                const aiHelpOverlay = document.getElementById('admin-ai-help-overlay');
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
                 const previewUrl = @json(route('admin.ai.preview'));
                 const executeUrl = @json(route('admin.ai.execute'));
 
-                if (!overlay || !openButton || !closeButton || !cancelButton || !form || !input || !previewSubmitButton || !confirmSubmitButton || !previewBox || !summaryEl || !actionsEl || !warningsEl) return;
+                if (!overlay || !openButton || !closeButton || !cancelButton || !form || !input || !previewSubmitButton || !confirmSubmitButton || !previewBox || !summaryEl || !domainEl || !functionsEl || !actionsEl || !warningsEl) return;
 
                 let lastSpaceAt = 0;
                 let currentPlanId = null;
@@ -2045,6 +2182,8 @@
                     currentPlanId = null;
                     previewBox.classList.add('hidden');
                     summaryEl.textContent = '';
+                    domainEl.textContent = '';
+                    functionsEl.innerHTML = '';
                     actionsEl.innerHTML = '';
                     warningsEl.innerHTML = '';
                     confirmSubmitButton.classList.add('hidden');
@@ -2055,6 +2194,20 @@
 
                 const renderPreview = (payload) => {
                     summaryEl.textContent = String(payload.summary || '');
+                    const domainLabel = String(payload.domain_title || payload.domain_key || '').trim();
+                    domainEl.textContent = domainLabel ? `Domain: ${domainLabel}` : '';
+
+                    functionsEl.innerHTML = '';
+                    (Array.isArray(payload.function_steps) ? payload.function_steps : []).forEach((fn) => {
+                        if (!fn || typeof fn !== 'object') return;
+                        const title = String(fn.title || fn.name || '').trim();
+                        const description = String(fn.description || '').trim();
+                        if (title === '' && description === '') return;
+
+                        const li = document.createElement('li');
+                        li.textContent = description ? `${title}: ${description}` : title;
+                        functionsEl.appendChild(li);
+                    });
 
                     actionsEl.innerHTML = '';
                     (Array.isArray(payload.actions) ? payload.actions : []).forEach((action) => {
@@ -2189,6 +2342,10 @@
                 });
 
                 window.addEventListener('keydown', (event) => {
+                    if (aiHelpOverlay && aiHelpOverlay.classList.contains('is-open')) {
+                        return;
+                    }
+
                     if (event.key === 'Escape' && overlay.classList.contains('is-open')) {
                         close();
                         return;
@@ -2203,6 +2360,9 @@
                     }
 
                     if (helpOverlay && helpOverlay.classList.contains('is-open')) {
+                        return;
+                    }
+                    if (aiHelpOverlay && aiHelpOverlay.classList.contains('is-open')) {
                         return;
                     }
 

@@ -24,15 +24,20 @@ class AdminAiToolTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('ok', true)
+            ->assertJsonPath('domain_key', 'category_management')
             ->assertJsonStructure([
                 'plan_id',
                 'summary',
                 'actions',
                 'warnings',
+                'domain_key',
+                'domain_title',
+                'function_steps',
                 'can_execute',
             ]);
 
         $this->assertNotEmpty((array) $response->json('actions'));
+        $this->assertNotEmpty((array) $response->json('function_steps'));
         $this->assertTrue((bool) $response->json('can_execute'));
     }
 
