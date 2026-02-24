@@ -1,4 +1,4 @@
-<x-admin-layout title="Actions / Create">
+<x-admin-layout :title="__('Actions / Create')">
     <livewire:admin.catalog.action.form />
 </x-admin-layout>
 

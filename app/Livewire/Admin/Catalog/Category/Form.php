@@ -127,7 +127,7 @@ class Form extends Component
 
                 if ($scopeChanged && $category->children()->exists()) {
                     throw ValidationException::withMessages([
-                        'form.scope' => 'Scope change requires category without children.',
+                        'form.scope' => __('Scope change requires category without children.'),
                     ]);
                 }
 
@@ -145,7 +145,7 @@ class Form extends Component
 
                         if ($parent->isDescendantOf($category) || $parent->id === $category->id) {
                             throw ValidationException::withMessages([
-                                'form.parent_id' => 'Invalid parent category selection.',
+                                'form.parent_id' => __('Invalid parent category selection.'),
                             ]);
                         }
 
@@ -198,7 +198,7 @@ class Form extends Component
                 ->log('Category saved');
         });
 
-        $message = $wasEditing ? 'Category updated.' : 'Category created.';
+        $message = $wasEditing ? __('Category updated.') : __('Category created.');
 
         return redirect()
             ->route('admin.categories', [
@@ -409,14 +409,14 @@ class Form extends Component
         $decoded = json_decode($value, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->addError($field, 'Invalid JSON payload.');
-            $this->dispatch('notify', type: 'danger', message: 'Invalid JSON payload.');
+            $this->addError($field, __('Invalid JSON payload.'));
+            $this->dispatch('notify', type: 'danger', message: __('Invalid JSON payload.'));
             return false;
         }
 
         if (!is_array($decoded)) {
-            $this->addError($field, 'JSON payload must decode to object/array.');
-            $this->dispatch('notify', type: 'danger', message: 'JSON payload must decode to object/array.');
+            $this->addError($field, __('JSON payload must decode to object/array.'));
+            $this->dispatch('notify', type: 'danger', message: __('JSON payload must decode to object/array.'));
             return false;
         }
 

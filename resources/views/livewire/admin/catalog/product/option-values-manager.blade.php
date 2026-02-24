@@ -2,20 +2,20 @@
     <div class="admin-panel admin-search-panel p-6">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Catalog / Products / Option Values</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{{ __('Catalog / Products / Option Values') }}</p>
                 <h1 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{{ $productName }}</h1>
-                <p class="mt-2 text-sm text-slate-600">Assign option groups and define per-product option value rows with SKU, stock and optional price override.</p>
+                <p class="mt-2 text-sm text-slate-600">{{ __('Assign option groups and define per-product option value rows with SKU, stock and optional price override.') }}</p>
                 <div class="mt-2 flex flex-wrap items-center gap-2">
-                    <span class="admin-chip">Code: {{ $productCode }}</span>
-                    <span class="admin-chip">SKU: {{ $productSku !== '' ? $productSku : 'n/a' }}</span>
+                    <span class="admin-chip">{{ __('Code:') }} {{ $productCode }}</span>
+                    <span class="admin-chip">{{ __('SKU:') }} {{ $productSku !== '' ? $productSku : __('n/a') }}</span>
                 </div>
             </div>
             <div class="flex items-center gap-2">
                 <a href="{{ route('admin.products', ['locale' => $locale]) }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                    Back to Products
+                    {{ __('Back to Products') }}
                 </a>
                 <button type="button" wire:click="backToProduct" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                    Edit Product
+                    {{ __('Edit Product') }}
                 </button>
             </div>
         </div>
@@ -24,21 +24,21 @@
     <div class="admin-panel admin-form-panel p-6">
         <div class="flex flex-wrap items-end justify-between gap-3">
             <div class="w-full max-w-3xl">
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Assigned Option Groups</label>
+                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Assigned Option Groups') }}</label>
                 <select wire:model="selectedOptionIds" multiple size="8" class="admin-multiselect w-full rounded-xl border border-slate-300 text-sm">
                     @foreach ($availableOptions as $option)
                         <option value="{{ $option['id'] }}">{{ $option['label'] }} ({{ $option['values_count'] }} values)</option>
                     @endforeach
                 </select>
                 @error('selectedOptionIds.*') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
-                <p class="mt-2 text-xs text-slate-500">Order controls primary/secondary defaults in linked mode. Save groups before editing rows.</p>
+                <p class="mt-2 text-xs text-slate-500">{{ __('Order controls primary/secondary defaults in linked mode. Save groups before editing rows.') }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <a href="{{ route('admin.options', ['locale' => $locale]) }}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">
-                    Manage Options
+                    {{ __('Manage Options') }}
                 </a>
                 <button type="button" wire:click="saveOptionGroups" class="rounded-xl bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800">
-                    Save Option Groups
+                    {{ __('Save Option Groups') }}
                 </button>
             </div>
         </div>
@@ -46,30 +46,30 @@
 
     @if (empty($assignedOptions))
         <div class="admin-panel admin-form-panel p-6">
-            <p class="text-sm text-amber-800">No option groups assigned to this product yet.</p>
+            <p class="text-sm text-amber-800">{{ __('No option groups assigned to this product yet.') }}</p>
         </div>
     @else
         <form wire:submit="save" class="space-y-6">
             <div class="admin-panel admin-form-panel p-6">
-                <p class="admin-section-title">Mode</p>
+                <p class="admin-section-title">{{ __('Mode') }}</p>
                 <div class="mt-4 flex flex-wrap items-center gap-2">
                     <button
                         type="button"
                         wire:click="$set('mode', 'single')"
-                        class="rounded-xl border px-4 py-2 text-sm font-semibold {{ $mode === 'single' ? 'border-slate-800 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}"
+                    class="rounded-xl border px-4 py-2 text-sm font-semibold {{ $mode === 'single' ? 'border-slate-800 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}"
                     >
-                        Single Option
+                        {{ __('Single Option') }}
                     </button>
                     <button
                         type="button"
                         wire:click="$set('mode', 'linked')"
-                        class="rounded-xl border px-4 py-2 text-sm font-semibold {{ $mode === 'linked' ? 'border-slate-800 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}"
+                    class="rounded-xl border px-4 py-2 text-sm font-semibold {{ $mode === 'linked' ? 'border-slate-800 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100' }}"
                     >
-                        Linked Two Options
+                        {{ __('Linked Two Options') }}
                     </button>
                 </div>
                 <p class="mt-3 text-xs text-slate-500">
-                    Single mode is one value list. Linked mode is primary + secondary value combinations (for example color + size).
+                    {{ __('Single mode is one value list. Linked mode is primary + secondary value combinations (for example color + size).') }}
                 </p>
             </div>
 
@@ -78,8 +78,8 @@
                     <div class="grid gap-3" style="grid-template-columns: repeat(12, minmax(0, 1fr)); width: min(74rem, 100%);">
                         @if ($mode === 'single')
                             <div style="grid-column: span 6;">
-                                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Option Group</label>
-                                <select wire:model.live.number="singleOptionId" class="admin-select w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Option Group') }}</label>
+                                <select wire:model.live.number="singleOptionId" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
                                     @foreach ($assignedOptions as $option)
                                         <option value="{{ $option['id'] }}">{{ $option['label'] }}</option>
                                     @endforeach
@@ -88,9 +88,9 @@
                             </div>
                         @else
                             <div style="grid-column: span 4;">
-                                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Primary Option</label>
-                                <select wire:model.live.number="primaryOptionId" class="admin-select w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                                    <option value="">Select...</option>
+                                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Primary Option') }}</label>
+                                <select wire:model.live.number="primaryOptionId" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                    <option value="">{{ __('Select...') }}</option>
                                     @foreach ($assignedOptions as $option)
                                         <option value="{{ $option['id'] }}">{{ $option['label'] }}</option>
                                     @endforeach
@@ -98,9 +98,9 @@
                                 @error('primaryOptionId') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                             </div>
                             <div style="grid-column: span 4;">
-                                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Secondary Option</label>
-                                <select wire:model.live.number="secondaryOptionId" class="admin-select w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                                    <option value="">Select...</option>
+                                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Secondary Option') }}</label>
+                                <select wire:model.live.number="secondaryOptionId" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                    <option value="">{{ __('Select...') }}</option>
                                     @foreach ($assignedOptions as $option)
                                         <option value="{{ $option['id'] }}">{{ $option['label'] }}</option>
                                     @endforeach
@@ -112,45 +112,45 @@
 
                     <div class="flex flex-wrap items-center gap-2">
                         <button type="button" wire:click="addRow" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">
-                            Add Row
+                            {{ __('Add Row') }}
                         </button>
                         @if ($mode === 'single')
                             <button type="button" wire:click="addAllSingleValues" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">
-                                Add All Values
+                                {{ __('Add All Values') }}
                             </button>
                         @else
                             <button type="button" wire:click="generateLinkedMatrix" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">
-                                Generate Matrix
+                                {{ __('Generate Matrix') }}
                             </button>
                         @endif
                         <button type="button" wire:click="clearRows" class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100">
-                            Clear Rows
+                            {{ __('Clear Rows') }}
                         </button>
                     </div>
                 </div>
 
-                <div class="mt-5 overflow-x-auto">
-                    <table class="admin-items-table min-w-full text-sm">
+                <div class="mt-5 overflow-x-auto overflow-y-visible">
+                    <table class="admin-items-table min-w-full text-sm" style="overflow: visible;">
                         <thead class="text-slate-600">
                             <tr>
                                 @if ($mode === 'linked')
-                                    <th class="px-3 py-2 text-left font-semibold">Primary Value</th>
+                                    <th class="px-3 py-2 text-left font-semibold">{{ __('Primary Value') }}</th>
                                 @endif
-                                <th class="px-3 py-2 text-left font-semibold">{{ $mode === 'linked' ? 'Secondary Value' : 'Value' }}</th>
-                                <th class="px-3 py-2 text-left font-semibold">SKU</th>
-                                <th class="px-3 py-2 text-center font-semibold">Stock</th>
-                                <th class="px-3 py-2 text-center font-semibold">Price</th>
-                                <th class="px-3 py-2 text-center font-semibold">State</th>
-                                <th class="px-3 py-2 text-right font-semibold">Action</th>
+                                <th class="px-3 py-2 text-left font-semibold">{{ $mode === 'linked' ? __('Secondary Value') : __('Value') }}</th>
+                                <th class="px-3 py-2 text-left font-semibold">{{ __('SKU') }}</th>
+                                <th class="px-3 py-2 text-center font-semibold">{{ __('Stock') }}</th>
+                                <th class="px-3 py-2 text-center font-semibold">{{ __('Price') }}</th>
+                                <th class="px-3 py-2 text-center font-semibold">{{ __('admin.common.state') }}</th>
+                                <th class="px-3 py-2 text-right font-semibold">{{ __('Action') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             @forelse ($rows as $index => $row)
                                 <tr>
                                     @if ($mode === 'linked')
-                                        <td class="px-3 py-2 align-top">
-                                            <select wire:model.number="rows.{{ $index }}.parent_option_value_id" class="admin-select w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                                                <option value="">Select...</option>
+                                        <td class="overflow-visible px-3 py-2 align-top">
+                                            <select wire:model.number="rows.{{ $index }}.parent_option_value_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                                <option value="">{{ __('Select...') }}</option>
                                                 @foreach ($primaryValues as $value)
                                                     <option value="{{ $value['id'] }}" @disabled(!$value['is_active'])>{{ $value['label'] }}</option>
                                                 @endforeach
@@ -158,9 +158,9 @@
                                             @error('rows.'.$index.'.parent_option_value_id') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                                         </td>
                                     @endif
-                                    <td class="px-3 py-2 align-top">
-                                        <select wire:model.number="rows.{{ $index }}.option_value_id" class="admin-select w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
-                                            <option value="">Select...</option>
+                                    <td class="overflow-visible px-3 py-2 align-top">
+                                        <select wire:model.number="rows.{{ $index }}.option_value_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                            <option value="">{{ __('Select...') }}</option>
                                             @foreach ($mode === 'linked' ? $secondaryValues : $singleValues as $value)
                                                 <option value="{{ $value['id'] }}" @disabled(!$value['is_active'])>{{ $value['label'] }}</option>
                                             @endforeach
@@ -175,7 +175,7 @@
                                         @error('rows.'.$index.'.stock_qty') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                                     </td>
                                     <td class="px-3 py-2 align-top">
-                                        <input type="text" wire:model="rows.{{ $index }}.price_override" placeholder="base" class="w-28 rounded-xl border border-slate-300 px-3 py-2 text-sm text-center" />
+                                        <input type="text" wire:model="rows.{{ $index }}.price_override" placeholder="{{ __('base') }}" class="w-28 rounded-xl border border-slate-300 px-3 py-2 text-sm text-center" />
                                         @error('rows.'.$index.'.price_override') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                                     </td>
                                     <td class="px-3 py-2 align-top text-center">
@@ -186,19 +186,19 @@
                                             data-state="{{ ($row['is_active'] ?? false) ? 'on' : 'off' }}"
                                         >
                                             <span class="admin-switch-track"><span class="admin-switch-thumb"></span></span>
-                                            <span class="admin-switch-label">{{ ($row['is_active'] ?? false) ? 'On' : 'Off' }}</span>
+                                            <span class="admin-switch-label">{{ ($row['is_active'] ?? false) ? __('On') : __('Off') }}</span>
                                         </button>
                                     </td>
                                     <td class="px-3 py-2 align-top text-right">
                                         <button type="button" wire:click="removeRow({{ $index }})" class="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100">
-                                            Remove
+                                            {{ __('Remove') }}
                                         </button>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
                                     <td colspan="{{ $mode === 'linked' ? 7 : 6 }}" class="px-3 py-8 text-center text-sm text-slate-500">
-                                        No rows yet. Add rows manually or use quick actions above.
+                                        {{ __('No rows yet. Add rows manually or use quick actions above.') }}
                                     </td>
                                 </tr>
                             @endforelse
@@ -208,10 +208,10 @@
 
                 <div class="admin-form-actions mt-5 flex items-center gap-2 pt-2">
                     <button type="submit" class="rounded-xl bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800">
-                        Save Option Values
+                        {{ __('Save Option Values') }}
                     </button>
                     <button type="button" wire:click="backToProduct" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                        Cancel
+                        {{ __('Cancel') }}
                     </button>
                 </div>
             </div>

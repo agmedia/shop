@@ -29,6 +29,19 @@ class Manager extends Component
         $this->resetPage();
     }
 
+    public function delete(int $postId): void
+    {
+        $post = BlogPost::query()->find($postId);
+        if (!$post) {
+            return;
+        }
+
+        $post->delete();
+
+        $this->dispatch('notify', type: 'success', message: __('Blog post deleted.'));
+        $this->resetPage();
+    }
+
     public function render()
     {
         $perPage = app(SystemSettingsService::class)->getInt(

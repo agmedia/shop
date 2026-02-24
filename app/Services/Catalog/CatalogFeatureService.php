@@ -20,9 +20,16 @@ class CatalogFeatureService
         $defaults = config('catalog_features.flags', []);
         $flags = [];
 
-        foreach ($defaults as $key => $default) {
-            $raw = $this->settings->get($key, $default);
-            $flags[$key] = filter_var($raw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? (bool) $default;
+        try {
+            foreach ($defaults as $key => $default) {
+                $raw = $this->settings->get($key, $default);
+                $flags[$key] = filter_var($raw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? (bool) $default;
+            }
+        } catch (\Throwable) {
+            // Gracefully fallback when settings storage is unavailable (e.g. isolated test DB).
+            foreach ($defaults as $key => $default) {
+                $flags[$key] = (bool) $default;
+            }
         }
 
         return $flags;
@@ -63,5 +70,10 @@ class CatalogFeatureService
     public function useActions(): bool
     {
         return $this->enabled('catalog_use_actions');
+    }
+
+    public function useMobilePwa(): bool
+    {
+        return $this->enabled('catalog_use_mobile_pwa');
     }
 }

@@ -2,7 +2,19 @@
 
 use App\Http\Controllers\Admin\SystemToolsController;
 use App\Http\Controllers\Admin\AdminAiController;
+use App\Http\Controllers\Front\AccountController;
+use App\Http\Controllers\Front\AuthController;
+use App\Http\Controllers\Front\BlogController;
+use App\Http\Controllers\Front\CartController;
+use App\Http\Controllers\Front\CatalogController;
+use App\Http\Controllers\Front\CheckoutController;
+use App\Http\Controllers\Front\ContactController;
+use App\Http\Controllers\Front\FaqController;
+use App\Http\Controllers\Front\ManufacturerController;
+use App\Http\Controllers\Front\PageController;
+use App\Http\Controllers\Front\ProductController;
 use App\Http\Controllers\Front\StorefrontController;
+use App\Http\Controllers\Front\WishlistController;
 use App\Models\Catalog\Action\CatalogAction;
 use App\Models\Catalog\Attribute\Attribute as CatalogAttribute;
 use App\Models\Catalog\Category\Category;
@@ -23,10 +35,149 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Spatie\Activitylog\Models\Activity;
+use App\Models\Settings\Local\Language;
 
-Route::middleware('front.device')
-    ->get('/', [StorefrontController::class, 'home'])
-    ->name('home');
+Route::middleware(['front.locale', 'front.device'])
+    ->group(function (): void {
+        Route::get('locale/{code}', function (string $code, Request $request) {
+            $fallback = strtolower((string) config('app.locale', 'en'));
+            $target = strtolower(trim($code));
+
+            try {
+                $available = Language::query()
+                    ->where('is_active', true)
+                    ->pluck('code')
+                    ->map(static fn ($item) => strtolower((string) $item))
+                    ->values()
+                    ->all();
+            } catch (\Throwable) {
+                $available = [$fallback];
+            }
+
+            if (! in_array($target, $available, true)) {
+                $target = in_array($fallback, $available, true) ? $fallback : (string) ($available[0] ?? $fallback);
+            }
+
+            $request->session()->put('front_locale', $target);
+
+            return redirect()->back();
+        })->name('front.locale.switch');
+
+        Route::get('site.webmanifest', [StorefrontController::class, 'manifest'])->name('front.manifest');
+
+        Route::get('/', [StorefrontController::class, 'home'])->name('home');
+
+        Route::get('shop', [CatalogController::class, 'index'])->name('shop.index');
+        Route::get('categories', [CatalogController::class, 'categories'])->name('categories.index');
+        Route::get('category/{slug}', [CatalogController::class, 'showCategory'])->name('categories.show');
+        Route::get('product/{slug}', [ProductController::class, 'show'])->name('products.show');
+        Route::post('product/{slug}/comments', [ProductController::class, 'storeComment'])->name('products.comments.store');
+
+        Route::get('manufacturers', [ManufacturerController::class, 'index'])->name('manufacturers.index');
+        Route::get('manufacturer/{slug}', [ManufacturerController::class, 'show'])->name('manufacturers.show');
+
+        Route::get('blog', [BlogController::class, 'index'])->name('blog.index');
+        Route::get('blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+        Route::get('faq', [FaqController::class, 'index'])->name('faq.index');
+
+        Route::get('pages/category/{slug}', [PageController::class, 'category'])->name('pages.category');
+        Route::get('page/{slug}', [PageController::class, 'show'])->name('pages.show');
+
+        Route::get('contact', [ContactController::class, 'create'])->name('contact.create');
+        Route::post('contact', [ContactController::class, 'store'])->name('contact.store');
+
+        Route::get('cart', [CartController::class, 'index'])->name('cart.index');
+        Route::post('cart/items', [CartController::class, 'store'])->name('cart.items.store');
+        Route::patch('cart/items/{product}', [CartController::class, 'update'])->name('cart.items.update');
+        Route::delete('cart/items/{product}', [CartController::class, 'destroy'])->name('cart.items.destroy');
+        Route::post('cart/coupon', [CartController::class, 'applyCoupon'])->name('cart.coupon.apply');
+        Route::delete('cart/coupon', [CartController::class, 'removeCoupon'])->name('cart.coupon.remove');
+        Route::delete('cart', [CartController::class, 'clear'])->name('cart.clear');
+
+        Route::get('wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
+        Route::post('wishlist/toggle/{product}', [WishlistController::class, 'toggle'])->name('wishlist.items.toggle');
+        Route::post('wishlist/items/{product}', [WishlistController::class, 'store'])->name('wishlist.items.store');
+        Route::delete('wishlist/items/{product}', [WishlistController::class, 'destroy'])->name('wishlist.items.destroy');
+
+        Route::get('checkout', [CheckoutController::class, 'create'])->name('checkout.create');
+        Route::get('checkout/options', [CheckoutController::class, 'options'])->name('checkout.options');
+        Route::post('checkout/login', [CheckoutController::class, 'login'])->middleware('guest')->name('checkout.login');
+        Route::post('checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+        Route::get('checkout/wspay/{orderNumber}', [CheckoutController::class, 'wspayStart'])
+            ->where('orderNumber', '[A-Za-z0-9\-]+')
+            ->name('checkout.wspay.start');
+        Route::match(['GET', 'POST'], 'checkout/wspay/return/{orderNumber}', [CheckoutController::class, 'wspayReturn'])
+            ->where('orderNumber', '[A-Za-z0-9\-]+')
+            ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+            ->name('checkout.wspay.return');
+        Route::match(['GET', 'POST'], 'checkout/wspay/error/{orderNumber}', [CheckoutController::class, 'wspayError'])
+            ->where('orderNumber', '[A-Za-z0-9\-]+')
+            ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+            ->name('checkout.wspay.error');
+        Route::match(['GET', 'POST'], 'checkout/wspay/cancel/{orderNumber}', [CheckoutController::class, 'wspayCancel'])
+            ->where('orderNumber', '[A-Za-z0-9\-]+')
+            ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+            ->name('checkout.wspay.cancel');
+        Route::get('checkout/corvus/{orderNumber}', [CheckoutController::class, 'corvusStart'])
+            ->where('orderNumber', '[A-Za-z0-9\-]+')
+            ->name('checkout.corvus.start');
+        Route::match(['GET', 'POST'], 'checkout/corvus/success', [CheckoutController::class, 'corvusSuccessStatic'])
+            ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+            ->name('checkout.corvus.success.static');
+        Route::match(['GET', 'POST'], 'checkout/corvus/cancel', [CheckoutController::class, 'corvusCancelStatic'])
+            ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+            ->name('checkout.corvus.cancel.static');
+        Route::match(['GET', 'POST'], 'checkout/corvus/success/{orderNumber}', [CheckoutController::class, 'corvusSuccess'])
+            ->where('orderNumber', '[A-Za-z0-9\-]+')
+            ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+            ->name('checkout.corvus.success');
+        Route::match(['GET', 'POST'], 'checkout/corvus/cancel/{orderNumber}', [CheckoutController::class, 'corvusCancel'])
+            ->where('orderNumber', '[A-Za-z0-9\-]+')
+            ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+            ->name('checkout.corvus.cancel');
+        Route::get('checkout/keks/{orderNumber}', [CheckoutController::class, 'keksStart'])
+            ->where('orderNumber', '[A-Za-z0-9\-]+')
+            ->name('checkout.keks.start');
+        Route::match(['GET', 'POST'], 'checkout/keks/success', [CheckoutController::class, 'keksSuccess'])
+            ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+            ->name('checkout.keks.success');
+        Route::match(['GET', 'POST'], 'checkout/keks/fail', [CheckoutController::class, 'keksFail'])
+            ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+            ->name('checkout.keks.fail');
+        Route::match(['GET', 'POST'], 'checkout/keks/advice', [CheckoutController::class, 'keksAdvice'])
+            ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+            ->name('checkout.keks.advice');
+        Route::get('checkout/success', [CheckoutController::class, 'successLatest'])->name('checkout.success.latest');
+        Route::get('checkout/success/{orderNumber}', [CheckoutController::class, 'success'])
+            ->where('orderNumber', '[A-Za-z0-9\-]+')
+            ->name('checkout.success');
+
+        Route::middleware('guest')->prefix('auth')->as('front.auth.')->group(function (): void {
+            Route::get('login', [AuthController::class, 'showLogin'])->name('login');
+            Route::post('login', [AuthController::class, 'login'])->name('login.store');
+            Route::get('register', [AuthController::class, 'showRegister'])->name('register');
+            Route::post('register', [AuthController::class, 'register'])->name('register.store');
+        });
+
+        Route::middleware(['auth', 'verified'])
+            ->prefix('account')
+            ->as('account.')
+            ->group(function (): void {
+                Route::get('/', [AccountController::class, 'dashboard'])->name('dashboard');
+                Route::get('orders', [AccountController::class, 'orders'])->name('orders');
+                Route::get('orders/{orderNumber}', [AccountController::class, 'showOrder'])
+                    ->where('orderNumber', '[A-Za-z0-9\-]+')
+                    ->name('orders.show');
+                Route::get('loyalty', [AccountController::class, 'loyalty'])->name('loyalty');
+
+                Route::get('profile', [AccountController::class, 'profile'])->name('profile');
+                Route::put('profile', [AccountController::class, 'updateProfile'])->name('profile.update');
+                Route::put('preferences', [AccountController::class, 'updatePreferences'])->name('preferences.update');
+                Route::put('addresses/{type}', [AccountController::class, 'updateAddress'])
+                    ->where('type', 'billing|shipping')
+                    ->name('addresses.update');
+            });
+    });
 
 Route::get('dashboard', function (Request $request) {
     $user = $request->user();
@@ -40,7 +191,7 @@ Route::get('dashboard', function (Request $request) {
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
-Route::middleware(['auth', 'verified', 'admin.access', 'admin.ability'])
+Route::middleware(['admin.locale', 'auth', 'verified', 'admin.access', 'admin.maintenance-bypass', 'admin.ability'])
     ->prefix('admin')
     ->as('admin.')
     ->group(function (): void {
@@ -207,6 +358,7 @@ Route::middleware(['auth', 'verified', 'admin.access', 'admin.ability'])
                 Route::get('blocks/{block}/edit', function (ContentBlock $block) {
                     return view('admin.content.blocks.edit', compact('block'));
                 })->name('blocks.edit');
+                Route::view('navigation', 'admin.content.navigation.index')->name('navigation');
 
                 Route::view('slots', 'admin.content.slots.index')->name('slots');
                 Route::view('slots/create', 'admin.content.slots.create')->name('slots.create');
@@ -223,7 +375,7 @@ Route::middleware(['auth', 'verified', 'admin.access', 'admin.ability'])
                 Route::get('local/{resource}', function (string $resource) {
                     return view('admin.settings.local.resource', compact('resource'));
                 })
-                    ->where('resource', 'payment-methods|shipping-methods|geo-zones|geo-zone-countries|currencies|tax-rates|order-statuses|languages')
+                    ->where('resource', 'payment-methods|shipping-methods|geo-zones|geo-zone-countries|regions|currencies|tax-rates|order-statuses|languages')
                     ->name('local.resource');
 
                 Route::get('system/runtime', function () {
@@ -237,6 +389,7 @@ Route::middleware(['auth', 'verified', 'admin.access', 'admin.ability'])
                 })->name('system.runtime');
                 Route::view('system/admin-appearance-controls', 'admin.settings.system.admin-appearance-controls')->name('system.admin-appearance-controls');
                 Route::view('system/catalog-features', 'admin.settings.system.catalog-features')->name('system.catalog-features');
+                Route::view('system/store-settings', 'admin.settings.system.store-settings')->name('system.store-settings');
                 Route::middleware('catalog.feature:catalog_use_api')->get('api', function () {
                     $current = auth()->user();
                     abort_unless(

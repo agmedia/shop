@@ -66,7 +66,7 @@ class Manager extends Component
     {
         $comment = Comment::query()->find($commentId);
         if (!$comment) {
-            $this->dispatch('notify', type: 'warning', message: 'Comment not found.');
+            $this->dispatch('notify', type: 'warning', message: __('Comment not found.'));
             return;
         }
 
@@ -76,16 +76,16 @@ class Manager extends Component
             ->performedOn($comment)
             ->causedBy(auth()->user())
             ->event('deleted')
-            ->log('Comment moved to trash');
+            ->log(__('Comment moved to trash'));
 
-        $this->dispatch('notify', type: 'info', message: 'Comment moved to trash.');
+        $this->dispatch('notify', type: 'info', message: __('Comment moved to trash.'));
     }
 
     public function restore(int $commentId): void
     {
         $comment = Comment::query()->withTrashed()->find($commentId);
         if (!$comment || !$comment->trashed()) {
-            $this->dispatch('notify', type: 'warning', message: 'Comment not in trash.');
+            $this->dispatch('notify', type: 'warning', message: __('Comment not in trash.'));
             return;
         }
 
@@ -95,9 +95,9 @@ class Manager extends Component
             ->performedOn($comment)
             ->causedBy(auth()->user())
             ->event('restored')
-            ->log('Comment restored');
+            ->log(__('Comment restored'));
 
-        $this->dispatch('notify', type: 'success', message: 'Comment restored.');
+        $this->dispatch('notify', type: 'success', message: __('Comment restored.'));
     }
 
     public function render()
@@ -174,7 +174,7 @@ class Manager extends Component
 
         $comment = Comment::query()->find($commentId);
         if (!$comment) {
-            $this->dispatch('notify', type: 'warning', message: 'Comment not found.');
+            $this->dispatch('notify', type: 'warning', message: __('Comment not found.'));
             return;
         }
 
@@ -189,9 +189,9 @@ class Manager extends Component
             ->causedBy(auth()->user())
             ->event('moderated')
             ->withProperties(['status' => $status])
-            ->log('Comment status changed');
+            ->log(__('Comment status changed'));
 
-        $this->dispatch('notify', type: 'success', message: 'Comment status updated.');
+        $this->dispatch('notify', type: 'success', message: __('Comment status updated.'));
     }
 
     /**
@@ -200,12 +200,12 @@ class Manager extends Component
     private function statusOptions(): array
     {
         return [
-            Comment::STATUS_PENDING => 'Pending',
-            Comment::STATUS_APPROVED => 'Approved',
-            Comment::STATUS_REJECTED => 'Rejected',
-            Comment::STATUS_SPAM => 'Spam',
-            'all' => 'All',
-            'deleted' => 'Trash',
+            Comment::STATUS_PENDING => __('Pending'),
+            Comment::STATUS_APPROVED => __('Approved'),
+            Comment::STATUS_REJECTED => __('Rejected'),
+            Comment::STATUS_SPAM => __('Spam'),
+            'all' => __('All'),
+            'deleted' => __('Trash'),
         ];
     }
 
@@ -215,11 +215,11 @@ class Manager extends Component
     private function targetOptions(): array
     {
         return [
-            'all' => 'All Targets',
-            'product' => 'Products',
-            'blog' => 'Blog Posts',
-            'page' => 'Info Pages',
-            'faq' => 'FAQs',
+            'all' => __('All Targets'),
+            'product' => __('Products'),
+            'blog' => __('Blog Posts'),
+            'page' => __('Info Pages'),
+            'faq' => __('FAQs'),
         ];
     }
 
@@ -234,4 +234,3 @@ class Manager extends Component
         };
     }
 }
-

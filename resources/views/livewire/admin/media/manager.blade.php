@@ -1,15 +1,15 @@
 <div class="admin-panel admin-form-panel p-6">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-            <p class="admin-section-title">Images</p>
-            <p class="mt-1 text-sm text-slate-600">Manage main, banner/icon and gallery images with per-locale alt/caption metadata.</p>
+            <p class="admin-section-title">{{ __('Images') }}</p>
+            <p class="mt-1 text-sm text-slate-600">{{ __('Manage main, banner/icon and gallery images with per-locale alt/caption metadata.') }}</p>
         </div>
-        <span class="admin-chip">Locale: {{ $locale }}</span>
+        <span class="admin-chip">{{ __('Locale:') }} {{ $locale }}</span>
     </div>
 
     @if (! $recordExists)
         <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-            Save this record first, then upload and organize images.
+            {{ __('Save this record first, then upload and organize images.') }}
         </div>
     @else
         <div class="space-y-4">
@@ -29,9 +29,9 @@
                         <div class="flex flex-wrap items-center gap-2">
                             <h3 class="text-sm font-semibold text-slate-800">{{ $collectionConfig['label'] ?? $collectionName }}</h3>
                             <span class="admin-chip">{{ $collectionName }}</span>
-                            <span class="admin-chip">{{ $collectionMedia->count() }} image{{ $collectionMedia->count() === 1 ? '' : 's' }}</span>
+                            <span class="admin-chip">{{ $collectionMedia->count() }} {{ $collectionMedia->count() === 1 ? __('image') : __('images') }}</span>
                             @if ($isMainCollection)
-                                <span class="admin-chip">Main</span>
+                                <span class="admin-chip">{{ __('Main') }}</span>
                             @endif
                         </div>
                     </div>
@@ -48,7 +48,7 @@
                             @error("uploads.$collectionName") <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                             @error("uploads.$collectionName.*") <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                             <p class="mt-1 text-xs text-slate-500">
-                                Max upload: {{ number_format($maxUploadKb / 1024, 1) }} MB
+                                {{ __('Max upload:') }} {{ number_format($maxUploadKb / 1024, 1) }} MB
                                 @if ($acceptMime !== [])
                                     | {{ implode(', ', $acceptMime) }}
                                 @endif
@@ -57,10 +57,10 @@
                         <div class="flex items-start">
                             <button
                                 type="button"
-                                wire:click="upload('{{ $collectionName }}')"
+                                wire:click="uploadCollection('{{ $collectionName }}')"
                                 class="rounded-xl bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800"
                             >
-                                Upload
+                                {{ __('Upload') }}
                             </button>
                         </div>
                     </div>
@@ -69,10 +69,10 @@
                         <table class="admin-items-table min-w-full">
                             <thead>
                                 <tr>
-                                    <th class="px-3 py-2 text-left">Preview</th>
-                                    <th class="px-3 py-2 text-left">Meta</th>
-                                    <th class="px-3 py-2 text-center">Sort</th>
-                                    <th class="px-3 py-2 text-right">Actions</th>
+                                    <th class="px-3 py-2 text-left">{{ __('Preview') }}</th>
+                                    <th class="px-3 py-2 text-left">{{ __('Meta') }}</th>
+                                    <th class="px-3 py-2 text-center">{{ __('Sort') }}</th>
+                                    <th class="px-3 py-2 text-right">{{ __('Actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -96,11 +96,24 @@
                                             <p class="mt-1 text-[11px] text-slate-500">{{ $media->file_name }}</p>
                                         </td>
                                         <td class="px-3 py-3 align-top">
-                                            <div class="grid gap-2 md:grid-cols-3">
-                                                <input type="text" wire:model.defer="meta.{{ $media->id }}.name" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" placeholder="Name" />
-                                                <input type="text" wire:model.defer="meta.{{ $media->id }}.alt" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" placeholder="Alt ({{ $locale }})" />
-                                                <input type="text" wire:model.defer="meta.{{ $media->id }}.caption" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" placeholder="Caption ({{ $locale }})" />
-                                            </div>
+                                            @if ($isDualImageCtaBlock && $collectionName === 'block_slides')
+                                                <div class="grid gap-2 md:grid-cols-2">
+                                                    <input type="text" wire:model.defer="meta.{{ $media->id }}.block_title" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs md:col-span-2" placeholder="{{ __('Block title') }} ({{ $locale }})" />
+                                                    <input type="text" wire:model.defer="meta.{{ $media->id }}.cta_1_label" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" placeholder="{{ __('CTA 1 label') }} ({{ $locale }})" />
+                                                    <input type="text" wire:model.defer="meta.{{ $media->id }}.cta_1_url" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" placeholder="{{ __('CTA 1 URL') }} ({{ $locale }})" />
+                                                    <input type="text" wire:model.defer="meta.{{ $media->id }}.cta_2_label" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" placeholder="{{ __('CTA 2 label') }} ({{ $locale }})" />
+                                                    <input type="text" wire:model.defer="meta.{{ $media->id }}.cta_2_url" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" placeholder="{{ __('CTA 2 URL') }} ({{ $locale }})" />
+                                                </div>
+                                            @else
+                                                <div class="grid gap-2 md:grid-cols-3">
+                                                    <input type="text" wire:model.defer="meta.{{ $media->id }}.name" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" placeholder="{{ __('Name') }}" />
+                                                    <input type="text" wire:model.defer="meta.{{ $media->id }}.alt" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" placeholder="{{ __('Alt') }} ({{ $locale }})" />
+                                                    <input type="text" wire:model.defer="meta.{{ $media->id }}.caption" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" placeholder="{{ __('Caption') }} ({{ $locale }})" />
+                                                    @if ($isLinkableSliderBlock && $collectionName === 'block_slides')
+                                                        <input type="text" wire:model.defer="meta.{{ $media->id }}.link_url" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs" placeholder="{{ __('Link URL') }} ({{ $locale }})" />
+                                                    @endif
+                                                </div>
+                                            @endif
                                             <p class="mt-1 text-[11px] text-slate-500">
                                                 {{ number_format($media->size / 1024, 0) }} KB
                                                 @if ($media->width && $media->height)
@@ -108,11 +121,11 @@
                                                 @endif
                                             </p>
                                             <div class="mt-2 flex flex-wrap items-center gap-1 text-[11px]">
-                                                <span class="admin-chip">Focal: {{ number_format($focalX, 1) }} / {{ number_format($focalY, 1) }}</span>
+                                                <span class="admin-chip">{{ __('Focal:') }} {{ number_format($focalX, 1) }} / {{ number_format($focalY, 1) }}</span>
                                                 @if ($cropEnabled)
-                                                    <span class="admin-chip">Crop: {{ number_format($cropX, 1) }},{{ number_format($cropY, 1) }} / {{ number_format($cropWidth, 1) }}x{{ number_format($cropHeight, 1) }}</span>
+                                                    <span class="admin-chip">{{ __('Crop:') }} {{ number_format($cropX, 1) }},{{ number_format($cropY, 1) }} / {{ number_format($cropWidth, 1) }}x{{ number_format($cropHeight, 1) }}</span>
                                                 @else
-                                                    <span class="admin-chip">Crop: Off</span>
+                                                    <span class="admin-chip">{{ __('Crop: Off') }}</span>
                                                 @endif
                                             </div>
                                         </td>
@@ -124,7 +137,7 @@
                                         </td>
                                         <td class="px-3 py-3 align-top">
                                             <div class="flex flex-wrap justify-end gap-1">
-                                                <button type="button" wire:click="saveMeta({{ $media->id }})" class="rounded border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Save Meta</button>
+                                                <button type="button" wire:click="saveMeta({{ $media->id }})" class="rounded border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">{{ __('Save Meta') }}</button>
                                                 <button
                                                     type="button"
                                                     data-image-edit-open
@@ -139,19 +152,19 @@
                                                     data-crop-height="{{ $cropHeight }}"
                                                     class="rounded border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                                                 >
-                                                    Edit Crop/Focus
+                                                    {{ __('Edit Crop/Focus') }}
                                                 </button>
                                                 @if ($mainCollection !== '' && ! $isMainCollection)
-                                                    <button type="button" wire:click="copyToMain({{ $media->id }})" class="rounded border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Copy to Main</button>
+                                                    <button type="button" wire:click="copyToMain({{ $media->id }})" class="rounded border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">{{ __('Copy to Main') }}</button>
                                                 @endif
-                                                <a href="{{ $media->getUrl() }}" target="_blank" class="rounded border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Open</a>
+                                                <a href="{{ $media->getUrl() }}" target="_blank" class="rounded border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">{{ __('Open') }}</a>
                                                 <button
                                                     type="button"
                                                     wire:click="delete({{ $media->id }})"
-                                                    wire:confirm="Delete this image?"
+                                                    wire:confirm="{{ __('Delete this image?') }}"
                                                     class="rounded border border-rose-200 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
                                                 >
-                                                    Delete
+                                                    {{ __('Delete') }}
                                                 </button>
                                             </div>
                                         </td>
@@ -159,7 +172,7 @@
                                 @empty
                                     <tr>
                                         <td colspan="4" class="px-3 py-5 text-center text-sm text-slate-500">
-                                            No images in this collection yet.
+                                            {{ __('No images in this collection yet.') }}
                                         </td>
                                     </tr>
                                 @endforelse

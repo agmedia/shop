@@ -92,4 +92,9 @@ class User extends Authenticatable implements HasMedia
     {
         return $this->hasMany(\App\Models\User\LoyaltyTransaction::class);
     }
+
+    public function wishlistItems(): HasMany
+    {
+        return $this->hasMany(\App\Models\User\WishlistItem::class);
+    }
 }

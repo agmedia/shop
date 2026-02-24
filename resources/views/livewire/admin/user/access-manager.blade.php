@@ -1,31 +1,31 @@
 <div class="space-y-6">
     <div class="admin-panel admin-form-panel p-6">
-        <h1 class="text-xl font-semibold tracking-tight">Roles &amp; Abilities</h1>
-        <p class="mt-1 text-sm text-slate-600">Create abilities and assign them per role. Changes in matrix are saved automatically.</p>
+        <h1 class="text-xl font-semibold tracking-tight">{{ __('Roles & Abilities') }}</h1>
+        <p class="mt-1 text-sm text-slate-600">{{ __('Create abilities and assign them per role. Changes in matrix are saved automatically.') }}</p>
 
         <form wire:submit="createAbility" class="mt-4 grid items-end gap-3" style="grid-template-columns: minmax(22rem, 1.4fr) minmax(16rem, 1fr) 12rem 8rem;">
             <div>
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Name (slug)</label>
+                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Name (slug)') }}</label>
                 <input
                     type="text"
                     wire:model="form.name"
-                    placeholder="users.view"
+                    placeholder="{{ __('users.view') }}"
                     class="admin-search-input w-full rounded-xl border px-3 py-2 text-sm font-mono lowercase"
                 />
                 @error('form.name') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
             </div>
             <div>
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Title</label>
+                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Title') }}</label>
                 <input
                     type="text"
                     wire:model="form.title"
-                    placeholder="View users"
+                    placeholder="{{ __('View users') }}"
                     class="admin-search-input w-full rounded-xl border px-3 py-2 text-sm"
                 />
                 @error('form.title') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
             </div>
             <div>
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Group</label>
+                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Group') }}</label>
                 <select wire:model="form.group" data-tom-select data-tom-no-search="1" class="admin-select w-full rounded-xl border px-3 py-2 text-sm">
                     @foreach ($groupOptions as $groupKey => $groupLabel)
                         <option value="{{ $groupKey }}">{{ $groupLabel }}</option>
@@ -42,11 +42,11 @@
 
         <div class="mt-4 grid items-end gap-3" style="grid-template-columns: minmax(28rem, 1fr) auto;">
             <div>
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Search Abilities</label>
+                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Search Abilities') }}</label>
                 <input
                     type="text"
                     wire:model.live.debounce.300ms="search"
-                    placeholder="users.view, users.manage..."
+                    placeholder="{{ __('users.view, users.manage...') }}"
                     class="admin-search-input w-full rounded-xl border px-3 py-2 text-sm"
                 />
             </div>
@@ -57,7 +57,7 @@
     </div>
 
     <div class="admin-panel admin-panel-soft p-5">
-        <h2 class="admin-section-title">Ability Matrix</h2>
+        <h2 class="admin-section-title">{{ __('Ability Matrix') }}</h2>
         <p class="mt-2 text-sm text-slate-600">
             Super Administrator is not shown in the matrix because it always has wildcard access to all abilities.
         </p>
@@ -66,7 +66,7 @@
             <table class="admin-items-table min-w-full text-sm">
                 <thead class="text-slate-600">
                     <tr>
-                        <th class="px-3 py-2 text-left font-semibold">Ability</th>
+                        <th class="px-3 py-2 text-left font-semibold">{{ __('Ability') }}</th>
                         @foreach ($roles as $role)
                             <th class="px-3 py-2 text-center font-semibold uppercase">{{ $role->title ?: $role->name }}</th>
                         @endforeach
@@ -111,7 +111,7 @@
                         @endif
                     @empty
                         <tr>
-                            <td colspan="{{ 1 + $roles->count() }}" class="px-3 py-8 text-center text-sm text-slate-500">No abilities yet. Add your first ability above.</td>
+                            <td colspan="{{ 1 + $roles->count() }}" class="px-3 py-8 text-center text-sm text-slate-500">{{ __('No abilities yet. Add your first ability above.') }}</td>
                         </tr>
                     @endforelse
                 </tbody>

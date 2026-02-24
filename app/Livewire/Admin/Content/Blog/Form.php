@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\Content\Blog;
 
 use App\Models\Catalog\Category\Category;
+use App\Models\Catalog\Product\Product;
 use App\Models\Content\Blog\BlogPost;
 use App\Models\Content\Blog\BlogPostTranslation;
 use Illuminate\Support\Collection;
@@ -14,6 +15,12 @@ use Livewire\Component;
 class Form extends Component
 {
     public ?int $postId = null;
+    public string $activeTab = 'content';
+    public string $categorySearch = '';
+    public string $productSearch = '';
+    public string $linkType = 'category';
+    public string $linkSearch = '';
+    public ?int $linkTargetId = null;
 
     public array $form = [
         'code' => '',
@@ -31,6 +38,7 @@ class Form extends Component
         'meta_description' => '',
         'translation_payload_text' => '',
         'category_ids' => [],
+        'related_product_ids' => [],
     ];
 
     public function mount(?int $postId = null): void
@@ -46,6 +54,20 @@ class Form extends Component
     public function updatedFormLocale(): void
     {
         $this->loadTranslationForLocale();
+        $this->linkTargetId = null;
+    }
+
+    public function updatedLinkType(): void
+    {
+        $this->linkSearch = '';
+        $this->linkTargetId = null;
+    }
+
+    public function updatedLinkSearch(): void
+    {
+        $options = $this->getLinkTargetOptionsProperty();
+        $firstId = (int) ($options->first()['id'] ?? 0);
+        $this->linkTargetId = $firstId > 0 ? $firstId : null;
     }
 
     public function generateSlug(): void
@@ -54,6 +76,100 @@ class Form extends Component
         if ($title !== '') {
             $this->form['slug'] = Str::slug($title);
         }
+    }
+
+    public function setTab(string $tab): void
+    {
+        if (!in_array($tab, ['content', 'seo', 'media'], true)) {
+            return;
+        }
+
+        $this->activeTab = $tab;
+    }
+
+    public function updatedFormTitle($value): void
+    {
+        $title = trim((string) $value);
+        if ($title === '') {
+            return;
+        }
+
+        $slug = Str::slug($title);
+        if ($slug !== '') {
+            $this->form['slug'] = $slug;
+            $this->form['code'] = $this->uniqueCodeFromBase($slug);
+        }
+
+        if (trim((string) ($this->form['meta_title'] ?? '')) === '') {
+            $this->form['meta_title'] = Str::limit($title, 255, '');
+        }
+    }
+
+    public function updatedFormBodyHtml($value): void
+    {
+        if (trim((string) ($this->form['meta_description'] ?? '')) !== '') {
+            return;
+        }
+
+        $this->form['meta_description'] = $this->metaDescriptionFromBody((string) $value);
+    }
+
+    public function addCategory(int $categoryId): void
+    {
+        $ids = collect($this->form['category_ids'] ?? [])->map(fn ($id) => (int) $id)->filter()->values();
+        if ($ids->contains($categoryId)) {
+            return;
+        }
+
+        $ids->push($categoryId);
+        $this->form['category_ids'] = $ids->all();
+    }
+
+    public function removeCategory(int $categoryId): void
+    {
+        $this->form['category_ids'] = collect($this->form['category_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->reject(fn ($id) => $id === $categoryId)
+            ->values()
+            ->all();
+    }
+
+    public function addRelatedProduct(int $productId): void
+    {
+        $ids = collect($this->form['related_product_ids'] ?? [])->map(fn ($id) => (int) $id)->filter()->values();
+        if ($ids->contains($productId)) {
+            return;
+        }
+
+        $ids->push($productId);
+        $this->form['related_product_ids'] = $ids->all();
+    }
+
+    public function removeRelatedProduct(int $productId): void
+    {
+        $this->form['related_product_ids'] = collect($this->form['related_product_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->reject(fn ($id) => $id === $productId)
+            ->values()
+            ->all();
+    }
+
+    public function insertEditorLink(): void
+    {
+        $targetId = (int) ($this->linkTargetId ?? 0);
+        if ($targetId <= 0) {
+            $this->skipRender();
+            return;
+        }
+
+        $target = $this->resolveLinkTarget($targetId);
+        if ($target === null) {
+            $this->skipRender();
+            return;
+        }
+
+        $this->dispatch('admin-quill-insert-link', url: $target['url'], label: $target['label']);
+        $this->skipRender();
     }
 
     public function save()
@@ -74,6 +190,15 @@ class Form extends Component
         $userId = auth()->id();
 
         DB::transaction(function () use ($validated, $payload, $translationPayload, $userId, $wasEditing): void {
+            $normalizedRelatedIds = collect($validated['form']['related_product_ids'] ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            $payload = is_array($payload) ? $payload : [];
+            $payload['related_product_ids'] = $normalizedRelatedIds;
+
             $postData = [
                 'code' => trim((string) $validated['form']['code']),
                 'is_active' => (bool) $validated['form']['is_active'],
@@ -99,8 +224,8 @@ class Form extends Component
                     'slug' => $validated['form']['slug'],
                     'excerpt' => $validated['form']['excerpt'] ?: null,
                     'body_html' => $validated['form']['body_html'] ?: null,
-                    'meta_title' => $validated['form']['meta_title'] ?: null,
-                    'meta_description' => $validated['form']['meta_description'] ?: null,
+                    'meta_title' => $this->resolvedMetaTitle((string) $validated['form']['title'], $validated['form']['meta_title'] ?? null),
+                    'meta_description' => $this->resolvedMetaDescription((string) ($validated['form']['body_html'] ?? ''), $validated['form']['meta_description'] ?? null),
                     'payload' => $translationPayload,
                 ]
             );
@@ -162,6 +287,234 @@ class Form extends Component
             ->get();
     }
 
+    public function getFilteredCategoryOptionsProperty(): Collection
+    {
+        $search = Str::lower(trim($this->categorySearch));
+        $selected = collect($this->form['category_ids'] ?? [])->map(fn ($id) => (int) $id)->filter()->all();
+        $labels = $this->categoryLabelMap;
+
+        return $this->categoryOptions
+            ->reject(fn ($category) => in_array((int) $category->id, $selected, true))
+            ->map(function ($category) use ($labels): array {
+                $id = (int) $category->id;
+
+                return [
+                    'id' => $id,
+                    'label' => (string) ($labels[$id] ?? ('#'.$id)),
+                ];
+            })
+            ->filter(function (array $row) use ($search): bool {
+                if ($search === '') {
+                    return true;
+                }
+
+                return Str::contains(Str::lower($row['label']), $search);
+            })
+            ->values()
+            ->take(80);
+    }
+
+    public function getSelectedCategoryRowsProperty(): Collection
+    {
+        $labels = $this->categoryLabelMap;
+
+        return collect($this->form['category_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values()
+            ->map(function (int $id) use ($labels): array {
+                return ['id' => $id, 'label' => (string) ($labels[$id] ?? ('#'.$id))];
+            });
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getCategoryLabelMapProperty(): array
+    {
+        $categories = $this->categoryOptions;
+        $nameById = $categories->mapWithKeys(function ($category): array {
+            $name = (string) ($category->translations->first()?->name ?? ($category->code ?: ('#'.$category->id)));
+
+            return [(int) $category->id => $name];
+        });
+        $byId = $categories->keyBy(fn ($category): int => (int) $category->id);
+        $labels = [];
+
+        $build = function (int $id) use (&$build, &$labels, $byId, $nameById): string {
+            if (isset($labels[$id])) {
+                return $labels[$id];
+            }
+
+            $current = $byId->get($id);
+            if ($current === null) {
+                return '#'.$id;
+            }
+
+            $name = (string) ($nameById[$id] ?? ('#'.$id));
+            $parentId = (int) ($current->parent_id ?? 0);
+            $labels[$id] = ($parentId > 0 && $byId->has($parentId))
+                ? $build($parentId).' > '.$name
+                : $name;
+
+            return $labels[$id];
+        };
+
+        foreach ($byId->keys() as $id) {
+            $build((int) $id);
+        }
+
+        return $labels;
+    }
+
+    public function getProductOptionsProperty(): Collection
+    {
+        $locale = (string) ($this->form['locale'] ?: config('app.locale', 'en'));
+        $fallbackLocale = (string) config('app.locale', 'en');
+
+        return Product::query()
+            ->select(['id', 'code', 'sku'])
+            ->with([
+                'translations' => fn ($q) => $q
+                    ->whereIn('locale', [$locale, $fallbackLocale])
+                    ->select(['product_id', 'locale', 'name']),
+            ])
+            ->orderBy('code')
+            ->limit(2000)
+            ->get()
+            ->map(function (Product $product) use ($locale, $fallbackLocale): array {
+                $translation = $product->translations->firstWhere('locale', $locale)
+                    ?? $product->translations->firstWhere('locale', $fallbackLocale);
+                $label = trim((string) ($translation?->name ?? $product->code));
+
+                return [
+                    'id' => (int) $product->id,
+                    'label' => $label,
+                    'sku' => (string) ($product->sku ?? ''),
+                    'code' => (string) $product->code,
+                ];
+            });
+    }
+
+    public function getFilteredProductOptionsProperty(): Collection
+    {
+        $search = Str::lower(trim($this->productSearch));
+        $selected = collect($this->form['related_product_ids'] ?? [])->map(fn ($id) => (int) $id)->filter()->all();
+
+        return $this->productOptions
+            ->reject(fn (array $product) => in_array((int) ($product['id'] ?? 0), $selected, true))
+            ->filter(function (array $product) use ($search): bool {
+                if ($search === '') {
+                    return true;
+                }
+
+                $label = Str::lower((string) ($product['label'] ?? ''));
+                $code = Str::lower((string) ($product['code'] ?? ''));
+                $sku = Str::lower((string) ($product['sku'] ?? ''));
+
+                return Str::contains($label, $search)
+                    || Str::contains($code, $search)
+                    || Str::contains($sku, $search);
+            })
+            ->values()
+            ->take(120);
+    }
+
+    public function getSelectedRelatedProductRowsProperty(): Collection
+    {
+        $map = $this->productOptions->keyBy('id');
+
+        return collect($this->form['related_product_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values()
+            ->map(function (int $id) use ($map): array {
+                $product = $map->get($id);
+                if (!is_array($product)) {
+                    return ['id' => $id, 'label' => '#'.$id];
+                }
+
+                $label = (string) ($product['label'] ?? '#'.$id);
+                $code = (string) ($product['code'] ?? '');
+                $sku = (string) ($product['sku'] ?? '');
+                $suffix = trim(($sku !== '' ? '/ '.$sku.' ' : '').($code !== '' ? '('.$code.')' : ''));
+
+                return ['id' => $id, 'label' => trim($label.' '.$suffix)];
+            });
+    }
+
+    public function getLinkTargetOptionsProperty(): Collection
+    {
+        $search = trim((string) $this->linkSearch);
+        $locale = (string) ($this->form['locale'] ?: config('app.locale', 'en'));
+        $fallbackLocale = (string) config('app.locale', 'en');
+
+        if ($this->linkType === 'product') {
+            $query = Product::query()
+                ->select(['id', 'code', 'sku'])
+                ->with(['translations' => fn ($q) => $q->whereIn('locale', [$locale, $fallbackLocale])->select(['product_id', 'locale', 'name', 'slug'])]);
+            if ($search !== '') {
+                $query->where(function ($q) use ($search, $locale, $fallbackLocale): void {
+                    $q->where('code', 'like', '%'.$search.'%')
+                        ->orWhere('sku', 'like', '%'.$search.'%')
+                        ->orWhereHas('translations', function ($tq) use ($search, $locale, $fallbackLocale): void {
+                            $tq->whereIn('locale', [$locale, $fallbackLocale])
+                                ->where(function ($txq) use ($search): void {
+                                    $txq->where('name', 'like', '%'.$search.'%')
+                                        ->orWhere('slug', 'like', '%'.$search.'%');
+                                });
+                        });
+                });
+            }
+
+            return $query->orderByDesc('id')->limit(40)->get()->map(function (Product $product) use ($locale, $fallbackLocale): array {
+                $tr = $product->translations->firstWhere('locale', $locale) ?? $product->translations->firstWhere('locale', $fallbackLocale);
+                $label = (string) ($tr?->name ?? $product->code);
+                return ['id' => (int) $product->id, 'label' => $label, 'hint' => (string) ($product->sku ?? $product->code)];
+            });
+        }
+
+        if ($this->linkType === 'blog') {
+            $query = BlogPost::query()
+                ->select(['id', 'code'])
+                ->with(['translations' => fn ($q) => $q->whereIn('locale', [$locale, $fallbackLocale])->select(['post_id', 'locale', 'title', 'slug'])]);
+            if ($search !== '') {
+                $query->whereHas('translations', function ($q) use ($search, $locale, $fallbackLocale): void {
+                    $q->whereIn('locale', [$locale, $fallbackLocale])
+                        ->where(function ($tq) use ($search): void {
+                            $tq->where('title', 'like', '%'.$search.'%')
+                                ->orWhere('slug', 'like', '%'.$search.'%');
+                        });
+                });
+            }
+
+            return $query->orderByDesc('id')->limit(40)->get()->map(function (BlogPost $post) use ($locale, $fallbackLocale): array {
+                $tr = $post->translations->firstWhere('locale', $locale) ?? $post->translations->firstWhere('locale', $fallbackLocale);
+                return ['id' => (int) $post->id, 'label' => (string) ($tr?->title ?? $post->code), 'hint' => (string) ($tr?->slug ?? $post->code)];
+            });
+        }
+
+        $query = Category::query()
+            ->where('scope', Category::SCOPE_CATALOG)
+            ->select(['id', 'code'])
+            ->with(['translations' => fn ($q) => $q->where('scope', Category::SCOPE_CATALOG)->whereIn('locale', [$locale, $fallbackLocale])->select(['category_id', 'locale', 'name', 'slug'])]);
+        if ($search !== '') {
+            $query->whereHas('translations', function ($q) use ($search, $locale, $fallbackLocale): void {
+                $q->where('scope', Category::SCOPE_CATALOG)
+                    ->whereIn('locale', [$locale, $fallbackLocale])
+                    ->where(function ($tq) use ($search): void {
+                        $tq->where('name', 'like', '%'.$search.'%')
+                            ->orWhere('slug', 'like', '%'.$search.'%');
+                    });
+            });
+        }
+
+        return $query->orderByDesc('id')->limit(40)->get()->map(function (Category $category) use ($locale, $fallbackLocale): array {
+            $tr = $category->translations->firstWhere('locale', $locale) ?? $category->translations->firstWhere('locale', $fallbackLocale);
+            return ['id' => (int) $category->id, 'label' => (string) ($tr?->name ?? $category->code), 'hint' => (string) ($tr?->slug ?? $category->code)];
+        });
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -196,6 +549,8 @@ class Form extends Component
                 'integer',
                 Rule::exists('categories', 'id')->where(fn ($q) => $q->where('scope', Category::SCOPE_BLOG)),
             ],
+            'form.related_product_ids' => ['nullable', 'array'],
+            'form.related_product_ids.*' => ['integer', Rule::exists('products', 'id')],
         ];
     }
 
@@ -218,12 +573,17 @@ class Form extends Component
         $this->form['code'] = $post->code;
         $this->form['is_active'] = (bool) $post->is_active;
         $this->form['is_featured'] = (bool) $post->is_featured;
-        $this->form['published_at'] = $post->published_at?->format('Y-m-d\TH:i') ?? '';
+        $this->form['published_at'] = $post->published_at?->format('Y-m-d') ?? '';
         $this->form['sort_order'] = (int) $post->sort_order;
         $this->form['payload_text'] = $post->payload
             ? json_encode($post->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
             : '';
         $this->form['category_ids'] = $post->categories->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $this->form['related_product_ids'] = collect($post->payload['related_product_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values()
+            ->all();
 
         if ($translation) {
             $this->form['locale'] = $translation->locale;
@@ -291,17 +651,129 @@ class Form extends Component
         $decoded = json_decode($value, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->addError($field, 'Invalid JSON payload.');
-            $this->dispatch('notify', type: 'danger', message: 'Invalid JSON payload.');
+            $this->addError($field, __('Invalid JSON payload.'));
+            $this->dispatch('notify', type: 'danger', message: __('Invalid JSON payload.'));
             return false;
         }
 
         if (!is_array($decoded)) {
-            $this->addError($field, 'JSON payload must decode to object/array.');
-            $this->dispatch('notify', type: 'danger', message: 'JSON payload must decode to object/array.');
+            $this->addError($field, __('JSON payload must decode to object/array.'));
+            $this->dispatch('notify', type: 'danger', message: __('JSON payload must decode to object/array.'));
             return false;
         }
 
         return $decoded;
+    }
+
+    public function updatedFormPayloadText(): void
+    {
+        $payloadRaw = trim((string) ($this->form['payload_text'] ?? ''));
+        if ($payloadRaw === '') {
+            $this->form['related_product_ids'] = [];
+            return;
+        }
+
+        $decoded = json_decode($payloadRaw, true);
+        if (!is_array($decoded)) {
+            return;
+        }
+
+        $this->form['related_product_ids'] = collect($decoded['related_product_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function uniqueCodeFromBase(string $base): string
+    {
+        $cleanBase = trim($base) !== '' ? trim($base) : 'blog-post';
+        $code = $cleanBase;
+        $suffix = 2;
+
+        while (
+            BlogPost::query()
+                ->when($this->postId, fn ($q) => $q->where('id', '!=', $this->postId))
+                ->where('code', $code)
+                ->exists()
+        ) {
+            $code = $cleanBase.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $code;
+    }
+
+    private function metaDescriptionFromBody(string $bodyHtml): string
+    {
+        $plain = preg_replace('/\s+/u', ' ', trim(strip_tags($bodyHtml)));
+        $plain = html_entity_decode((string) $plain, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return Str::limit(trim($plain), 160, '...');
+    }
+
+    private function resolvedMetaTitle(string $title, ?string $metaTitle): ?string
+    {
+        $value = trim((string) $metaTitle);
+        if ($value !== '') {
+            return Str::limit($value, 255, '');
+        }
+
+        $fallback = trim($title);
+        return $fallback === '' ? null : Str::limit($fallback, 255, '');
+    }
+
+    private function resolvedMetaDescription(string $bodyHtml, ?string $metaDescription): ?string
+    {
+        $value = trim((string) $metaDescription);
+        if ($value !== '') {
+            return $value;
+        }
+
+        $auto = $this->metaDescriptionFromBody($bodyHtml);
+        return $auto !== '' ? $auto : null;
+    }
+
+    /**
+     * @return array{url:string,label:string}|null
+     */
+    private function resolveLinkTarget(int $targetId): ?array
+    {
+        $locale = (string) ($this->form['locale'] ?: config('app.locale', 'en'));
+        $fallbackLocale = (string) config('app.locale', 'en');
+
+        if ($this->linkType === 'product') {
+            $product = Product::query()
+                ->with(['translations' => fn ($q) => $q->whereIn('locale', [$locale, $fallbackLocale])])
+                ->find($targetId);
+            if (!$product) {
+                return null;
+            }
+            $tr = $product->translations->firstWhere('locale', $locale) ?? $product->translations->firstWhere('locale', $fallbackLocale);
+            $slug = (string) ($tr?->slug ?? $product->id);
+            return ['url' => route('products.show', ['slug' => $slug]), 'label' => (string) ($tr?->name ?? $product->code)];
+        }
+
+        if ($this->linkType === 'blog') {
+            $post = BlogPost::query()
+                ->with(['translations' => fn ($q) => $q->whereIn('locale', [$locale, $fallbackLocale])])
+                ->find($targetId);
+            if (!$post) {
+                return null;
+            }
+            $tr = $post->translations->firstWhere('locale', $locale) ?? $post->translations->firstWhere('locale', $fallbackLocale);
+            $slug = (string) ($tr?->slug ?? $post->id);
+            return ['url' => route('blog.show', ['slug' => $slug]), 'label' => (string) ($tr?->title ?? $post->code)];
+        }
+
+        $category = Category::query()
+            ->where('scope', Category::SCOPE_CATALOG)
+            ->with(['translations' => fn ($q) => $q->where('scope', Category::SCOPE_CATALOG)->whereIn('locale', [$locale, $fallbackLocale])])
+            ->find($targetId);
+        if (!$category) {
+            return null;
+        }
+        $tr = $category->translations->firstWhere('locale', $locale) ?? $category->translations->firstWhere('locale', $fallbackLocale);
+        $slug = (string) ($tr?->slug ?? $category->id);
+        return ['url' => route('categories.show', ['slug' => $slug]), 'label' => (string) ($tr?->name ?? $category->code)];
     }
 }

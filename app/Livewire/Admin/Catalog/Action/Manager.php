@@ -94,9 +94,9 @@ class Manager extends Component
             'scopeLabels' => $this->scopeLabels(),
             'typeLabels' => $this->typeLabels(),
             'stateLabels' => [
-                'active' => 'Active',
-                'inactive' => 'Inactive',
-                'all' => 'All',
+                'active' => __('Active'),
+                'inactive' => __('Inactive'),
+                'all' => __('All'),
             ],
             'targetLabels' => $this->targetLabels(),
             'audienceLabels' => $this->audienceLabels(),
@@ -109,8 +109,8 @@ class Manager extends Component
     private function scopeLabels(): array
     {
         return [
-            CatalogAction::SCOPE_PRODUCT => 'Product',
-            CatalogAction::SCOPE_CART => 'Cart',
+            CatalogAction::SCOPE_PRODUCT => __('Product'),
+            CatalogAction::SCOPE_CART => __('Cart'),
         ];
     }
 
@@ -120,10 +120,10 @@ class Manager extends Component
     private function typeLabels(): array
     {
         return [
-            CatalogAction::TYPE_PERCENTAGE => 'Percentage',
-            CatalogAction::TYPE_FIXED => 'Fixed Amount',
-            CatalogAction::TYPE_BUY_X_GET_Y => 'Buy X Get Y',
-            CatalogAction::TYPE_GIFT_ON_AMOUNT => 'Gift On Amount',
+            CatalogAction::TYPE_PERCENTAGE => __('Percentage'),
+            CatalogAction::TYPE_FIXED => __('Fixed Amount'),
+            CatalogAction::TYPE_BUY_X_GET_Y => __('Buy X Get Y'),
+            CatalogAction::TYPE_GIFT_ON_AMOUNT => __('Gift On Amount'),
         ];
     }
 
@@ -133,10 +133,10 @@ class Manager extends Component
     private function targetLabels(): array
     {
         return [
-            CatalogAction::TARGET_ALL => 'All',
-            CatalogAction::TARGET_PRODUCT => 'Products',
-            CatalogAction::TARGET_CATEGORY => 'Categories',
-            CatalogAction::TARGET_MANUFACTURER => 'Manufacturers',
+            CatalogAction::TARGET_ALL => __('All'),
+            CatalogAction::TARGET_PRODUCT => __('Products'),
+            CatalogAction::TARGET_CATEGORY => __('Categories'),
+            CatalogAction::TARGET_MANUFACTURER => __('Manufacturers'),
         ];
     }
 
@@ -146,10 +146,10 @@ class Manager extends Component
     private function audienceLabels(): array
     {
         return [
-            CatalogAction::AUDIENCE_ALL => 'All users',
-            CatalogAction::AUDIENCE_USER_GROUP => 'User group',
-            CatalogAction::AUDIENCE_USER => 'Single user',
-            CatalogAction::AUDIENCE_ROLE => 'Legacy role',
+            CatalogAction::AUDIENCE_ALL => __('All users'),
+            CatalogAction::AUDIENCE_USER_GROUP => __('User group'),
+            CatalogAction::AUDIENCE_USER => __('Single user'),
+            CatalogAction::AUDIENCE_ROLE => __('Legacy role'),
         ];
     }
 }

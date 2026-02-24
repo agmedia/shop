@@ -7,6 +7,7 @@
     $gridClass = (string) ($payload['grid_class'] ?? 'mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4');
     $cardClass = (string) ($payload['card_class'] ?? 'rounded-2xl border border-slate-200 bg-slate-50 p-4');
     $titleClass = (string) ($payload['title_class'] ?? 'text-2xl font-extrabold tracking-tight text-slate-900');
+    $taxPricing = app(\App\Services\Pricing\TaxPricingService::class);
 @endphp
 
 <section class="{{ $sectionClass }}">
@@ -24,11 +25,12 @@
             @php
                 $pt = $product->translations->firstWhere('locale', app()->getLocale())
                     ?? $product->translations->firstWhere('locale', config('app.locale'));
+                $displayPrice = $taxPricing->grossFromStored((float) $product->base_price, $product);
             @endphp
             <article class="{{ $cardClass }}">
                 <div class="h-36 rounded-xl bg-gradient-to-br from-slate-200 to-slate-100"></div>
                 <h3 class="mt-3 text-sm font-semibold text-slate-900">{{ $pt?->name ?? $product->code }}</h3>
-                <p class="mt-2 text-sm font-semibold text-slate-800">{{ number_format((float) $product->base_price, 2) }} €</p>
+                <p class="mt-2 text-sm font-semibold text-slate-800">{{ number_format($displayPrice, 2) }} €</p>
             </article>
         @empty
             <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500 sm:col-span-2 xl:col-span-4">
@@ -37,4 +39,3 @@
         @endforelse
     </div>
 </section>
-

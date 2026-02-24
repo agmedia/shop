@@ -1,3 +1,3 @@
-<x-admin-layout title="Settings / API">
+<x-admin-layout :title="__('Settings / API')">
     <livewire:admin.settings.api.manager />
 </x-admin-layout>

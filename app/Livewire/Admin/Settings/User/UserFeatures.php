@@ -62,7 +62,7 @@ class UserFeatures extends Component
 
         app(SystemSettingsService::class)->putMany($payload);
 
-        $this->dispatch('notify', type: 'success', message: 'User settings saved.');
+        $this->dispatch('notify', type: 'success', message: __('User settings saved.'));
     }
 
     public function resetToDefaults(): void
@@ -73,7 +73,7 @@ class UserFeatures extends Component
         $this->form['loyalty_min_order_total'] = (float) config('user_features.loyalty.min_order_total', 0.0);
         $this->form['loyalty_reversal_mode'] = (string) config('user_features.loyalty.reversal_mode', 'zero_out');
 
-        $this->dispatch('notify', type: 'info', message: 'Default user settings loaded in form (save to persist).');
+        $this->dispatch('notify', type: 'info', message: __('Default user settings loaded in form (save to persist).'));
     }
 
     public function render()

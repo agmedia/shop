@@ -17,11 +17,15 @@ use App\Observers\Content\ContentCacheObserver;
 use App\Observers\Settings\LocalSettingObserver;
 use App\Services\Catalog\CatalogFeatureService;
 use App\Services\Content\ContentBlockResolver;
+use App\Services\Front\NavigationMenuService;
+use App\Services\Front\StoreSettingsService;
+use App\Services\Front\WishlistService;
 use App\Services\Loyalty\LoyaltyService;
 use App\Services\Settings\LocalSettingsService;
 use App\Services\Settings\SystemSettingsService;
 use App\Services\UserTracking\UserTrackingService;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -39,6 +43,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SystemSettingsService::class, fn () => new SystemSettingsService());
         $this->app->singleton(CatalogFeatureService::class, fn ($app) => new CatalogFeatureService($app->make(SystemSettingsService::class)));
         $this->app->singleton(ContentBlockResolver::class, fn () => new ContentBlockResolver());
+        $this->app->singleton(NavigationMenuService::class, fn ($app) => new NavigationMenuService($app->make(SystemSettingsService::class)));
+        $this->app->singleton(StoreSettingsService::class, fn ($app) => new StoreSettingsService($app->make(SystemSettingsService::class)));
         $this->app->singleton(UserTrackingService::class, fn ($app) => new UserTrackingService($app->make(SystemSettingsService::class)));
         $this->app->singleton(LoyaltyService::class, fn ($app) => new LoyaltyService($app->make(SystemSettingsService::class)));
     }
@@ -51,6 +57,8 @@ class AppServiceProvider extends ServiceProvider
         Livewire::addPersistentMiddleware([
             \App\Http\Middleware\EnsureAdminAbility::class,
         ]);
+
+        $this->applyDynamicStoreMailSettings();
 
         RateLimiter::for('wholesale-api', static function (Request $request) {
             $perMinute = max(30, (int) env('WHOLESALE_API_RATE_LIMIT', 240));
@@ -89,6 +97,132 @@ class AppServiceProvider extends ServiceProvider
             $view->with('adminLocaleOptions', $localeOptions);
         });
 
+        View::composer('front.*', static function ($view): void {
+            static $shared = null;
+
+            if ($shared !== null) {
+                $view->with('wishlistProductMap', $shared['wishlistProductMap']);
+                $view->with('wishlistSummary', $shared['wishlistSummary']);
+
+                return;
+            }
+
+            try {
+                $wishlist = app(WishlistService::class);
+                $shared = [
+                    'wishlistProductMap' => $wishlist->map(),
+                    'wishlistSummary' => $wishlist->summary(),
+                    'storeSettings' => app(StoreSettingsService::class)->all(),
+                ];
+            } catch (\Throwable) {
+                $shared = [
+                    'wishlistProductMap' => [],
+                    'wishlistSummary' => ['item_count' => 0],
+                    'storeSettings' => [
+                        'announcement' => [
+                            'enabled' => true,
+                            'text' => (string) __('ui.front.desktop.promo_bar'),
+                            'url' => '',
+                            'new_tab' => false,
+                        ],
+                        'branding' => [
+                            'store_name' => (string) config('app.name', 'AG Shop'),
+                            'logo_url' => null,
+                            'favicon_url' => null,
+                            'favicons' => [
+                                'ico_url' => null,
+                                '16_url' => null,
+                                '32_url' => null,
+                                '180_url' => null,
+                                '192_url' => null,
+                                '512_url' => null,
+                            ],
+                            'social' => [
+                                'facebook' => ['url' => '', 'enabled' => true],
+                                'instagram' => ['url' => '', 'enabled' => true],
+                                'tiktok' => ['url' => '', 'enabled' => true],
+                                'youtube' => ['url' => '', 'enabled' => true],
+                            ],
+                        ],
+                        'footer' => [
+                            'phone' => '',
+                            'email_sales' => '',
+                            'email_support' => '',
+                            'hours' => '',
+                            'link_columns' => [
+                                ['title' => (string) __('ui.front.desktop.footer.shop'), 'links' => []],
+                                ['title' => (string) __('ui.front.desktop.footer.help'), 'links' => []],
+                                ['title' => (string) __('ui.front.desktop.footer.info'), 'links' => []],
+                            ],
+                            'bottom_links' => [],
+                            'bottom_copyright_text' => '',
+                        ],
+                        'newsletter' => ['provider' => 'none'],
+                        'captcha' => [
+                            'recaptcha_v3_enabled' => false,
+                            'recaptcha_v3_site_key' => '',
+                            'recaptcha_v3_secret_key' => '',
+                            'recaptcha_v3_min_score' => 0.5,
+                        ],
+                        'analytics' => [
+                            'enabled' => false,
+                            'ga4_measurement_id' => '',
+                            'purchase_event_enabled' => true,
+                            'purchase_event_name' => 'purchase',
+                        ],
+                        'email' => ['enabled' => false],
+                        'seo' => [
+                            'default_title' => (string) config('app.name', 'AG Shop'),
+                            'default_description' => '',
+                            'robots' => 'index,follow',
+                            'canonical_policy' => 'self',
+                        ],
+                        'og' => [
+                            'default_image_url' => null,
+                            'home_image_url' => null,
+                            'category_image_url' => null,
+                            'product_image_url' => null,
+                            'page_image_url' => null,
+                            'blog_image_url' => null,
+                        ],
+                        'schema' => [
+                            'enabled' => true,
+                            'org_enabled' => true,
+                            'website_enabled' => true,
+                            'breadcrumbs_enabled' => true,
+                            'itemlist_enabled' => true,
+                            'home_enabled' => true,
+                            'category_enabled' => true,
+                            'product_enabled' => true,
+                            'blog_enabled' => true,
+                            'page_enabled' => true,
+                            'faq_enabled' => true,
+                            'org_type' => 'Organization',
+                            'business_name' => (string) config('app.name', 'AG Shop'),
+                            'business_phone' => '',
+                            'business_email' => '',
+                            'address_street' => '',
+                            'address_city' => '',
+                            'address_region' => '',
+                            'address_postal_code' => '',
+                            'address_country' => 'HR',
+                            'same_as' => '',
+                            'blog_author_name' => '',
+                            'blog_author_url' => '',
+                            'product_currency' => 'EUR',
+                            'faq_group' => '',
+                            'faq_limit' => 8,
+                            'itemlist_limit' => 12,
+                        ],
+                    ],
+                ];
+            }
+
+            $view->with('wishlistProductMap', $shared['wishlistProductMap']);
+            $view->with('wishlistSummary', $shared['wishlistSummary']);
+            $view->with('storeSettings', $shared['storeSettings']);
+        });
+
         PaymentMethod::observe(LocalSettingObserver::class);
         ShippingMethod::observe(LocalSettingObserver::class);
         GeoZone::observe(LocalSettingObserver::class);
@@ -101,5 +235,46 @@ class AppServiceProvider extends ServiceProvider
         ContentBlock::observe(ContentCacheObserver::class);
         ContentBlockTranslation::observe(ContentCacheObserver::class);
         ContentBlockSlot::observe(ContentCacheObserver::class);
+    }
+
+    private function applyDynamicStoreMailSettings(): void
+    {
+        try {
+            $settings = app(StoreSettingsService::class)->email();
+            if (! (bool) ($settings['enabled'] ?? false)) {
+                return;
+            }
+
+            $mailer = (string) ($settings['mailer'] ?? 'smtp');
+            Config::set('mail.default', $mailer);
+
+            if ($mailer === 'smtp') {
+                Config::set('mail.mailers.smtp.host', (string) ($settings['host'] ?? ''));
+                Config::set('mail.mailers.smtp.port', (int) ($settings['port'] ?? 587));
+                Config::set('mail.mailers.smtp.username', (string) ($settings['username'] ?? ''));
+                Config::set('mail.mailers.smtp.password', (string) ($settings['password'] ?? ''));
+                Config::set('mail.mailers.smtp.encryption', (string) ($settings['encryption'] ?? ''));
+            }
+
+            if ($mailer === 'sendmail') {
+                Config::set('mail.mailers.sendmail.path', (string) ($settings['sendmail_path'] ?? '/usr/sbin/sendmail -bs -i'));
+            }
+
+            $fromAddress = trim((string) ($settings['from_address'] ?? ''));
+            if ($fromAddress !== '') {
+                Config::set('mail.from.address', $fromAddress);
+            }
+            $fromName = trim((string) ($settings['from_name'] ?? ''));
+            if ($fromName !== '') {
+                Config::set('mail.from.name', $fromName);
+            }
+            $replyTo = trim((string) ($settings['reply_to'] ?? ''));
+            if ($replyTo !== '') {
+                Config::set('mail.reply_to.address', $replyTo);
+                Config::set('mail.reply_to.name', $fromName !== '' ? $fromName : (string) config('mail.from.name', ''));
+            }
+        } catch (\Throwable) {
+            // Do not break app boot if settings table is not ready.
+        }
     }
 }

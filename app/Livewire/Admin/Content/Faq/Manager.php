@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Content\Faq;
 use App\Models\Content\Support\Faq;
 use App\Services\Settings\SystemSettingsService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -39,6 +40,23 @@ class Manager extends Component
 
     public function updatedState(): void
     {
+        $this->resetPage();
+    }
+
+    public function delete(int $faqId): void
+    {
+        $faq = Faq::query()->find($faqId);
+        if (! $faq) {
+            $this->dispatch('notify', type: 'danger', message: (string) __('admin.content.faq.manager.notify_not_found'));
+            return;
+        }
+
+        DB::transaction(function () use ($faq): void {
+            $faq->translations()->delete();
+            $faq->delete();
+        });
+
+        $this->dispatch('notify', type: 'success', message: (string) __('admin.content.faq.manager.notify_deleted'));
         $this->resetPage();
     }
 
@@ -95,4 +113,3 @@ class Manager extends Component
         ]);
     }
 }
-

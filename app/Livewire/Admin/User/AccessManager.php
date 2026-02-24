@@ -93,7 +93,7 @@ class AccessManager extends Component
             'group' => $group,
         ];
 
-        $this->dispatch('notify', type: 'success', message: 'Ability added.');
+        $this->dispatch('notify', type: 'success', message: __('Ability added.'));
     }
 
     public function togglePermission(int $abilityId, int $roleId): void
@@ -323,33 +323,33 @@ class AccessManager extends Component
     private function defaultGroupLabels(): array
     {
         return [
-            'users.core' => 'Users / Core',
-            'users.groups' => 'Users / Groups',
-            'users.activity' => 'Users / Activity',
-            'users.loyalty' => 'Users / Loyalty',
-            'users.access' => 'Users / Access',
-            'catalog.categories' => 'Catalog / Categories',
-            'catalog.products' => 'Catalog / Products',
-            'catalog.attributes' => 'Catalog / Attributes',
-            'catalog.options' => 'Catalog / Options',
-            'catalog.manufacturers' => 'Catalog / Manufacturers',
-            'catalog.actions' => 'Catalog / Actions',
-            'content.blog' => 'Content / Blog',
-            'content.pages' => 'Content / Pages',
-            'content.faqs' => 'Content / FAQs',
-            'content.comments' => 'Content / Comments',
-            'content.blocks' => 'Content / Blocks',
-            'content.slots' => 'Content / Slots',
-            'content.media' => 'Content / Media',
-            'sales.orders' => 'Sales / Orders',
-            'sales' => 'Sales',
-            'settings.local' => 'Settings / Local',
-            'settings.system' => 'Settings / System',
-            'settings.api' => 'Settings / API',
-            'settings.user' => 'Settings / User',
-            'system.ai' => 'System / AI',
-            'dashboard' => 'Dashboard',
-            'misc' => 'Other',
+            'users.core' => __('Users / Core'),
+            'users.groups' => __('Users / Groups'),
+            'users.activity' => __('Users / Activity'),
+            'users.loyalty' => __('Users / Loyalty'),
+            'users.access' => __('Users / Access'),
+            'catalog.categories' => __('Catalog / Categories'),
+            'catalog.products' => __('Catalog / Products'),
+            'catalog.attributes' => __('Catalog / Attributes'),
+            'catalog.options' => __('Catalog / Options'),
+            'catalog.manufacturers' => __('Catalog / Manufacturers'),
+            'catalog.actions' => __('Catalog / Actions'),
+            'content.blog' => __('Content / Blog'),
+            'content.pages' => __('Content / Pages'),
+            'content.faqs' => __('Content / FAQs'),
+            'content.comments' => __('Content / Comments'),
+            'content.blocks' => __('Content / Blocks'),
+            'content.slots' => __('Content / Slots'),
+            'content.media' => __('Content / Media'),
+            'sales.orders' => __('Sales / Orders'),
+            'sales' => __('Sales'),
+            'settings.local' => __('Settings / Local'),
+            'settings.system' => __('Settings / System'),
+            'settings.api' => __('Settings / API'),
+            'settings.user' => __('Settings / User'),
+            'system.ai' => __('System / AI'),
+            'dashboard' => __('Dashboard'),
+            'misc' => __('Other'),
         ];
     }
 

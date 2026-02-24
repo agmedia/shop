@@ -120,7 +120,7 @@ class ValueManager extends Component
                 ->log('Option value saved');
         });
 
-        $this->dispatch('notify', type: 'success', message: $wasEditing ? 'Value updated.' : 'Value created.');
+        $this->dispatch('notify', type: 'success', message: $wasEditing ? __('Value updated.') : __('Value created.'));
         $this->resetForm();
     }
 
@@ -173,7 +173,7 @@ class ValueManager extends Component
             $this->resetForm();
         }
 
-        $this->dispatch('notify', type: 'success', message: 'Value deleted.');
+        $this->dispatch('notify', type: 'success', message: __('Value deleted.'));
     }
 
     public function cancelEdit(): void
@@ -310,14 +310,14 @@ class ValueManager extends Component
         $decoded = json_decode($value, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->addError($field, 'Invalid JSON payload.');
-            $this->dispatch('notify', type: 'danger', message: 'Invalid JSON payload.');
+            $this->addError($field, __('Invalid JSON payload.'));
+            $this->dispatch('notify', type: 'danger', message: __('Invalid JSON payload.'));
             return false;
         }
 
         if (!is_array($decoded)) {
-            $this->addError($field, 'JSON payload must decode to object/array.');
-            $this->dispatch('notify', type: 'danger', message: 'JSON payload must decode to object/array.');
+            $this->addError($field, __('JSON payload must decode to object/array.'));
+            $this->dispatch('notify', type: 'danger', message: __('JSON payload must decode to object/array.'));
             return false;
         }
 

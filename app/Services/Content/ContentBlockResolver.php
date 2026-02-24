@@ -5,6 +5,7 @@ namespace App\Services\Content;
 use App\Models\Content\ContentBlockSlot;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class ContentBlockResolver
 {
@@ -16,6 +17,10 @@ class ContentBlockResolver
         ?string $frontendVariant = null,
         bool $strictVariant = false
     ): Collection {
+        if (! Schema::hasTable('content_block_slots') || ! Schema::hasTable('content_blocks')) {
+            return collect();
+        }
+
         $locale = $locale ?: app()->getLocale();
         $targetType = $targetType !== '' ? $targetType : null;
         $targetRef = $targetRef !== '' ? $targetRef : null;

@@ -63,7 +63,7 @@ class Index extends Component
         $this->deleteTemplateFile($code);
         ContentBlockResolver::bumpCacheVersion();
 
-        $this->dispatch('notify', type: 'success', message: 'Content block deleted.');
+        $this->dispatch('notify', type: 'success', message: __('Content block deleted.'));
     }
 
     public function render()

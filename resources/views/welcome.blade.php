@@ -141,9 +141,9 @@
             </a>
 
             <nav class="hidden items-center gap-10 text-base font-medium md:flex">
-                <a href="#categories" class="text-white/80 hover:text-white">Categories</a>
-                <a href="#featured" class="text-white/80 hover:text-white">Featured</a>
-                <a href="#contact" class="text-white/80 hover:text-white">Contact</a>
+                <a href="{{ route('categories.index') }}" class="text-white/80 hover:text-white">Categories</a>
+                <a href="{{ route('shop.index') }}" class="text-white/80 hover:text-white">Featured</a>
+                <a href="{{ route('contact.create') }}" class="text-white/80 hover:text-white">Contact</a>
 
                 @auth
                     <a href="{{ route('admin.dashboard') }}" class="ml-4 inline-flex items-center justify-center rounded-xl bg-white px-5 py-2.5 font-semibold text-blue-700 hover:bg-slate-100">
@@ -202,8 +202,8 @@
                     </p>
 
                     <div class="mt-10 flex flex-wrap items-center gap-4">
-                        <a href="#featured" class="rounded-xl bg-white px-6 py-3 font-semibold text-blue-700 hover:bg-slate-100">Shop featured</a>
-                        <a href="#categories" class="rounded-xl border border-white/30 px-6 py-3 text-white hover:bg-white/10">Browse categories</a>
+                        <a href="{{ route('shop.index') }}" class="rounded-xl bg-white px-6 py-3 font-semibold text-blue-700 hover:bg-slate-100">Shop featured</a>
+                        <a href="{{ route('categories.index') }}" class="rounded-xl border border-white/30 px-6 py-3 text-white hover:bg-white/10">Browse categories</a>
                     </div>
                 </div>
             @endif
@@ -290,7 +290,7 @@
                     <h2 class="text-4xl font-extrabold tracking-tight text-slate-900">Featured products</h2>
                     <p class="mt-4 max-w-2xl text-lg text-slate-600">Weekly curated products ready for your real catalog binding.</p>
                 </div>
-                <a href="#" class="text-base font-semibold text-blue-700 hover:text-blue-800">View all</a>
+                <a href="{{ route('shop.index') }}" class="text-base font-semibold text-blue-700 hover:text-blue-800">View all</a>
             </div>
 
             <div class="grid gap-8 lg:grid-cols-3">
@@ -325,7 +325,7 @@
                     </div>
 
                     <div class="flex flex-col gap-4 lg:col-span-4">
-                        <a href="#featured" class="inline-flex items-center justify-center rounded-2xl bg-white px-7 py-3.5 text-base font-semibold text-blue-700 hover:bg-slate-100">Browse products</a>
+                        <a href="{{ route('shop.index') }}" class="inline-flex items-center justify-center rounded-2xl bg-white px-7 py-3.5 text-base font-semibold text-blue-700 hover:bg-slate-100">Browse products</a>
                         @auth
                             <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center justify-center rounded-2xl border border-white/25 px-7 py-3.5 text-base font-semibold hover:bg-white/10">Open admin</a>
                         @else
@@ -355,8 +355,8 @@
                 </p>
 
                 <div class="mt-7 flex flex-wrap gap-4">
-                    <a href="#featured" class="inline-flex items-center justify-center rounded-xl bg-white px-6 py-3 text-base font-semibold text-blue-700 hover:bg-slate-100">Shop now</a>
-                    <a href="#contact" class="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/10 px-6 py-3 text-base font-semibold text-white hover:bg-white/15">Contact</a>
+                    <a href="{{ route('shop.index') }}" class="inline-flex items-center justify-center rounded-xl bg-white px-6 py-3 text-base font-semibold text-blue-700 hover:bg-slate-100">Shop now</a>
+                    <a href="{{ route('contact.create') }}" class="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/10 px-6 py-3 text-base font-semibold text-white hover:bg-white/15">Contact</a>
                 </div>
             </div>
 
@@ -364,8 +364,8 @@
                 <div>
                     <div class="mb-5 text-lg font-semibold text-white">Shop</div>
                     <ul class="space-y-4 text-base text-slate-400">
-                        <li><a href="#categories" class="transition hover:text-white">Categories</a></li>
-                        <li><a href="#featured" class="transition hover:text-white">Featured</a></li>
+                        <li><a href="{{ route('categories.index') }}" class="transition hover:text-white">Categories</a></li>
+                        <li><a href="{{ route('shop.index') }}" class="transition hover:text-white">Featured</a></li>
                         <li><a href="#" class="transition hover:text-white">New arrivals</a></li>
                         <li><a href="#" class="transition hover:text-white">Best sellers</a></li>
                     </ul>

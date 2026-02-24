@@ -177,7 +177,7 @@ class Form extends Component
                 ->log('Catalog action saved');
         });
 
-        $message = $wasEditing ? 'Action updated.' : 'Action created.';
+        $message = $wasEditing ? __('Action updated.') : __('Action created.');
 
         return redirect()
             ->route('admin.actions', ['locale' => $this->form['locale']])
@@ -490,14 +490,14 @@ class Form extends Component
         $decoded = json_decode($value, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->addError($field, 'Invalid JSON payload.');
-            $this->dispatch('notify', type: 'danger', message: 'Invalid JSON payload.');
+            $this->addError($field, __('Invalid JSON payload.'));
+            $this->dispatch('notify', type: 'danger', message: __('Invalid JSON payload.'));
             return false;
         }
 
         if (!is_array($decoded)) {
-            $this->addError($field, 'JSON payload must decode to object/array.');
-            $this->dispatch('notify', type: 'danger', message: 'JSON payload must decode to object/array.');
+            $this->addError($field, __('JSON payload must decode to object/array.'));
+            $this->dispatch('notify', type: 'danger', message: __('JSON payload must decode to object/array.'));
             return false;
         }
 
@@ -540,8 +540,8 @@ class Form extends Component
     private function scopeOptions(): array
     {
         return [
-            CatalogAction::SCOPE_PRODUCT => 'Product Action',
-            CatalogAction::SCOPE_CART => 'Cart Discount',
+            CatalogAction::SCOPE_PRODUCT => __('Product Action'),
+            CatalogAction::SCOPE_CART => __('Cart Discount'),
         ];
     }
 
@@ -551,10 +551,10 @@ class Form extends Component
     private function typeOptions(): array
     {
         return [
-            CatalogAction::TYPE_PERCENTAGE => 'Percentage',
-            CatalogAction::TYPE_FIXED => 'Fixed Amount',
-            CatalogAction::TYPE_BUY_X_GET_Y => 'Buy X Get Y',
-            CatalogAction::TYPE_GIFT_ON_AMOUNT => 'Gift On Amount',
+            CatalogAction::TYPE_PERCENTAGE => __('Percentage'),
+            CatalogAction::TYPE_FIXED => __('Fixed Amount'),
+            CatalogAction::TYPE_BUY_X_GET_Y => __('Buy X Get Y'),
+            CatalogAction::TYPE_GIFT_ON_AMOUNT => __('Gift On Amount'),
         ];
     }
 
@@ -564,10 +564,10 @@ class Form extends Component
     private function targetTypeOptions(): array
     {
         return [
-            CatalogAction::TARGET_ALL => 'All Products',
-            CatalogAction::TARGET_PRODUCT => 'Specific Products',
-            CatalogAction::TARGET_CATEGORY => 'Category Products',
-            CatalogAction::TARGET_MANUFACTURER => 'Manufacturer Products',
+            CatalogAction::TARGET_ALL => __('All Products'),
+            CatalogAction::TARGET_PRODUCT => __('Specific Products'),
+            CatalogAction::TARGET_CATEGORY => __('Category Products'),
+            CatalogAction::TARGET_MANUFACTURER => __('Manufacturer Products'),
         ];
     }
 
@@ -577,9 +577,9 @@ class Form extends Component
     private function audienceTypeOptions(): array
     {
         return [
-            CatalogAction::AUDIENCE_ALL => 'All Users',
-            CatalogAction::AUDIENCE_USER_GROUP => 'User Group',
-            CatalogAction::AUDIENCE_USER => 'Single User',
+            CatalogAction::AUDIENCE_ALL => __('All Users'),
+            CatalogAction::AUDIENCE_USER_GROUP => __('User Group'),
+            CatalogAction::AUDIENCE_USER => __('Single User'),
         ];
     }
 }

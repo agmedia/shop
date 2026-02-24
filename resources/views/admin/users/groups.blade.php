@@ -1,4 +1,4 @@
-<x-admin-layout title="User Groups">
+<x-admin-layout :title="__('User Groups')">
     <livewire:admin.user.group-manager />
 </x-admin-layout>
 

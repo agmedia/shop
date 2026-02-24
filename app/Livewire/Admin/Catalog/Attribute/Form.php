@@ -111,7 +111,7 @@ class Form extends Component
                 ->log('Attribute saved');
         });
 
-        $message = $wasEditing ? 'Attribute updated.' : 'Attribute created.';
+        $message = $wasEditing ? __('Attribute updated.') : __('Attribute created.');
 
         return redirect()
             ->route('admin.attributes', ['locale' => $this->form['locale']])
@@ -260,14 +260,14 @@ class Form extends Component
         $decoded = json_decode($value, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->addError($field, 'Invalid JSON payload.');
-            $this->dispatch('notify', type: 'danger', message: 'Invalid JSON payload.');
+            $this->addError($field, __('Invalid JSON payload.'));
+            $this->dispatch('notify', type: 'danger', message: __('Invalid JSON payload.'));
             return false;
         }
 
         if (!is_array($decoded)) {
-            $this->addError($field, 'JSON payload must decode to object/array.');
-            $this->dispatch('notify', type: 'danger', message: 'JSON payload must decode to object/array.');
+            $this->addError($field, __('JSON payload must decode to object/array.'));
+            $this->dispatch('notify', type: 'danger', message: __('JSON payload must decode to object/array.'));
             return false;
         }
 

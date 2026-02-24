@@ -31,6 +31,11 @@ class Manager extends Component
      *     name: string,
      *     alt: string,
      *     caption: string,
+     *     block_title: string,
+     *     cta_1_label: string,
+     *     cta_1_url: string,
+     *     cta_2_label: string,
+     *     cta_2_url: string,
      *     focal_x: float|int,
      *     focal_y: float|int,
      *     crop_enabled: bool,
@@ -52,17 +57,17 @@ class Manager extends Component
         $this->locale = trim($locale) !== '' ? $locale : (string) config('app.locale', 'en');
     }
 
-    public function upload(string $collectionName): void
+    public function uploadCollection(string $collectionName): void
     {
         $record = $this->record;
         if (! $record) {
-            $this->dispatch('notify', type: 'warning', message: 'Save record first, then upload images.');
+            $this->dispatch('notify', type: 'warning', message: __('Save record first, then upload images.'));
             return;
         }
 
         $collectionConfig = MediaProfileRegistry::collectionForModel($this->modelClass, $collectionName);
         if ($collectionConfig === []) {
-            $this->dispatch('notify', type: 'danger', message: 'Unknown media collection.');
+            $this->dispatch('notify', type: 'danger', message: __('Unknown media collection.'));
             return;
         }
 
@@ -86,7 +91,7 @@ class Manager extends Component
         $files = $this->normalizeFiles($input, $isSingle);
 
         if ($files === []) {
-            $this->dispatch('notify', type: 'warning', message: 'Choose at least one image first.');
+            $this->dispatch('notify', type: 'warning', message: __('Choose at least one image first.'));
             return;
         }
 
@@ -102,23 +107,31 @@ class Manager extends Component
                 ->toMediaCollection($collectionName);
         }
 
+        $mainCollection = (string) ($this->modelProfile['main_collection'] ?? '');
+        if ($mainCollection !== '' && $collectionName !== $mainCollection && ! $record->getFirstMedia($mainCollection)) {
+            $firstUploaded = $record->getMedia($collectionName)->first();
+            if ($firstUploaded) {
+                $firstUploaded->copy($record, $mainCollection);
+            }
+        }
+
         unset($this->uploads[$collectionName]);
         $this->meta = [];
 
-        $this->dispatch('notify', type: 'success', message: 'Images uploaded.');
+        $this->dispatch('notify', type: 'success', message: __('Images uploaded.'));
     }
 
     public function delete(int $mediaId): void
     {
         $media = $this->findMedia($mediaId);
         if (! $media) {
-            $this->dispatch('notify', type: 'warning', message: 'Image not found.');
+            $this->dispatch('notify', type: 'warning', message: __('Image not found.'));
             return;
         }
 
         $media->delete();
         unset($this->meta[$mediaId]);
-        $this->dispatch('notify', type: 'success', message: 'Image deleted.');
+        $this->dispatch('notify', type: 'success', message: __('Image deleted.'));
     }
 
     public function moveUp(int $mediaId): void
@@ -145,7 +158,7 @@ class Manager extends Component
 
         $media = $this->findMedia($mediaId);
         if (! $media) {
-            $this->dispatch('notify', type: 'warning', message: 'Image not found.');
+            $this->dispatch('notify', type: 'warning', message: __('Image not found.'));
             return;
         }
 
@@ -156,14 +169,14 @@ class Manager extends Component
         $media->copy($record, $mainCollection);
         $this->meta = [];
 
-        $this->dispatch('notify', type: 'success', message: 'Image copied to main collection.');
+        $this->dispatch('notify', type: 'success', message: __('Image copied to main collection.'));
     }
 
     public function saveMeta(int $mediaId): void
     {
         $media = $this->findMedia($mediaId);
         if (! $media) {
-            $this->dispatch('notify', type: 'warning', message: 'Image not found.');
+            $this->dispatch('notify', type: 'warning', message: __('Image not found.'));
             return;
         }
 
@@ -171,6 +184,12 @@ class Manager extends Component
         $name = trim((string) ($meta['name'] ?? $media->name));
         $alt = trim((string) ($meta['alt'] ?? ''));
         $caption = trim((string) ($meta['caption'] ?? ''));
+        $linkUrl = trim((string) ($meta['link_url'] ?? ''));
+        $blockTitle = trim((string) ($meta['block_title'] ?? ''));
+        $cta1Label = trim((string) ($meta['cta_1_label'] ?? ''));
+        $cta1Url = trim((string) ($meta['cta_1_url'] ?? ''));
+        $cta2Label = trim((string) ($meta['cta_2_label'] ?? ''));
+        $cta2Url = trim((string) ($meta['cta_2_url'] ?? ''));
 
         $custom = (array) ($media->custom_properties ?? []);
         $locale = trim($this->locale) !== '' ? $this->locale : (string) config('app.locale', 'en');
@@ -187,11 +206,49 @@ class Manager extends Component
             data_set($custom, "caption.$locale", $caption);
         }
 
+        if ($linkUrl === '') {
+            Arr::forget($custom, "link_url.$locale");
+            Arr::forget($custom, 'link_url_value');
+        } else {
+            data_set($custom, "link_url.$locale", $linkUrl);
+            data_set($custom, 'link_url_value', $linkUrl);
+        }
+
+        if ($blockTitle === '') {
+            Arr::forget($custom, "block_title.$locale");
+        } else {
+            data_set($custom, "block_title.$locale", $blockTitle);
+        }
+
+        if ($cta1Label === '') {
+            Arr::forget($custom, "cta_1_label.$locale");
+        } else {
+            data_set($custom, "cta_1_label.$locale", $cta1Label);
+        }
+
+        if ($cta1Url === '') {
+            Arr::forget($custom, "cta_1_url.$locale");
+        } else {
+            data_set($custom, "cta_1_url.$locale", $cta1Url);
+        }
+
+        if ($cta2Label === '') {
+            Arr::forget($custom, "cta_2_label.$locale");
+        } else {
+            data_set($custom, "cta_2_label.$locale", $cta2Label);
+        }
+
+        if ($cta2Url === '') {
+            Arr::forget($custom, "cta_2_url.$locale");
+        } else {
+            data_set($custom, "cta_2_url.$locale", $cta2Url);
+        }
+
         $media->name = $name !== '' ? $name : $media->name;
         $media->custom_properties = $custom;
         $media->save();
 
-        $this->dispatch('notify', type: 'success', message: 'Image metadata saved.');
+        $this->dispatch('notify', type: 'success', message: __('Image metadata saved.'));
     }
 
     /**
@@ -201,7 +258,7 @@ class Manager extends Component
     {
         $media = $this->findMedia($mediaId);
         if (! $media) {
-            $this->dispatch('notify', type: 'warning', message: 'Image not found.');
+            $this->dispatch('notify', type: 'warning', message: __('Image not found.'));
             return;
         }
 
@@ -240,7 +297,7 @@ class Manager extends Component
         $meta['crop_height'] = $cropHeight;
         $this->meta[$mediaId] = $meta;
 
-        $this->dispatch('notify', type: 'success', message: 'Crop/focal saved and conversions regenerated.');
+        $this->dispatch('notify', type: 'success', message: __('Crop/focal saved and conversions regenerated.'));
     }
 
     /**
@@ -284,12 +341,19 @@ class Manager extends Component
     {
         $mediaByCollection = $this->mediaByCollection;
         $this->primeMetaInputs($mediaByCollection);
+        $record = $this->record;
+        $isContentBlock = $record instanceof \App\Models\Content\ContentBlock;
+        $blockType = $isContentBlock ? (string) ($record->type ?? '') : '';
+        $isDualImageCtaBlock = $blockType === 'dual_image_cta';
+        $isLinkableSliderBlock = in_array($blockType, ['full_width_image_slider', 'desktopfullwidthimageslider'], true);
 
         return view('livewire.admin.media.manager', [
             'collections' => $this->collections,
             'modelProfile' => $this->modelProfile,
             'mediaByCollection' => $mediaByCollection,
             'recordExists' => (bool) $this->record,
+            'isDualImageCtaBlock' => $isDualImageCtaBlock,
+            'isLinkableSliderBlock' => $isLinkableSliderBlock,
         ]);
     }
 
@@ -328,6 +392,15 @@ class Manager extends Component
                     'name' => (string) $media->name,
                     'alt' => (string) data_get($custom, "alt.$locale", ''),
                     'caption' => (string) data_get($custom, "caption.$locale", ''),
+                    'link_url' => (string) (
+                        data_get($custom, "link_url.$locale")
+                        ?? data_get($custom, 'link_url_value', '')
+                    ),
+                    'block_title' => (string) data_get($custom, "block_title.$locale", ''),
+                    'cta_1_label' => (string) data_get($custom, "cta_1_label.$locale", ''),
+                    'cta_1_url' => (string) data_get($custom, "cta_1_url.$locale", ''),
+                    'cta_2_label' => (string) data_get($custom, "cta_2_label.$locale", ''),
+                    'cta_2_url' => (string) data_get($custom, "cta_2_url.$locale", ''),
                     'focal_x' => $this->normalizePercent($focal['x'] ?? 50, 50),
                     'focal_y' => $this->normalizePercent($focal['y'] ?? 50, 50),
                     'crop_enabled' => (bool) ($crop['enabled'] ?? false),
@@ -356,7 +429,7 @@ class Manager extends Component
     {
         $media = $this->findMedia($mediaId);
         if (! $media) {
-            $this->dispatch('notify', type: 'warning', message: 'Image not found.');
+            $this->dispatch('notify', type: 'warning', message: __('Image not found.'));
             return;
         }
 
@@ -386,7 +459,7 @@ class Manager extends Component
         [$ids[$currentIndex], $ids[$targetIndex]] = [$ids[$targetIndex], $ids[$currentIndex]];
         Media::setNewOrder($ids);
 
-        $this->dispatch('notify', type: 'success', message: 'Image order updated.');
+        $this->dispatch('notify', type: 'success', message: __('Image order updated.'));
     }
 
     /**

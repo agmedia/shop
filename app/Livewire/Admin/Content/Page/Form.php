@@ -14,12 +14,12 @@ use Livewire\Component;
 class Form extends Component
 {
     public ?int $pageId = null;
+    public string $activeTab = 'content';
 
     public array $form = [
         'code' => '',
         'layout' => 'default',
         'is_active' => true,
-        'show_in_footer' => false,
         'published_at' => '',
         'sort_order' => 0,
         'payload_text' => '',
@@ -57,6 +57,15 @@ class Form extends Component
         }
     }
 
+    public function setTab(string $tab): void
+    {
+        if (!in_array($tab, ['content', 'seo'], true)) {
+            return;
+        }
+
+        $this->activeTab = $tab;
+    }
+
     public function save()
     {
         $validated = $this->validate($this->rules());
@@ -79,7 +88,6 @@ class Form extends Component
                 'code' => trim((string) $validated['form']['code']),
                 'layout' => trim((string) $validated['form']['layout']) !== '' ? trim((string) $validated['form']['layout']) : 'default',
                 'is_active' => (bool) $validated['form']['is_active'],
-                'show_in_footer' => (bool) $validated['form']['show_in_footer'],
                 'published_at' => $validated['form']['published_at'] ?: null,
                 'sort_order' => (int) $validated['form']['sort_order'],
                 'payload' => $payload,
@@ -124,13 +132,12 @@ class Form extends Component
                     'locale' => $validated['form']['locale'],
                     'slug' => $validated['form']['slug'],
                     'layout' => $validated['form']['layout'],
-                    'show_in_footer' => (bool) $validated['form']['show_in_footer'],
                     'category_count' => count($syncPayload),
                 ])
-                ->log('Info page saved');
+                ->log(__('Info page saved'));
         });
 
-        $message = $wasEditing ? 'Info page updated.' : 'Info page created.';
+        $message = $wasEditing ? __('Info page updated.') : __('Info page created.');
 
         return redirect()
             ->route('admin.content.pages.index', ['locale' => $this->form['locale']])
@@ -154,7 +161,7 @@ class Form extends Component
 
     public function getCategoryOptionsProperty(): Collection
     {
-        return Category::query()
+        $categories = Category::query()
             ->where('scope', Category::SCOPE_PAGE)
             ->withDepth()
             ->defaultOrder()
@@ -164,6 +171,40 @@ class Form extends Component
                     ->where('locale', $this->form['locale']),
             ])
             ->get();
+
+        $nameById = $categories->mapWithKeys(function (Category $category): array {
+            $name = (string) ($category->translations->first()?->name ?? ($category->code ?: ('#'.$category->id)));
+
+            return [(int) $category->id => $name];
+        });
+        $byId = $categories->keyBy(fn (Category $category): int => (int) $category->id);
+        $labels = [];
+
+        $build = function (int $id) use (&$build, &$labels, $byId, $nameById): string {
+            if (isset($labels[$id])) {
+                return $labels[$id];
+            }
+
+            $current = $byId->get($id);
+            if ($current === null) {
+                return '#'.$id;
+            }
+
+            $name = (string) ($nameById[$id] ?? ('#'.$id));
+            $parentId = (int) ($current->parent_id ?? 0);
+            $labels[$id] = ($parentId > 0 && $byId->has($parentId))
+                ? $build($parentId).' > '.$name
+                : $name;
+
+            return $labels[$id];
+        };
+
+        return $categories->map(function (Category $category) use (&$build): array {
+            return [
+                'id' => (int) $category->id,
+                'label' => $build((int) $category->id),
+            ];
+        });
     }
 
     /**
@@ -175,7 +216,6 @@ class Form extends Component
             'form.code' => ['required', 'string', 'max:120', Rule::unique('content_info_pages', 'code')->ignore($this->pageId)],
             'form.layout' => ['nullable', 'string', 'max:80'],
             'form.is_active' => ['boolean'],
-            'form.show_in_footer' => ['boolean'],
             'form.published_at' => ['nullable', 'date'],
             'form.sort_order' => ['nullable', 'integer', 'min:0'],
             'form.payload_text' => ['nullable', 'string'],
@@ -223,7 +263,6 @@ class Form extends Component
         $this->form['code'] = $page->code;
         $this->form['layout'] = $page->layout;
         $this->form['is_active'] = (bool) $page->is_active;
-        $this->form['show_in_footer'] = (bool) $page->show_in_footer;
         $this->form['published_at'] = $page->published_at?->format('Y-m-d\TH:i') ?? '';
         $this->form['sort_order'] = (int) $page->sort_order;
         $this->form['payload_text'] = $page->payload
@@ -297,14 +336,14 @@ class Form extends Component
         $decoded = json_decode($value, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->addError($field, 'Invalid JSON payload.');
-            $this->dispatch('notify', type: 'danger', message: 'Invalid JSON payload.');
+            $this->addError($field, (string) __('Invalid JSON payload.'));
+            $this->dispatch('notify', type: 'danger', message: __('Invalid JSON payload.'));
             return false;
         }
 
         if (!is_array($decoded)) {
-            $this->addError($field, 'JSON payload must decode to object/array.');
-            $this->dispatch('notify', type: 'danger', message: 'JSON payload must decode to object/array.');
+            $this->addError($field, (string) __('JSON payload must decode to object/array.'));
+            $this->dispatch('notify', type: 'danger', message: __('JSON payload must decode to object/array.'));
             return false;
         }
 

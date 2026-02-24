@@ -9,6 +9,7 @@ use App\Models\Catalog\Category\Category;
 use App\Models\Catalog\Manufacturer\Manufacturer;
 use App\Models\Catalog\Option\Option;
 use App\Models\Content\Support\Comment;
+use App\Models\Settings\Local\TaxRate;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -26,6 +27,7 @@ class Product extends Model implements HasMedia
         'sku',
         'is_active',
         'manufacturer_id',
+        'tax_rate_id',
         'base_price',
         'stock_qty',
         'payload',
@@ -36,6 +38,7 @@ class Product extends Model implements HasMedia
     protected $casts = [
         'is_active' => 'bool',
         'manufacturer_id' => 'int',
+        'tax_rate_id' => 'int',
         'base_price' => 'decimal:2',
         'stock_qty' => 'int',
         'payload' => 'array',
@@ -75,6 +78,11 @@ class Product extends Model implements HasMedia
     public function manufacturer(): BelongsTo
     {
         return $this->belongsTo(Manufacturer::class, 'manufacturer_id');
+    }
+
+    public function taxRate(): BelongsTo
+    {
+        return $this->belongsTo(TaxRate::class, 'tax_rate_id');
     }
 
     public function optionValues(): HasMany

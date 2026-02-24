@@ -35,6 +35,9 @@ class Form extends Component
         /** @var array<string, string> $placements */
         $placements = config('content_blocks.placements', []);
         $this->placements = $placements;
+        $this->targetTypes = collect($this->targetTypes)
+            ->map(static fn ($label) => __((string) $label))
+            ->all();
 
         $this->resetForm();
 
@@ -57,15 +60,15 @@ class Form extends Component
         $hasTargetRefs = $targetRefs !== [];
 
         if ($hasTargetRefs && empty($validated['form']['target_type'])) {
-            $this->addError('form.target_type', 'Target type is required when target ref is set.');
-            $this->dispatch('notify', type: 'warning', message: 'Choose target type when target ref is set.');
+            $this->addError('form.target_type', __('Target type is required when target ref is set.'));
+            $this->dispatch('notify', type: 'warning', message: __('Choose target type when target ref is set.'));
             return null;
         }
 
         foreach ($targetRefs as $targetRef) {
             if (mb_strlen($targetRef) > 191) {
-                $this->addError('form.target_ref', 'Each target ref must be 191 characters or less.');
-                $this->dispatch('notify', type: 'warning', message: 'One or more target refs are too long.');
+                $this->addError('form.target_ref', __('Each target ref must be 191 characters or less.'));
+                $this->dispatch('notify', type: 'warning', message: __('One or more target refs are too long.'));
                 return null;
             }
         }
@@ -149,12 +152,12 @@ class Form extends Component
 
         if ($this->isEdit) {
             $message = $createdExtra > 0
-                ? 'Content slot updated. '.$createdExtra.' additional target slots created.'
-                : 'Content slot updated.';
+                ? __('Content slot updated. :count additional target slots created.', ['count' => $createdExtra])
+                : __('Content slot updated.');
         } else {
             $message = $createdExtra > 0
-                ? 'Content slot created. '.$createdExtra.' additional target slots created.'
-                : 'Content slot created.';
+                ? __('Content slot created. :count additional target slots created.', ['count' => $createdExtra])
+                : __('Content slot created.');
         }
 
         return redirect()->route('admin.content.slots')->with('notify', [

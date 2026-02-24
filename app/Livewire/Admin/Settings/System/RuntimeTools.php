@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Admin\Settings\System;
 
+use Illuminate\Foundation\Http\MaintenanceModeBypassCookie;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Artisan;
 use Livewire\Component;
 use Silber\Bouncer\BouncerFacade as Bouncer;
@@ -22,15 +24,16 @@ class RuntimeTools extends Component
         if ($this->isMaintenance) {
             Artisan::call('up');
             $this->refreshState();
-            $this->dispatch('notify', type: 'success', message: 'Maintenance mode switched OFF.');
+            $this->dispatch('notify', type: 'success', message: __('Maintenance mode switched OFF.'));
             return;
         }
 
         $secret = (string) config('app.maintenance_bypass_secret', 'agshop-admin-bypass');
         Artisan::call('down', ['--secret' => $secret]);
+        Cookie::queue(MaintenanceModeBypassCookie::create($secret));
 
         $this->refreshState();
-        $this->dispatch('notify', type: 'warning', message: 'Maintenance mode switched ON. Redirecting to bypass URL.');
+        $this->dispatch('notify', type: 'warning', message: __('Maintenance mode switched ON. Redirecting to bypass URL.'));
         $this->redirect('/'.$secret, navigate: false);
     }
 
@@ -43,7 +46,7 @@ class RuntimeTools extends Component
         Artisan::call('view:clear');
         Artisan::call('route:clear');
 
-        $this->dispatch('notify', type: 'success', message: 'Application cache has been cleared.');
+        $this->dispatch('notify', type: 'success', message: __('Application cache has been cleared.'));
     }
 
     public function refreshState(): void

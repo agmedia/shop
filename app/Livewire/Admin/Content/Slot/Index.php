@@ -33,11 +33,11 @@ class Index extends Component
                 'target_type' => $slot->target_type,
                 'target_ref' => $slot->target_ref,
             ])
-            ->log('Content slot deleted');
+            ->log(__('Content slot deleted'));
 
         $slot->delete();
 
-        $this->dispatch('notify', type: 'success', message: 'Content slot deleted.');
+        $this->dispatch('notify', type: 'success', message: __('Content slot deleted.'));
     }
 
     public function render()

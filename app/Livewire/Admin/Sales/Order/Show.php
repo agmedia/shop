@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Sales\Order;
 use App\Models\Sales\Order\Order;
 use App\Models\Settings\Local\OrderStatus;
 use App\Services\Loyalty\LoyaltyService;
+use App\Services\Payments\BankTransferUpiService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -39,11 +40,11 @@ class Show extends Component
         $toStatusId = (int) $validated['form']['status_id'];
         $comment = trim((string) ($validated['form']['comment'] ?? ''));
         if (! $this->applyStatusUpdate($toStatusId, $comment, 'admin')) {
-            $this->dispatch('notify', type: 'info', message: 'No status change to save.');
+            $this->dispatch('notify', type: 'info', message: __('No status change to save.'));
             return;
         }
 
-        $this->dispatch('notify', type: 'success', message: 'Order status history updated.');
+        $this->dispatch('notify', type: 'success', message: __('Order status history updated.'));
     }
 
     public function quickStatusByCode(string $code): void
@@ -54,7 +55,7 @@ class Show extends Component
             ->first();
 
         if (! $status) {
-            $this->dispatch('notify', type: 'warning', message: 'Quick status is not available.');
+            $this->dispatch('notify', type: 'warning', message: __('Quick status is not available.'));
             return;
         }
 
@@ -66,11 +67,11 @@ class Show extends Component
         $note = $noteMap[$code] ?? 'Quick action status update from order detail.';
 
         if (! $this->applyStatusUpdate((int) $status->id, $note, 'quick_action')) {
-            $this->dispatch('notify', type: 'info', message: 'Order is already in selected quick status.');
+            $this->dispatch('notify', type: 'info', message: __('Order is already in selected quick status.'));
             return;
         }
 
-        $this->dispatch('notify', type: 'success', message: 'Quick status action saved.');
+        $this->dispatch('notify', type: 'success', message: __('Quick status action saved.'));
     }
 
     public function addInternalTag(): void
@@ -89,7 +90,7 @@ class Show extends Component
 
         $this->persistInternalTags($order, $tags, 'tag_added', 'Internal tag added to order.');
         $this->tagInput = '';
-        $this->dispatch('notify', type: 'success', message: 'Tag added.');
+        $this->dispatch('notify', type: 'success', message: __('Tag added.'));
     }
 
     public function removeInternalTag(string $tag): void
@@ -106,7 +107,7 @@ class Show extends Component
         ));
 
         $this->persistInternalTags($order, $tags, 'tag_removed', 'Internal tag removed from order.');
-        $this->dispatch('notify', type: 'info', message: 'Tag removed.');
+        $this->dispatch('notify', type: 'info', message: __('Tag removed.'));
     }
 
     public function backToList()
@@ -122,7 +123,7 @@ class Show extends Component
         $loyaltyService = app(LoyaltyService::class);
 
         if (! $loyaltyService->enabled()) {
-            $this->dispatch('notify', type: 'warning', message: 'Loyalty system is disabled.');
+            $this->dispatch('notify', type: 'warning', message: __('Loyalty system is disabled.'));
             return;
         }
 
@@ -148,7 +149,7 @@ class Show extends Component
         $this->loadOrderDefaults();
 
         if (! is_array($result)) {
-            $this->dispatch('notify', type: 'warning', message: 'Loyalty redemption requires an assigned user.');
+            $this->dispatch('notify', type: 'warning', message: __('Loyalty redemption requires an assigned user.'));
             return;
         }
 
@@ -159,10 +160,10 @@ class Show extends Component
             $this->dispatch(
                 'notify',
                 type: 'success',
-                message: 'Loyalty redemption applied: '.$appliedPoints.' pts / '.number_format($appliedAmount, 2)
+                message: __('Loyalty redemption applied: ').$appliedPoints.' pts / '.number_format($appliedAmount, 2)
             );
         } else {
-            $this->dispatch('notify', type: 'info', message: 'Loyalty redemption cleared.');
+            $this->dispatch('notify', type: 'info', message: __('Loyalty redemption cleared.'));
         }
     }
 
@@ -197,6 +198,7 @@ class Show extends Component
 
         $loyaltyService = app(LoyaltyService::class);
         $loyaltyEnabled = $loyaltyService->enabled();
+        $bankTransfer = app(BankTransferUpiService::class)->ensureForOrder($order);
         $currencyValuePerPoint = $loyaltyEnabled ? $loyaltyService->currencyValuePerPoint() : 0.0;
         $redemptionPoints = 0;
         if ($loyaltyEnabled) {
@@ -230,6 +232,7 @@ class Show extends Component
             'maxRedeemablePoints' => $maxRedeemablePoints,
             'currencyValuePerPoint' => $currencyValuePerPoint,
             'loyaltyEnabled' => $loyaltyEnabled,
+            'bankTransfer' => $bankTransfer,
         ]);
     }
 

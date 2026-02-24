@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Foundation\Http\MaintenanceModeBypassCookie;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Artisan;
 use Silber\Bouncer\BouncerFacade as Bouncer;
+use Throwable;
 
 class SystemToolsController extends Controller
 {
@@ -19,10 +21,10 @@ class SystemToolsController extends Controller
         Artisan::call('route:clear');
 
         return back()
-            ->with('status', 'Application cache has been cleared.')
+            ->with('status', __('Application cache has been cleared.'))
             ->with('notify', [
                 'type' => 'success',
-                'message' => 'Application cache has been cleared.',
+                'message' => __('Application cache has been cleared.'),
             ]);
     }
 
@@ -32,22 +34,53 @@ class SystemToolsController extends Controller
 
         $secret = (string) config('app.maintenance_bypass_secret', 'agshop-admin-bypass');
 
-        Artisan::call('down', ['--secret' => $secret]);
+        try {
+            $exitCode = Artisan::call('down', [
+                '--secret' => $secret,
+            ]);
+        } catch (Throwable $e) {
+            return back()->with('notify', [
+                'type' => 'danger',
+                'message' => __('Maintenance ON failed: :message', ['message' => $e->getMessage()]),
+            ]);
+        }
 
-        return redirect('/'.$secret);
+        if ($exitCode !== 0) {
+            return back()->with('notify', [
+                'type' => 'danger',
+                'message' => __('Maintenance ON failed.'),
+            ]);
+        }
+
+        return redirect('/'.$secret)
+            ->withCookie(MaintenanceModeBypassCookie::create($secret));
     }
 
     public function maintenanceOff(): RedirectResponse
     {
         $this->ensurePrivilegedAdmin();
 
-        Artisan::call('up');
+        try {
+            $exitCode = Artisan::call('up');
+        } catch (Throwable $e) {
+            return back()->with('notify', [
+                'type' => 'danger',
+                'message' => __('Maintenance OFF failed: :message', ['message' => $e->getMessage()]),
+            ]);
+        }
+
+        if ($exitCode !== 0) {
+            return back()->with('notify', [
+                'type' => 'danger',
+                'message' => __('Maintenance OFF failed.'),
+            ]);
+        }
 
         return back()
-            ->with('status', 'Maintenance mode is now OFF.')
+            ->with('status', __('Maintenance mode is now OFF.'))
             ->with('notify', [
                 'type' => 'success',
-                'message' => 'Maintenance mode is now OFF.',
+                'message' => __('Maintenance mode is now OFF.'),
             ]);
     }
 

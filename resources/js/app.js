@@ -333,9 +333,59 @@ const initQuillEditors = () => {
         return value === '<p><br></p>' ? '' : value;
     };
 
+    const stripInlineStyles = (html) => {
+        const source = String(html ?? '').trim();
+        if (source === '') {
+            return '';
+        }
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(source, 'text/html');
+        doc.body.querySelectorAll('[style]').forEach((node) => node.removeAttribute('style'));
+
+        return normalizeHtml(doc.body.innerHTML || '');
+    };
+
+    const readTextareaHtml = (textarea) => {
+        if (!(textarea instanceof HTMLTextAreaElement)) {
+            return '';
+        }
+
+        const fromValue = stripInlineStyles(normalizeHtml(textarea.value));
+        if (fromValue !== '') {
+            return fromValue;
+        }
+
+        // Livewire can occasionally hydrate <textarea> content without dispatching input/change.
+        return stripInlineStyles(normalizeHtml(textarea.textContent ?? ''));
+    };
+
     const bindElement = (textarea) => {
         if (!(textarea instanceof HTMLTextAreaElement)) {
             return;
+        }
+        const existingQuillWrapper = textarea.nextElementSibling instanceof HTMLElement
+            && textarea.nextElementSibling.classList.contains('admin-quill')
+            ? textarea.nextElementSibling
+            : null;
+
+        // Livewire can remove injected Quill wrapper during morphs.
+        // If that happened, clear the bound flag so editor can be mounted again.
+        if (textarea.dataset.quillBound === '1' && !existingQuillWrapper) {
+            delete textarea.dataset.quillBound;
+            textarea.style.display = '';
+            textarea.removeAttribute('aria-hidden');
+            textarea.tabIndex = 0;
+        }
+
+        // If this field was previously mounted with Ace, tear it down and restore textarea.
+        const staleAce = textarea.nextElementSibling;
+        if (staleAce instanceof HTMLElement && staleAce.classList.contains('admin-ace-inline')) {
+            staleAce.remove();
+            textarea.style.display = '';
+            textarea.removeAttribute('aria-hidden');
+            textarea.tabIndex = 0;
+            delete textarea.dataset.aceInlineBound;
         }
         if (textarea.dataset.quillBound === '1') {
             return;
@@ -381,6 +431,28 @@ const initQuillEditors = () => {
             return;
         }
 
+        // Paste sanitization: remove inline style attributes from incoming HTML.
+        quill.clipboard.addMatcher(Node.ELEMENT_NODE, (node, delta) => {
+            if (node instanceof HTMLElement && node.hasAttribute('style')) {
+                node.removeAttribute('style');
+            }
+            return delta;
+        });
+
+        if (!Array.isArray(window.__adminQuillEditors)) {
+            window.__adminQuillEditors = [];
+        }
+        window.__adminQuillEditors.push(quill);
+        window.__activeAdminQuill = quill;
+        quill.__lastRange = null;
+
+        quill.on('selection-change', (range) => {
+            if (range) {
+                window.__activeAdminQuill = quill;
+                quill.__lastRange = range;
+            }
+        });
+
         const rows = Number.parseInt(textarea.getAttribute('rows') || '8', 10);
         const minHeight = Number.isNaN(rows) ? 220 : Math.max(180, rows * 26);
         const editorNode = editorRoot.querySelector('.ql-editor');
@@ -388,7 +460,7 @@ const initQuillEditors = () => {
             editorNode.style.minHeight = `${minHeight}px`;
         }
 
-        const initial = normalizeHtml(textarea.value);
+        const initial = readTextareaHtml(textarea);
         if (initial) {
             quill.clipboard.dangerouslyPasteHTML(initial);
         } else {
@@ -402,7 +474,7 @@ const initQuillEditors = () => {
             if (syncingFromTextarea) {
                 return;
             }
-            const html = normalizeHtml(quill.root.innerHTML);
+            const html = stripInlineStyles(normalizeHtml(quill.root.innerHTML));
             if (normalizeHtml(textarea.value) === html) {
                 return;
             }
@@ -417,7 +489,7 @@ const initQuillEditors = () => {
             if (syncingFromQuill) {
                 return;
             }
-            const source = normalizeHtml(textarea.value);
+            const source = stripInlineStyles(readTextareaHtml(textarea));
             const current = normalizeHtml(quill.root.innerHTML);
             if (source === current) {
                 return;
@@ -434,6 +506,22 @@ const initQuillEditors = () => {
         quill.on('text-change', syncTextareaFromQuill);
         textarea.addEventListener('input', syncQuillFromTextarea);
         textarea.addEventListener('change', syncQuillFromTextarea);
+
+        // Keep editor in sync when the textarea is patched by Livewire without input events.
+        const valueObserver = new MutationObserver(() => {
+            syncQuillFromTextarea();
+        });
+        valueObserver.observe(textarea, {
+            childList: true,
+            characterData: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['value'],
+        });
+
+        // Hydration can complete just after Quill mount, so do a delayed pull as well.
+        setTimeout(syncQuillFromTextarea, 0);
+        setTimeout(syncQuillFromTextarea, 200);
     };
 
     const bindAll = (root) => {
@@ -455,6 +543,10 @@ const initQuillEditors = () => {
                     bindAll(node);
                 }
             });
+
+            if (mutation.removedNodes.length > 0 && mutation.target instanceof HTMLElement) {
+                bindAll(mutation.target);
+            }
         });
     });
 
@@ -462,6 +554,45 @@ const initQuillEditors = () => {
         childList: true,
         subtree: true,
     });
+
+    if (window.__adminQuillSmartLinkBound !== '1') {
+        window.__adminQuillSmartLinkBound = '1';
+        window.addEventListener('admin-quill-insert-link', (event) => {
+            const detail = event?.detail || {};
+            const url = String(detail.url || '').trim();
+            const label = String(detail.label || '').trim();
+            if (!url) {
+                return;
+            }
+
+            let quill = window.__activeAdminQuill || null;
+            if (!quill && Array.isArray(window.__adminQuillEditors) && window.__adminQuillEditors.length > 0) {
+                quill = window.__adminQuillEditors[0];
+            }
+            if (!quill) {
+                return;
+            }
+
+            let range = quill.getSelection();
+            if (!range && quill.__lastRange) {
+                range = quill.__lastRange;
+                quill.setSelection(range.index, range.length || 0, 'silent');
+            }
+            if (!range) {
+                return;
+            }
+
+            if (range.length > 0) {
+                quill.formatText(range.index, range.length, 'link', url, 'user');
+                quill.setSelection(range.index + range.length, 0, 'silent');
+                return;
+            }
+
+            const text = label !== '' ? label : url;
+            quill.insertText(range.index, text, 'link', url, 'user');
+            quill.setSelection(range.index + text.length, 0, 'silent');
+        });
+    }
 };
 
 const initMediaImageEditor = () => {
@@ -902,6 +1033,19 @@ const initAceInline = () => {
 
     const selector = 'textarea[data-ace-inline]';
 
+    const readTextareaValue = (textarea) => {
+        if (!(textarea instanceof HTMLTextAreaElement)) {
+            return '';
+        }
+
+        if ((textarea.value ?? '') !== '') {
+            return textarea.value;
+        }
+
+        // Livewire can patch textarea contents without firing input/change.
+        return textarea.textContent || '';
+    };
+
     const bindElement = (textarea) => {
         if (!(textarea instanceof HTMLTextAreaElement)) {
             return;
@@ -956,7 +1100,7 @@ const initAceInline = () => {
                 return;
             }
 
-            const value = textarea.value || '';
+            const value = readTextareaValue(textarea);
             if (editor.getValue() === value) {
                 return;
             }
@@ -968,6 +1112,17 @@ const initAceInline = () => {
 
         textarea.addEventListener('input', syncEditorFromTextarea);
         textarea.addEventListener('change', syncEditorFromTextarea);
+
+        const valueObserver = new MutationObserver(() => {
+            syncEditorFromTextarea();
+        });
+        valueObserver.observe(textarea, {
+            childList: true,
+            characterData: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['value'],
+        });
 
         loadAce()
             .then((ace) => {
@@ -983,9 +1138,13 @@ const initAceInline = () => {
                     enableLiveAutocompletion: true,
                 });
                 editor.session.setUseWorker(false);
-                editor.setValue(textarea.value || '', -1);
+                editor.setValue(readTextareaValue(textarea), -1);
                 editor.session.on('change', scheduleSyncTextarea);
                 editor.on('blur', syncTextareaFromEditor);
+
+                // Hydration can finish right after mount.
+                setTimeout(syncEditorFromTextarea, 0);
+                setTimeout(syncEditorFromTextarea, 200);
             })
             .catch((error) => {
                 console.error('Failed to initialize inline Ace editor', error);

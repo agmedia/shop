@@ -103,11 +103,11 @@ class Manager extends Component
                 $this->issueUserId = '';
             }
 
-            $this->dispatch('notify', type: 'warning', message: sprintf('API disabled for %s. Revoked %d token(s).', $user->email, $revoked));
+            $this->dispatch('notify', type: 'warning', message: __('API disabled for :email. Revoked :count token(s).', ['email' => $user->email, 'count' => $revoked]));
             return;
         }
 
-        $this->dispatch('notify', type: 'success', message: sprintf('API enabled for %s.', $user->email));
+        $this->dispatch('notify', type: 'success', message: __('API enabled for :email.', ['email' => $user->email]));
     }
 
     public function prepareIssueToken(int $userId): void
@@ -117,14 +117,14 @@ class Manager extends Component
         $user = User::query()->findOrFail($userId);
 
         if (! (bool) $user->api_access_enabled) {
-            $this->dispatch('notify', type: 'warning', message: 'Enable API access for this user before issuing token.');
+            $this->dispatch('notify', type: 'warning', message: __('Enable API access for this user before issuing token.'));
             return;
         }
 
         $this->issueUserId = (string) $user->id;
         $this->tokenUserFilter = (string) $user->id;
         $this->resetPage(pageName: self::TOKENS_PAGE_NAME);
-        $this->dispatch('notify', type: 'info', message: sprintf('Ready to issue token for %s.', $user->email));
+        $this->dispatch('notify', type: 'info', message: __('Ready to issue token for :email.', ['email' => $user->email]));
     }
 
     public function revokeToken(int $tokenId): void
@@ -137,7 +137,7 @@ class Manager extends Component
 
         $token->delete();
 
-        $this->dispatch('notify', type: 'success', message: 'API token revoked.');
+        $this->dispatch('notify', type: 'success', message: __('API token revoked.'));
     }
 
     public function revokeAllTokensForUser(int $userId): void
@@ -148,7 +148,7 @@ class Manager extends Component
         $count = $user->tokens()->count();
         $user->tokens()->delete();
 
-        $this->dispatch('notify', type: 'warning', message: sprintf('Revoked %d token(s) for %s.', $count, $user->email));
+        $this->dispatch('notify', type: 'warning', message: __('Revoked :count token(s) for :email.', ['count' => $count, 'email' => $user->email]));
     }
 
     public function issueToken(): void
@@ -160,7 +160,7 @@ class Manager extends Component
         $user = User::query()->findOrFail((int) $validated['issueUserId']);
 
         if (! (bool) $user->api_access_enabled) {
-            $this->addError('issueUserId', 'Selected user has API access disabled.');
+            $this->addError('issueUserId', __('Selected user has API access disabled.'));
             return;
         }
 
@@ -190,7 +190,7 @@ class Manager extends Component
         $this->tokenName = 'wholesale-client';
         $this->expiresAt = '';
 
-        $this->dispatch('notify', type: 'success', message: 'API token created. Copy the plain token now.');
+        $this->dispatch('notify', type: 'success', message: __('API token created. Copy the plain token now.'));
     }
 
     public function render()
@@ -303,28 +303,28 @@ class Manager extends Component
     {
         return [
             'wholesale.read' => [
-                'title' => 'Wholesale API Access (global)',
-                'description' => 'Global gate for wholesale endpoints.',
+                'title' => __('Wholesale API Access (global)'),
+                'description' => __('Global gate for wholesale endpoints.'),
             ],
             'products.read' => [
-                'title' => 'Products Read',
-                'description' => 'Read product list and single product payload.',
+                'title' => __('Products Read'),
+                'description' => __('Read product list and single product payload.'),
             ],
             'products.prices.read' => [
-                'title' => 'Product Prices Read',
-                'description' => 'Read SKU + price rows endpoint.',
+                'title' => __('Product Prices Read'),
+                'description' => __('Read SKU + price rows endpoint.'),
             ],
             'products.quantities.read' => [
-                'title' => 'Product Quantities Read',
-                'description' => 'Read SKU + stock quantity rows endpoint.',
+                'title' => __('Product Quantities Read'),
+                'description' => __('Read SKU + stock quantity rows endpoint.'),
             ],
             'manufacturers.read' => [
-                'title' => 'Manufacturers Read',
-                'description' => 'Read manufacturer list and single manufacturer payload.',
+                'title' => __('Manufacturers Read'),
+                'description' => __('Read manufacturer list and single manufacturer payload.'),
             ],
             'categories.read' => [
-                'title' => 'Categories Read',
-                'description' => 'Read category list and single category payload.',
+                'title' => __('Categories Read'),
+                'description' => __('Read category list and single category payload.'),
             ],
         ];
     }
@@ -335,9 +335,9 @@ class Manager extends Component
     private function presetCatalog(): array
     {
         return [
-            'full_wholesale' => 'Full Wholesale Read',
-            'catalog_read' => 'Catalog Read',
-            'price_stock_only' => 'Prices + Quantities',
+            'full_wholesale' => __('Full Wholesale Read'),
+            'catalog_read' => __('Catalog Read'),
+            'price_stock_only' => __('Prices + Quantities'),
         ];
     }
 

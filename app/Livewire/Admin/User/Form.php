@@ -144,7 +144,7 @@ class Form extends Component
             ->route('admin.users')
             ->with('notify', [
                 'type' => 'success',
-                'message' => 'User updated.',
+                'message' => __('User updated.'),
             ]);
     }
 

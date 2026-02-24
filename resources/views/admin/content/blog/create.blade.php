@@ -1,3 +1,3 @@
-<x-admin-layout title="Content / Blog / Create">
+<x-admin-layout :title="__('Content / Blog / Create')">
     <livewire:admin.content.blog.form />
 </x-admin-layout>

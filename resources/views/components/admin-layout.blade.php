@@ -116,16 +116,20 @@
                 border-radius: 0.75rem;
                 background: rgba(248, 250, 252, 0.84);
             }
-            .admin-form :is(input, select, textarea) {
+            .admin-form :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
                 background: #ffffff;
                 border-color: #cbd5e1;
                 transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
             }
-            .admin-form :is(input, select, textarea):focus {
+            .admin-form :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
                 border-color: #0891b2;
                 box-shadow: 0 0 0 2px rgba(8, 145, 178, 0.14);
                 background: #f8fcff;
                 outline: none;
+            }
+            .admin-form input[type="checkbox"],
+            .admin-form input[type="radio"] {
+                accent-color: #0e7490;
             }
             .admin-select {
                 appearance: none;
@@ -837,6 +841,22 @@
                 color: #0f172a;
                 line-height: 1.55;
             }
+            .admin-quill .ql-editor h1,
+            .admin-quill .ql-editor h2,
+            .admin-quill .ql-editor h3,
+            .admin-quill .ql-editor h4 {
+                margin-top: 1.2em;
+                margin-bottom: 0.55em;
+                line-height: 1.25;
+                font-weight: 700;
+            }
+            .admin-quill .ql-editor h1 { font-size: 1.75rem; }
+            .admin-quill .ql-editor h2 { font-size: 1.45rem; }
+            .admin-quill .ql-editor h3 { font-size: 1.2rem; }
+            .admin-quill .ql-editor h4 { font-size: 1.05rem; }
+            .admin-quill .ql-editor p {
+                margin-bottom: 0.7em;
+            }
             .admin-quill .ql-editor.ql-blank::before {
                 color: #94a3b8;
                 font-style: normal;
@@ -1005,8 +1025,9 @@
                     $contentFaqsActive = request()->routeIs('admin.content.faqs.*');
                     $contentCommentsActive = request()->routeIs('admin.content.comments.*');
                     $contentBlocksActive = request()->routeIs('admin.content.blocks*');
+                    $contentNavigationActive = request()->routeIs('admin.content.navigation*');
                     $contentSlotsActive = request()->routeIs('admin.content.slots*');
-                    $contentOpen = $contentBlogActive || $contentPagesActive || $contentFaqsActive || $contentCommentsActive || $contentBlocksActive || $contentSlotsActive;
+                    $contentOpen = $contentBlogActive || $contentPagesActive || $contentFaqsActive || $contentCommentsActive || $contentBlocksActive || $contentNavigationActive || $contentSlotsActive;
                     $settingsOpen = request()->routeIs('admin.settings.*');
                     $settingsLocalOpen = request()->routeIs('admin.settings.local.*');
                     $settingsSystemOpen = request()->routeIs('admin.settings.system.*');
@@ -1015,6 +1036,10 @@
                     $canManageRuntimeTools = auth()->user() && (
                         auth()->user()->isA('superadmin')
                         || auth()->user()->can('settings.system.runtime.manage')
+                    );
+                    $canManageStoreSettings = auth()->user() && (
+                        auth()->user()->isA('superadmin')
+                        || auth()->user()->can('settings.system.store.manage')
                     );
                     $canManageApiSettings = auth()->user() && (
                         auth()->user()->isA('superadmin')
@@ -1176,7 +1201,7 @@
                                 <circle cx="6" cy="6" r="3.5" stroke="currentColor" stroke-width="1.4" />
                                 <rect x="10.5" y="10.5" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.4" />
                             </svg>
-                            <span>Dashboard</span>
+                            <span>{{ __('admin.layout.menu.dashboard') }}</span>
                         </span>
                     </a>
 
@@ -1189,7 +1214,7 @@
                                     <rect x="3.5" y="11" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.4" />
                                     <rect x="11" y="11" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.4" />
                                 </svg>
-                                <span>Catalog</span>
+                                <span>{{ __('admin.layout.menu.catalog') }}</span>
                             </span>
                         </summary>
                         <div class="ml-3 mt-1 space-y-1 border-l border-slate-200 pl-4">
@@ -1199,7 +1224,7 @@
                             >
                                 <span class="flex items-center gap-2">
                                     <span class="sidebar-dot"></span>
-                                    <span>Categories</span>
+                                    <span>{{ __('admin.layout.menu.categories') }}</span>
                                 </span>
                             </a>
                             <a
@@ -1208,7 +1233,7 @@
                             >
                                 <span class="flex items-center gap-2">
                                     <span class="sidebar-dot"></span>
-                                    <span>Products</span>
+                                    <span>{{ __('admin.layout.menu.products') }}</span>
                                 </span>
                             </a>
                             @if ($catalogUseAttributes)
@@ -1218,7 +1243,7 @@
                                 >
                                     <span class="flex items-center gap-2">
                                         <span class="sidebar-dot"></span>
-                                        <span>Attributes</span>
+                                        <span>{{ __('admin.layout.menu.attributes') }}</span>
                                     </span>
                                 </a>
                             @endif
@@ -1229,7 +1254,7 @@
                                 >
                                     <span class="flex items-center gap-2">
                                         <span class="sidebar-dot"></span>
-                                        <span>Options</span>
+                                        <span>{{ __('admin.layout.menu.options') }}</span>
                                     </span>
                                 </a>
                             @endif
@@ -1240,7 +1265,7 @@
                                 >
                                     <span class="flex items-center gap-2">
                                         <span class="sidebar-dot"></span>
-                                        <span>Manufacturers</span>
+                                        <span>{{ __('admin.layout.menu.manufacturers') }}</span>
                                     </span>
                                 </a>
                             @endif
@@ -1251,7 +1276,7 @@
                                 >
                                     <span class="flex items-center gap-2">
                                         <span class="sidebar-dot"></span>
-                                        <span>Actions & Discounts</span>
+                                        <span>{{ __('admin.layout.menu.actions_discounts') }}</span>
                                     </span>
                                 </a>
                             @endif
@@ -1265,7 +1290,7 @@
                                     <rect x="3.5" y="3.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.4" />
                                     <path d="M6.5 6.8h7M6.5 10h7M6.5 13.2h4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
                                 </svg>
-                                <span>Sales</span>
+                                <span>{{ __('admin.layout.menu.sales') }}</span>
                             </span>
                         </summary>
                         <div class="ml-3 mt-1 space-y-1 border-l border-slate-200 pl-4">
@@ -1275,7 +1300,7 @@
                             >
                                 <span class="flex items-center gap-2">
                                     <span class="sidebar-dot"></span>
-                                    <span>Orders</span>
+                                    <span>{{ __('admin.layout.menu.orders') }}</span>
                                 </span>
                             </a>
                         </div>
@@ -1288,7 +1313,7 @@
                                     <rect x="3.5" y="4" width="13" height="12" rx="2" stroke="currentColor" stroke-width="1.4" />
                                     <path d="M3.5 8.5h13M8 8.5v7.5" stroke="currentColor" stroke-width="1.4" />
                                 </svg>
-                                <span>Content</span>
+                                <span>{{ __('admin.layout.menu.content') }}</span>
                             </span>
                         </summary>
                         <div class="ml-3 mt-1 space-y-1 border-l border-slate-200 pl-4">
@@ -1299,7 +1324,7 @@
                                 >
                                     <span class="flex items-center gap-2">
                                         <span class="sidebar-dot"></span>
-                                        <span>Blog</span>
+                                        <span>{{ __('admin.layout.menu.blog') }}</span>
                                     </span>
                                 </a>
                             @endif
@@ -1309,7 +1334,7 @@
                             >
                                 <span class="flex items-center gap-2">
                                     <span class="sidebar-dot"></span>
-                                    <span>Pages</span>
+                                    <span>{{ __('admin.layout.menu.pages') }}</span>
                                 </span>
                             </a>
                             <a
@@ -1318,7 +1343,7 @@
                             >
                                 <span class="flex items-center gap-2">
                                     <span class="sidebar-dot"></span>
-                                    <span>FAQs</span>
+                                    <span>{{ __('admin.layout.menu.faqs') }}</span>
                                 </span>
                             </a>
                             <a
@@ -1327,7 +1352,7 @@
                             >
                                 <span class="flex items-center gap-2">
                                     <span class="sidebar-dot"></span>
-                                    <span>Comments</span>
+                                    <span>{{ __('admin.layout.menu.comments') }}</span>
                                 </span>
                             </a>
                             <a
@@ -1336,7 +1361,16 @@
                             >
                                 <span class="flex items-center gap-2">
                                     <span class="sidebar-dot"></span>
-                                    <span>Blocks</span>
+                                    <span>{{ __('admin.layout.menu.blocks') }}</span>
+                                </span>
+                            </a>
+                            <a
+                                href="{{ route('admin.content.navigation') }}"
+                                class="sidebar-dropdown-link block rounded-lg font-medium {{ $contentNavigationActive ? 'is-active-leaf' : 'text-slate-700 hover:bg-slate-100' }}"
+                            >
+                                <span class="flex items-center gap-2">
+                                    <span class="sidebar-dot"></span>
+                                    <span>{{ __('admin.layout.menu.navigation') }}</span>
                                 </span>
                             </a>
                         </div>
@@ -1351,7 +1385,7 @@
                                     <circle cx="12" cy="10" r="1.2" fill="currentColor" />
                                     <circle cx="9.5" cy="14.5" r="1.2" fill="currentColor" />
                                 </svg>
-                                <span>Settings</span>
+                                <span>{{ __('admin.layout.menu.settings') }}</span>
                             </span>
                         </summary>
 
@@ -1360,19 +1394,20 @@
                                 <summary class="sidebar-dropdown-summary flex cursor-pointer list-none items-center justify-between rounded-lg text-xs font-semibold [&::-webkit-details-marker]:hidden [&::marker]:content-[''] {{ $settingsLocalOpen ? 'bg-slate-200 text-slate-900' : 'text-slate-700 hover:bg-slate-100' }}">
                                     <span class="flex items-center gap-2">
                                         <span class="sidebar-branch">&gt;</span>
-                                        <span>Local</span>
+                                        <span>{{ __('admin.layout.menu.local') }}</span>
                                     </span>
                                 </summary>
                                 <div class="ml-2 mt-1 space-y-1 border-l border-slate-200 pl-2">
                                     @foreach ([
-                                        'payment-methods' => 'Payment Methods',
-                                        'shipping-methods' => 'Shipping Methods',
-                                        'geo-zones' => 'Geo Zones',
-                                        'geo-zone-countries' => 'Geo Zone Countries',
-                                        'currencies' => 'Currencies',
-                                        'tax-rates' => 'Tax Rates',
-                                        'order-statuses' => 'Order Statuses',
-                                        'languages' => 'Languages',
+                                        'payment-methods' => __('admin.layout.menu.payment_methods'),
+                                        'shipping-methods' => __('admin.layout.menu.shipping_methods'),
+                                        'geo-zones' => __('admin.layout.menu.geo_zones'),
+                                        'geo-zone-countries' => __('admin.layout.menu.geo_zone_countries'),
+                                        'regions' => __('admin.layout.menu.regions'),
+                                        'currencies' => __('admin.layout.menu.currencies'),
+                                        'tax-rates' => __('admin.layout.menu.tax_rates'),
+                                        'order-statuses' => __('admin.layout.menu.order_statuses'),
+                                        'languages' => __('admin.layout.menu.languages'),
                                     ] as $slug => $label)
                                         <a
                                             href="{{ route('admin.settings.local.resource', ['resource' => $slug]) }}"
@@ -1391,7 +1426,7 @@
                                 <summary class="sidebar-dropdown-summary flex cursor-pointer list-none items-center justify-between rounded-lg text-xs font-semibold [&::-webkit-details-marker]:hidden [&::marker]:content-[''] {{ $settingsSystemOpen ? 'bg-slate-200 text-slate-900' : 'text-slate-700 hover:bg-slate-100' }}">
                                     <span class="flex items-center gap-2">
                                         <span class="sidebar-branch">&gt;</span>
-                                        <span>System</span>
+                                        <span>{{ __('admin.layout.menu.system') }}</span>
                                     </span>
                                 </summary>
                                 <div class="ml-2 mt-1 space-y-1 border-l border-slate-200 pl-2">
@@ -1402,7 +1437,7 @@
                                         >
                                             <span class="flex items-center gap-2">
                                                 <span class="sidebar-dot"></span>
-                                                <span>Runtime Controls</span>
+                                                <span>{{ __('admin.layout.menu.runtime_controls') }}</span>
                                             </span>
                                         </a>
                                     @endif
@@ -1412,7 +1447,7 @@
                                     >
                                         <span class="flex items-center gap-2">
                                             <span class="sidebar-dot"></span>
-                                            <span>Admin Appearance Controls</span>
+                                            <span>{{ __('admin.layout.menu.admin_appearance_controls') }}</span>
                                         </span>
                                     </a>
                                     @if ($canManageCatalogFeatures)
@@ -1422,7 +1457,18 @@
                                         >
                                             <span class="flex items-center gap-2">
                                                 <span class="sidebar-dot"></span>
-                                                <span>Catalog Features</span>
+                                                <span>{{ __('admin.layout.menu.catalog_features') }}</span>
+                                            </span>
+                                        </a>
+                                    @endif
+                                    @if ($canManageStoreSettings)
+                                        <a
+                                            href="{{ route('admin.settings.system.store-settings') }}"
+                                            class="sidebar-dropdown-link block rounded-lg font-medium {{ request()->routeIs('admin.settings.system.store-settings') ? 'is-active-leaf' : 'text-slate-700 hover:bg-slate-100' }}"
+                                        >
+                                            <span class="flex items-center gap-2">
+                                                <span class="sidebar-dot"></span>
+                                                <span>{{ __('admin.layout.menu.store_settings') }}</span>
                                             </span>
                                         </a>
                                     @endif
@@ -1436,7 +1482,7 @@
                                 >
                                     <span class="flex items-center gap-2">
                                         <span class="sidebar-dot"></span>
-                                        <span>API</span>
+                                        <span>{{ __('admin.layout.menu.api') }}</span>
                                     </span>
                                 </a>
                             @endif
@@ -1447,7 +1493,7 @@
                             >
                                 <span class="flex items-center gap-2">
                                     <span class="sidebar-dot"></span>
-                                    <span>User</span>
+                                    <span>{{ __('admin.layout.menu.user') }}</span>
                                 </span>
                             </a>
                         </div>
@@ -1463,7 +1509,7 @@
                                         <path d="M3.8 15c.65-1.8 2.28-2.8 4.2-2.8 1.85 0 3.45.92 4.15 2.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
                                         <path d="M12.1 15c.5-1.2 1.5-1.95 2.7-2.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
                                     </svg>
-                                    <span>Users</span>
+                                    <span>{{ __('admin.layout.menu.users') }}</span>
                                 </span>
                             </summary>
                             <div class="ml-3 mt-1 space-y-1 border-l border-slate-200 pl-4">
@@ -1474,7 +1520,7 @@
                                     >
                                         <span class="flex items-center gap-2">
                                             <span class="sidebar-dot"></span>
-                                            <span>Users List</span>
+                                            <span>{{ __('admin.layout.menu.users_list') }}</span>
                                         </span>
                                     </a>
                                 @endif
@@ -1485,7 +1531,7 @@
                                     >
                                         <span class="flex items-center gap-2">
                                             <span class="sidebar-dot"></span>
-                                            <span>Groups</span>
+                                            <span>{{ __('admin.layout.menu.groups') }}</span>
                                         </span>
                                     </a>
                                 @endif
@@ -1496,7 +1542,7 @@
                                     >
                                         <span class="flex items-center gap-2">
                                             <span class="sidebar-dot"></span>
-                                            <span>Roles &amp; Abilities</span>
+                                            <span>{{ __('admin.layout.menu.roles_abilities') }}</span>
                                         </span>
                                     </a>
                                 @endif
@@ -1507,7 +1553,7 @@
                                     >
                                         <span class="flex items-center gap-2">
                                             <span class="sidebar-dot"></span>
-                                            <span>Activity</span>
+                                            <span>{{ __('admin.layout.menu.activity') }}</span>
                                         </span>
                                     </a>
                                 @endif
@@ -1518,7 +1564,7 @@
                                     >
                                         <span class="flex items-center gap-2">
                                             <span class="sidebar-dot"></span>
-                                            <span>Loyalty</span>
+                                            <span>{{ __('admin.layout.menu.loyalty') }}</span>
                                         </span>
                                     </a>
                                 @endif
@@ -1531,16 +1577,30 @@
             <div class="admin-main flex min-w-0 flex-1 flex-col">
                 <header class="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6">
                     <div class="text-sm font-semibold text-slate-800 md:text-base">
-                        {{ $title ?? 'Admin' }}
+                        {{ $title ?? __('admin.layout.admin') }}
                     </div>
 
                     <div class="flex items-center gap-3">
+                        @php
+                            $activeAdminLocale = strtolower((string) app()->getLocale());
+                            $adminLocaleOptions = ['hr', 'en'];
+                        @endphp
+                        <div class="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 text-xs font-semibold uppercase tracking-[0.1em] text-slate-600">
+                            @foreach ($adminLocaleOptions as $localeCode)
+                                <a
+                                    href="{{ request()->fullUrlWithQuery(['admin_locale' => $localeCode]) }}"
+                                    class="rounded-md px-2.5 py-1 {{ $activeAdminLocale === $localeCode ? 'bg-slate-900 text-white' : 'hover:bg-slate-100' }}"
+                                >
+                                    {{ $localeCode }}
+                                </a>
+                            @endforeach
+                        </div>
                         <button
                             type="button"
                             id="admin-ai-open"
                             class="admin-ai-button"
-                            aria-label="Open AI assistant"
-                            title="AI assistant (press Space twice)"
+                            aria-label="{{ __('admin.layout.assistant.open_ai') }}"
+                            title="{{ __('admin.layout.assistant.open_ai') }}"
                         >
                             <span>AI</span>
                         </button>
@@ -1548,8 +1608,8 @@
                             type="button"
                             id="admin-help-open"
                             class="admin-help-button"
-                            aria-label="Open page help"
-                            title="Page help"
+                            aria-label="{{ __('admin.layout.assistant.open_help') }}"
+                            title="{{ __('admin.layout.assistant.help') }}"
                         >
                             ?
                         </button>
@@ -1570,7 +1630,7 @@
                             </summary>
                             <div class="absolute right-0 z-20 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
                                 <div class="border-b border-slate-200 bg-slate-50 px-4 py-3">
-                                    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Quick Actions</p>
+                                    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('admin.layout.quick_actions') }}</p>
                                     <p class="mt-1 text-sm font-medium text-slate-800">{{ auth()->user()->name }}</p>
                                 </div>
                                 <div class="p-2">
@@ -1578,7 +1638,7 @@
                                     href="{{ route('admin.profile') }}"
                                     class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
                                 >
-                                    My Profile
+                                    {{ __('admin.layout.profile') }}
                                 </a>
 
                                 <a
@@ -1586,14 +1646,23 @@
                                     target="_blank"
                                     class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
                                 >
-                                    Open Frontend
+                                    {{ __('admin.layout.open_frontend') }}
                                 </a>
 
                                 @if ($canManageRuntimeTools)
+                                    @php
+                                        $maintenanceOn = app()->isDownForMaintenance();
+                                    @endphp
+
+                                    <div class="mb-2 rounded-lg border px-3 py-2 text-sm {{ $maintenanceOn ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700' }}">
+                                        <span class="font-semibold">Maintenance:</span>
+                                        <span>{{ $maintenanceOn ? 'ON' : 'OFF' }}</span>
+                                    </div>
+
                                     <form method="POST" action="{{ route('admin.system.cache.clear') }}">
                                         @csrf
                                         <button type="submit" class="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100">
-                                            Clean Cache
+                                            {{ __('admin.layout.clean_cache') }}
                                         </button>
                                     </form>
 
@@ -1602,13 +1671,13 @@
                                     <form method="POST" action="{{ route('admin.system.maintenance.on') }}">
                                         @csrf
                                         <button type="submit" class="w-full rounded-lg px-3 py-2 text-left text-sm text-rose-700 hover:bg-rose-50">
-                                            Maintenance ON
+                                            {{ __('admin.layout.maintenance_on') }}
                                         </button>
                                     </form>
                                     <form method="POST" action="{{ route('admin.system.maintenance.off') }}">
                                         @csrf
                                         <button type="submit" class="w-full rounded-lg px-3 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50">
-                                            Maintenance OFF
+                                            {{ __('admin.layout.maintenance_off') }}
                                         </button>
                                     </form>
                                 @endif
@@ -1618,7 +1687,7 @@
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
                                     <button type="submit" class="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100">
-                                        Log out
+                                        {{ __('admin.layout.logout') }}
                                     </button>
                                 </form>
                                 </div>
@@ -1641,7 +1710,7 @@
             <div class="admin-help-modal" role="dialog" aria-modal="true" aria-labelledby="admin-help-title">
                 <div class="admin-help-modal-header flex items-start justify-between gap-3">
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Quick Manual</p>
+                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('admin.layout.quick_manual') }}</p>
                         <h2 id="admin-help-title" class="mt-1 text-base font-semibold tracking-tight text-slate-900"></h2>
                     </div>
                     <button type="button" id="admin-help-close" class="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100">Close</button>

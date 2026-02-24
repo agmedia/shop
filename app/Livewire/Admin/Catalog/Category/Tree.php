@@ -102,7 +102,7 @@ class Tree extends Component
 
         $category->up();
 
-        $this->dispatch('notify', type: 'info', message: 'Category moved up.');
+        $this->dispatch('notify', type: 'info', message: __('Category moved up.'));
     }
 
     public function moveDown(int $id): void
@@ -113,7 +113,7 @@ class Tree extends Component
 
         $category->down();
 
-        $this->dispatch('notify', type: 'info', message: 'Category moved down.');
+        $this->dispatch('notify', type: 'info', message: __('Category moved down.'));
     }
 
     public function delete(int $id): void
@@ -123,7 +123,7 @@ class Tree extends Component
             ->findOrFail($id);
 
         if ($category->children()->exists()) {
-            $this->dispatch('notify', type: 'warning', message: 'Delete/move child categories first.');
+            $this->dispatch('notify', type: 'warning', message: __('Delete/move child categories first.'));
             return;
         }
 
@@ -137,7 +137,7 @@ class Tree extends Component
         $category->delete();
         $this->expanded = array_values(array_diff($this->expanded, [$id]));
 
-        $this->dispatch('notify', type: 'success', message: 'Category deleted.');
+        $this->dispatch('notify', type: 'success', message: __('Category deleted.'));
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Models\Catalog\Category\Category;
 use App\Models\Catalog\Manufacturer\Manufacturer;
 use App\Models\Catalog\Product\Product;
 use App\Models\Catalog\Product\ProductTranslation;
+use App\Models\Settings\Local\TaxRate;
 use App\Services\Catalog\CatalogFeatureService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,8 @@ use Livewire\Component;
 class Form extends Component
 {
     public ?int $productId = null;
+    public string $activeTab = 'content';
+    public string $categorySearch = '';
     public array $attributeSelections = [];
     public string $attributeGroupView = 'all';
     public bool $attributeShowAssignedOnly = false;
@@ -26,6 +29,7 @@ class Form extends Component
         'sku' => '',
         'is_active' => true,
         'manufacturer_id' => null,
+        'tax_rate_id' => null,
         'base_price' => 0,
         'stock_qty' => 0,
         'payload_text' => '',
@@ -48,6 +52,8 @@ class Form extends Component
         if ($productId) {
             $this->productId = $productId;
             $this->loadProduct();
+        } else {
+            $this->form['tax_rate_id'] = $this->defaultTaxRateId();
         }
     }
 
@@ -62,6 +68,15 @@ class Form extends Component
         if ($name !== '') {
             $this->form['slug'] = Str::slug($name);
         }
+    }
+
+    public function setTab(string $tab): void
+    {
+        if (!in_array($tab, ['content', 'seo', 'media', 'catalog'], true)) {
+            return;
+        }
+
+        $this->activeTab = $tab;
     }
 
     public function save()
@@ -95,6 +110,7 @@ class Form extends Component
                 'code' => trim((string) $validated['form']['code']),
                 'sku' => trim((string) $validated['form']['sku']) !== '' ? trim((string) $validated['form']['sku']) : null,
                 'is_active' => (bool) $validated['form']['is_active'],
+                'tax_rate_id' => (int) (($validated['form']['tax_rate_id'] ?? null) ?: $this->defaultTaxRateId()),
                 'base_price' => (float) $validated['form']['base_price'],
                 'stock_qty' => (int) $validated['form']['stock_qty'],
                 'payload' => $payload,
@@ -157,13 +173,20 @@ class Form extends Component
                 ->log('Product saved');
         });
 
-        $message = $wasEditing ? 'Product updated.' : 'Product created.';
+        if ($wasEditing) {
+            return redirect()
+                ->route('admin.products.edit', ['product' => $this->productId, 'locale' => $this->form['locale']])
+                ->with('notify', [
+                    'type' => 'success',
+                    'message' => __('Product updated.'),
+                ]);
+        }
 
         return redirect()
-            ->route('admin.products', ['locale' => $this->form['locale']])
+            ->route('admin.products.edit', ['product' => $this->productId, 'locale' => $this->form['locale']])
             ->with('notify', [
                 'type' => 'success',
-                'message' => $message,
+                'message' => __('Product created. Now upload product images.'),
             ]);
     }
 
@@ -184,6 +207,109 @@ class Form extends Component
                     ->where('locale', $this->form['locale']),
             ])
             ->get();
+    }
+
+    public function getFilteredCategoryOptionsProperty(): Collection
+    {
+        $search = Str::lower(trim($this->categorySearch));
+        $selected = collect($this->form['category_ids'] ?? [])->map(fn ($id) => (int) $id)->filter()->all();
+        $labels = $this->categoryLabelMap;
+
+        return $this->categoryOptions
+            ->reject(fn ($category) => in_array((int) $category->id, $selected, true))
+            ->map(function ($category) use ($labels): array {
+                $id = (int) $category->id;
+
+                return [
+                    'id' => $id,
+                    'label' => (string) ($labels[$id] ?? ('#'.$id)),
+                ];
+            })
+            ->filter(function (array $row) use ($search): bool {
+                if ($search === '') {
+                    return true;
+                }
+
+                return Str::contains(Str::lower($row['label']), $search);
+            })
+            ->values()
+            ->take(120);
+    }
+
+    public function getSelectedCategoryRowsProperty(): Collection
+    {
+        $labels = $this->categoryLabelMap;
+
+        return collect($this->form['category_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values()
+            ->map(function (int $id) use ($labels): array {
+                return ['id' => $id, 'label' => (string) ($labels[$id] ?? ('#'.$id))];
+            });
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getCategoryLabelMapProperty(): array
+    {
+        $categories = $this->categoryOptions;
+        $nameById = $categories->mapWithKeys(function ($category): array {
+            $name = (string) ($category->translations->first()?->name ?? ($category->code ?: ('#'.$category->id)));
+
+            return [(int) $category->id => $name];
+        });
+        $byId = $categories->keyBy(fn ($category): int => (int) $category->id);
+        $labels = [];
+
+        $build = function (int $id) use (&$build, &$labels, $byId, $nameById): string {
+            if (isset($labels[$id])) {
+                return $labels[$id];
+            }
+
+            $current = $byId->get($id);
+            if ($current === null) {
+                return '#'.$id;
+            }
+
+            $name = (string) ($nameById[$id] ?? ('#'.$id));
+            $parentId = (int) ($current->parent_id ?? 0);
+
+            if ($parentId > 0 && $byId->has($parentId)) {
+                $labels[$id] = $build($parentId).' > '.$name;
+            } else {
+                $labels[$id] = $name;
+            }
+
+            return $labels[$id];
+        };
+
+        foreach ($byId->keys() as $id) {
+            $build((int) $id);
+        }
+
+        return $labels;
+    }
+
+    public function addCategory(int $categoryId): void
+    {
+        $ids = collect($this->form['category_ids'] ?? [])->map(fn ($id) => (int) $id)->filter()->values();
+        if ($ids->contains($categoryId)) {
+            return;
+        }
+
+        $ids->push($categoryId);
+        $this->form['category_ids'] = $ids->all();
+    }
+
+    public function removeCategory(int $categoryId): void
+    {
+        $this->form['category_ids'] = collect($this->form['category_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->reject(fn ($id) => $id === $categoryId)
+            ->values()
+            ->all();
     }
 
     public function render()
@@ -215,6 +341,7 @@ class Form extends Component
                 Rule::unique('products', 'sku')->ignore($this->productId),
             ],
             'form.is_active' => ['boolean'],
+            'form.tax_rate_id' => ['nullable', 'integer', Rule::exists('tax_rates', 'id')],
             'form.base_price' => ['required', 'numeric', 'min:0'],
             'form.stock_qty' => ['required', 'integer', 'min:0'],
             'form.payload_text' => ['nullable', 'string'],
@@ -287,6 +414,7 @@ class Form extends Component
         $this->form['code'] = $product->code;
         $this->form['sku'] = $product->sku ?? '';
         $this->form['is_active'] = (bool) $product->is_active;
+        $this->form['tax_rate_id'] = $product->tax_rate_id ? (int) $product->tax_rate_id : $this->defaultTaxRateId();
         $this->form['base_price'] = (float) $product->base_price;
         $this->form['stock_qty'] = (int) $product->stock_qty;
         if ($this->useManufacturers()) {
@@ -326,6 +454,16 @@ class Form extends Component
             ->with([
                 'translations' => fn ($q) => $q->where('locale', $this->form['locale']),
             ])
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+    }
+
+    public function getTaxRateOptionsProperty(): Collection
+    {
+        return TaxRate::query()
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -484,14 +622,14 @@ class Form extends Component
         $decoded = json_decode($value, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->addError($field, 'Invalid JSON payload.');
-            $this->dispatch('notify', type: 'danger', message: 'Invalid JSON payload.');
+            $this->addError($field, __('Invalid JSON payload.'));
+            $this->dispatch('notify', type: 'danger', message: __('Invalid JSON payload.'));
             return false;
         }
 
         if (!is_array($decoded)) {
-            $this->addError($field, 'JSON payload must decode to object/array.');
-            $this->dispatch('notify', type: 'danger', message: 'JSON payload must decode to object/array.');
+            $this->addError($field, __('JSON payload must decode to object/array.'));
+            $this->dispatch('notify', type: 'danger', message: __('JSON payload must decode to object/array.'));
             return false;
         }
 
@@ -525,8 +663,8 @@ class Form extends Component
             ->get(['id', 'group_code', 'type']);
 
         if ($rows->count() !== count($ids)) {
-            $this->addError('form.attribute_ids', 'Invalid attribute selection.');
-            $this->dispatch('notify', type: 'danger', message: 'Invalid attribute selection.');
+            $this->addError('form.attribute_ids', __('Invalid attribute selection.'));
+            $this->dispatch('notify', type: 'danger', message: __('Invalid attribute selection.'));
             return false;
         }
 
@@ -535,13 +673,23 @@ class Form extends Component
         foreach ($byGroup as $groupCode => $groupRows) {
             $type = (string) ($groupRows->first()->type ?? Attribute::TYPE_SELECT);
             if ($type === Attribute::TYPE_SELECT && $groupRows->count() > 1) {
-                $this->addError('form.attribute_ids', 'Only one value is allowed for group "'.$groupCode.'".');
-                $this->dispatch('notify', type: 'danger', message: 'Only one value is allowed for select-type attribute groups.');
+                $this->addError('form.attribute_ids', __('Only one value is allowed for group ":group".', ['group' => $groupCode]));
+                $this->dispatch('notify', type: 'danger', message: __('Only one value is allowed for select-type attribute groups.'));
                 return false;
             }
         }
 
         return $ids;
+    }
+
+    private function defaultTaxRateId(): ?int
+    {
+        return TaxRate::query()
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->value('id');
     }
 
     /**
@@ -585,8 +733,8 @@ class Form extends Component
             ->get(['id', 'group_code', 'type']);
 
         if ($rows->count() !== count($allIds)) {
-            $this->addError('form.attribute_ids', 'Invalid attribute selection.');
-            $this->dispatch('notify', type: 'danger', message: 'Invalid attribute selection.');
+            $this->addError('form.attribute_ids', __('Invalid attribute selection.'));
+            $this->dispatch('notify', type: 'danger', message: __('Invalid attribute selection.'));
             return false;
         }
 
@@ -600,14 +748,14 @@ class Form extends Component
                 $row = $byId->get($id);
 
                 if (!$row) {
-                    $this->addError('form.attribute_ids', 'Invalid attribute selection.');
-                    $this->dispatch('notify', type: 'danger', message: 'Invalid attribute selection.');
+                    $this->addError('form.attribute_ids', __('Invalid attribute selection.'));
+                    $this->dispatch('notify', type: 'danger', message: __('Invalid attribute selection.'));
                     return false;
                 }
 
                 if ((string) $row->group_code !== $groupCode) {
-                    $this->addError('attributeSelections.'.$groupCode, 'Selected value does not belong to this group.');
-                    $this->dispatch('notify', type: 'danger', message: 'Attribute group/value mismatch detected.');
+                    $this->addError('attributeSelections.'.$groupCode, __('Selected value does not belong to this group.'));
+                    $this->dispatch('notify', type: 'danger', message: __('Attribute group/value mismatch detected.'));
                     return false;
                 }
 
@@ -615,8 +763,8 @@ class Form extends Component
             }
 
             if (($groupType ?? Attribute::TYPE_SELECT) === Attribute::TYPE_SELECT && count($ids) > 1) {
-                $this->addError('attributeSelections.'.$groupCode, 'Only one value can be selected for this group.');
-                $this->dispatch('notify', type: 'danger', message: 'Only one value is allowed for select-type attribute groups.');
+                $this->addError('attributeSelections.'.$groupCode, __('Only one value can be selected for this group.'));
+                $this->dispatch('notify', type: 'danger', message: __('Only one value is allowed for select-type attribute groups.'));
                 return false;
             }
         }

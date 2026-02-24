@@ -1,4 +1,4 @@
-<x-admin-layout title="Content / Comments">
+<x-admin-layout :title="__('Content / Comments')">
     <livewire:admin.content.comment.manager />
 </x-admin-layout>
 

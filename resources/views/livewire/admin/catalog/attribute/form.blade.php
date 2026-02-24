@@ -2,48 +2,55 @@
     <div class="admin-panel admin-search-panel p-6">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Catalog / Attributes</p>
-                <h1 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{{ $isEdit ? 'Edit Attribute' : 'Create Attribute' }}</h1>
-                <p class="mt-2 text-sm text-slate-600">Grouped attribute values used for product filters and specification display.</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{{ __('Catalog / Attributes') }}</p>
+                <h1 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{{ $isEdit ? __('Edit Attribute') : __('Create Attribute') }}</h1>
+                <p class="mt-2 text-sm text-slate-600">{{ __('Grouped attribute values used for product filters and specification display.') }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <span class="admin-chip">Locale: {{ $form['locale'] }}</span>
-                <button type="button" wire:click="backToList" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Back to List</button>
+                <span class="admin-chip">{{ __('Locale:') }} {{ $form['locale'] }}</span>
+                <button type="button" wire:click="backToList" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">{{ __('Back to List') }}</button>
             </div>
         </div>
     </div>
 
     <form wire:submit="save" class="space-y-6">
         <div class="admin-panel admin-form-panel p-6">
-            <p class="admin-section-title">Core Data</p>
+            <p class="admin-section-title">{{ __('Core Data') }}</p>
 
             <div class="mt-4 grid gap-3" style="grid-template-columns: repeat(12, minmax(0, 1fr));">
                 <div style="grid-column: span 3;">
-                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Code</label>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Code') }}</label>
                     <input type="text" wire:model="form.code" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-mono" />
                     @error('form.code') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                 </div>
                 <div style="grid-column: span 3;">
-                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Group Code</label>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Group Code') }}</label>
                     <input type="text" wire:model="form.group_code" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-mono" />
                     @error('form.group_code') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                 </div>
                 <div style="grid-column: span 2;">
-                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Type</label>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Type') }}</label>
                     <select wire:model="form.type" data-tom-select data-tom-no-search="1" class="admin-select w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
                         @foreach ($this->typeOptions as $type)
-                            <option value="{{ $type }}">{{ str($type)->replace('_', ' ')->title() }}</option>
+                            @php
+                                $typeLabel = match ($type) {
+                                    'select' => __('Select'),
+                                    'multi' => __('Multi'),
+                                    default => str($type)->replace('_', ' ')->title()->toString(),
+                                };
+                            @endphp
+                            <option value="{{ $type }}">{{ $typeLabel }}</option>
                         @endforeach
                     </select>
                     @error('form.type') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                 </div>
                 <div style="grid-column: span 2;">
-                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Sort Order</label>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Sort Order') }}</label>
                     <input type="number" min="0" wire:model="form.sort_order" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
                     @error('form.sort_order') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                 </div>
                 <div style="grid-column: span 2;">
-                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Locale</label>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('admin.common.locale') }}</label>
                     <select wire:model.live="form.locale" data-tom-select data-tom-no-search="1" class="admin-select w-full rounded-xl border border-slate-300 px-3 py-2 text-sm lowercase">
                           @foreach ($adminLocaleOptions as $localeOption)
                                 <option value="{{ $localeOption }}">{{ $localeOption }}</option>
@@ -61,26 +68,26 @@
                     data-state="{{ $form['is_active'] ? 'on' : 'off' }}"
                     role="switch"
                     aria-checked="{{ $form['is_active'] ? 'true' : 'false' }}"
-                    aria-label="Toggle attribute active state"
+                    aria-label="{{ __('Toggle attribute active state') }}"
                 >
                     <span class="admin-switch-track"><span class="admin-switch-thumb"></span></span>
-                    <span class="admin-switch-label">{{ $form['is_active'] ? 'Active' : 'Inactive' }}</span>
+                    <span class="admin-switch-label">{{ $form['is_active'] ? __('admin.common.active') : __('admin.common.inactive') }}</span>
                 </button>
             </div>
         </div>
 
         <div class="grid gap-6 xl:grid-cols-2">
             <div class="admin-panel admin-form-panel p-6">
-                <p class="admin-section-title">Content</p>
+                <p class="admin-section-title">{{ __('Content') }}</p>
 
                 <div class="mt-4 grid gap-3 md:grid-cols-2">
                     <div>
-                        <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Group Name</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Group Name') }}</label>
                         <input type="text" wire:model="form.group_name" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
                         @error('form.group_name') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Name</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Name') }}</label>
                         <input type="text" wire:model="form.name" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
                         @error('form.name') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
@@ -88,30 +95,30 @@
 
                 <div class="mt-3">
                     <div class="flex items-center justify-between">
-                        <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Slug</label>
-                        <button type="button" wire:click="generateSlug" class="text-xs font-semibold text-slate-600 hover:text-slate-900">Generate</button>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Slug') }}</label>
+                        <button type="button" wire:click="generateSlug" class="text-xs font-semibold text-slate-600 hover:text-slate-900">{{ __('Generate') }}</button>
                     </div>
                     <input type="text" wire:model="form.slug" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm lowercase" />
                     @error('form.slug') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                 </div>
 
                 <div class="mt-3">
-                    <label for="attribute-description-html" class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Description</label>
-                    <textarea id="attribute-description-html" rows="6" wire:model="form.description" data-quill-editor class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"></textarea>
+                    <label for="attribute-description-html" class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Description') }}</label>
+                    <textarea id="attribute-description-html" rows="6" wire:model.live.debounce.300ms="form.description" data-quill-editor class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"></textarea>
                 </div>
             </div>
 
             <div class="admin-panel admin-form-panel p-6">
-                <p class="admin-section-title">Payload</p>
+                <p class="admin-section-title">{{ __('Payload') }}</p>
 
                 <div class="mt-4">
-                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Attribute Payload JSON</label>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Attribute Payload JSON') }}</label>
                     <textarea rows="8" wire:model="form.payload_text" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs"></textarea>
                     @error('form.payload_text') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                 </div>
 
                 <div class="mt-3">
-                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Translation Payload JSON</label>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Translation Payload JSON') }}</label>
                     <textarea rows="8" wire:model="form.translation_payload_text" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs"></textarea>
                     @error('form.translation_payload_text') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                 </div>
@@ -120,10 +127,10 @@
 
         <div class="admin-form-actions flex items-center gap-2 pt-2">
             <button type="submit" class="rounded-xl bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800">
-                {{ $isEdit ? 'Update Attribute' : 'Create Attribute' }}
+                {{ $isEdit ? __('Update Attribute') : __('Create Attribute') }}
             </button>
             <button type="button" wire:click="backToList" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                Cancel
+                {{ __('Cancel') }}
             </button>
         </div>
     </form>

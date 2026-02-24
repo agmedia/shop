@@ -34,7 +34,7 @@ class AdminAppearanceControls extends Component
 
         app(SystemSettingsService::class)->putMany($validated['form']);
 
-        $this->dispatch('notify', type: 'success', message: 'Admin appearance pagination settings saved.');
+        $this->dispatch('notify', type: 'success', message: __('Admin appearance pagination settings saved.'));
     }
 
     public function resetToDefaults(): void
@@ -46,7 +46,7 @@ class AdminAppearanceControls extends Component
             $this->form[$key] = (int) ($defaults[$key] ?? $fallback);
         }
 
-        $this->dispatch('notify', type: 'info', message: 'Default values restored in form (save to persist).');
+        $this->dispatch('notify', type: 'info', message: __('Default values restored in form (save to persist).'));
     }
 
     /**

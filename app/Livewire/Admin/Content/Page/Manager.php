@@ -4,6 +4,7 @@ namespace App\Livewire\Admin\Content\Page;
 
 use App\Models\Content\Page\InfoPage;
 use App\Services\Settings\SystemSettingsService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -26,6 +27,24 @@ class Manager extends Component
 
     public function updatedLocale(): void
     {
+        $this->resetPage();
+    }
+
+    public function delete(int $pageId): void
+    {
+        $page = InfoPage::query()->find($pageId);
+        if (! $page) {
+            $this->dispatch('notify', type: 'danger', message: __('admin.content.pages.manager.notify_not_found'));
+            return;
+        }
+
+        DB::transaction(function () use ($page): void {
+            $page->categories()->detach();
+            $page->translations()->delete();
+            $page->delete();
+        });
+
+        $this->dispatch('notify', type: 'success', message: __('admin.content.pages.manager.notify_deleted'));
         $this->resetPage();
     }
 

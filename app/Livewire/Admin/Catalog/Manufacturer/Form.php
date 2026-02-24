@@ -110,7 +110,7 @@ class Form extends Component
                 ->log('Manufacturer saved');
         });
 
-        $message = $wasEditing ? 'Manufacturer updated.' : 'Manufacturer created.';
+        $message = $wasEditing ? __('Manufacturer updated.') : __('Manufacturer created.');
 
         return redirect()
             ->route('admin.manufacturers', ['locale' => $this->form['locale']])
@@ -253,14 +253,14 @@ class Form extends Component
         $decoded = json_decode($value, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->addError($field, 'Invalid JSON payload.');
-            $this->dispatch('notify', type: 'danger', message: 'Invalid JSON payload.');
+            $this->addError($field, __('Invalid JSON payload.'));
+            $this->dispatch('notify', type: 'danger', message: __('Invalid JSON payload.'));
             return false;
         }
 
         if (!is_array($decoded)) {
-            $this->addError($field, 'JSON payload must decode to object/array.');
-            $this->dispatch('notify', type: 'danger', message: 'JSON payload must decode to object/array.');
+            $this->addError($field, __('JSON payload must decode to object/array.'));
+            $this->dispatch('notify', type: 'danger', message: __('JSON payload must decode to object/array.'));
             return false;
         }
 

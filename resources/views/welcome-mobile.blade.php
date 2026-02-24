@@ -2,15 +2,17 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <title>{{ config('app.name', 'AG Shop') }} • Store</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    @include('front.partials.seo-meta')
+    @include('front.partials.schema-markup')
+    @include('front.partials.analytics')
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <link rel="stylesheet" href="{{ asset('front-theme/styles/bootstrap.css') }}">
     <link rel="stylesheet" href="{{ asset('front-theme/styles/style.css') }}">
     <link rel="stylesheet" href="{{ asset('front-theme/fonts/css/fontawesome-all.min.css') }}">
-    <link rel="manifest" href="{{ asset('front-theme/_manifest.json') }}">
+    <link rel="manifest" href="{{ route('front.manifest') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('front-theme/app/icons/icon-192x192.png') }}">
 </head>
 <body class="theme-light" data-highlight="highlight-red">
@@ -85,10 +87,10 @@
     </div>
 
     <div id="footer-bar" class="footer-bar-5">
-        <a href="/" class="active-nav"><i class="fa fa-home"></i><span>Home</span></a>
-        <a href="#categories"><i class="fa fa-th-large"></i><span>Categories</span></a>
-        <a href="#featured" class="circle-nav"><i class="fa fa-star"></i><span>Featured</span></a>
-        <a href="#" data-menu="menu-cart"><i class="fa fa-shopping-bag"></i><span>Cart</span></a>
+        <a href="{{ route('home') }}" class="active-nav"><i class="fa fa-home"></i><span>Home</span></a>
+        <a href="{{ route('categories.index') }}"><i class="fa fa-th-large"></i><span>Categories</span></a>
+        <a href="{{ route('shop.index') }}" class="circle-nav"><i class="fa fa-star"></i><span>Featured</span></a>
+        <a href="{{ route('cart.index') }}"><i class="fa fa-shopping-bag"></i><span>Cart</span></a>
         <a href="#" data-menu="menu-main"><i class="fa fa-bars"></i><span>Menu</span></a>
     </div>
 

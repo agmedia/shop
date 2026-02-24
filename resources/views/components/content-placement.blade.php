@@ -5,6 +5,9 @@
         $slot = $item['slot'];
         $locale = app()->getLocale();
         $fallbackLocale = config('app.locale');
+        $translationPayload = is_array($translation?->payload ?? null) ? $translation->payload : [];
+        $wrapperClasses = trim((string) ($translationPayload['custom_classes'] ?? ''));
+        $wrapperStyle = trim((string) ($translationPayload['bg_css'] ?? ''));
 
         $overridePrefix = (string) config('content_blocks.view_overrides.prefix', 'front.content-blocks.instances.');
         $codeOverride = $overridePrefix.$block->code;
@@ -64,40 +67,74 @@
                 ->sortBy(fn ($row) => array_search((int) $row->id, $blogIds, true))
                 ->values();
         }
+
+        $comments = collect();
+        if ((string) $block->type === 'five_star_reviews_carousel') {
+            $translationPayload = is_array($translation?->payload ?? null) ? $translation->payload : [];
+            $blockPayload = is_array($block->payload ?? null) ? $block->payload : [];
+            $mergedPayload = array_merge($blockPayload, $translationPayload);
+            $limit = max(1, (int) ($mergedPayload['items_limit'] ?? 6));
+            $featuredOnly = (bool) ($mergedPayload['reviews_featured_only'] ?? false);
+
+            $commentsQuery = \App\Models\Content\Support\Comment::query()
+                ->where('commentable_type', \App\Models\Catalog\Product\Product::class)
+                ->where('status', \App\Models\Content\Support\Comment::STATUS_APPROVED)
+                ->where('rating', 5)
+                ->whereNull('parent_id')
+                ->whereIn('locale', [$locale, $fallbackLocale])
+                ->orderByDesc('is_featured')
+                ->orderByDesc('reviewed_at')
+                ->orderByDesc('id');
+
+            if ($featuredOnly) {
+                $commentsQuery->where('is_featured', true);
+            }
+
+            $comments = $commentsQuery->limit($limit)->get();
+        }
     @endphp
 
-    @if ($overrideView !== '')
-        @include($overrideView, [
-            'block' => $block,
-            'translation' => $translation,
-            'slot' => $slot,
-            'blockItems' => $blockItems,
-            'products' => $products,
-            'categories' => $categories,
-            'manufacturers' => $manufacturers,
-            'blogs' => $blogs,
-        ])
-    @elseif (view()->exists($partial))
-        @include($partial, [
-            'block' => $block,
-            'translation' => $translation,
-            'slot' => $slot,
-            'blockItems' => $blockItems,
-            'products' => $products,
-            'categories' => $categories,
-            'manufacturers' => $manufacturers,
-            'blogs' => $blogs,
-        ])
-    @else
-        @include('front.content-blocks.types.custom', [
-            'block' => $block,
-            'translation' => $translation,
-            'slot' => $slot,
-            'blockItems' => $blockItems,
-            'products' => $products,
-            'categories' => $categories,
-            'manufacturers' => $manufacturers,
-            'blogs' => $blogs,
-        ])
+    @if ($wrapperClasses !== '' || $wrapperStyle !== '')
+        <div @if($wrapperClasses !== '') class="{{ $wrapperClasses }}" @endif @if($wrapperStyle !== '') style="{{ $wrapperStyle }}" @endif>
+    @endif
+        @if ($overrideView !== '')
+            @include($overrideView, [
+                'block' => $block,
+                'translation' => $translation,
+                'slot' => $slot,
+                'blockItems' => $blockItems,
+                'products' => $products,
+                'categories' => $categories,
+                'manufacturers' => $manufacturers,
+                'blogs' => $blogs,
+                'comments' => $comments,
+            ])
+        @elseif (view()->exists($partial))
+            @include($partial, [
+                'block' => $block,
+                'translation' => $translation,
+                'slot' => $slot,
+                'blockItems' => $blockItems,
+                'products' => $products,
+                'categories' => $categories,
+                'manufacturers' => $manufacturers,
+                'blogs' => $blogs,
+                'comments' => $comments,
+            ])
+        @else
+            @include('front.content-blocks.types.custom', [
+                'block' => $block,
+                'translation' => $translation,
+                'slot' => $slot,
+                'blockItems' => $blockItems,
+                'products' => $products,
+                'categories' => $categories,
+                'manufacturers' => $manufacturers,
+                'blogs' => $blogs,
+                'comments' => $comments,
+            ])
+        @endif
+    @if ($wrapperClasses !== '' || $wrapperStyle !== '')
+        </div>
     @endif
 @endforeach

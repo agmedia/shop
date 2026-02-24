@@ -1,4 +1,4 @@
-<x-admin-layout title="User Overview">
+<x-admin-layout :title="__('User Overview')">
     @php
         $primaryRole = $user->roles->sortBy('id')->first();
         $roleLabel = $primaryRole?->title ?: ucfirst($primaryRole?->name ?? 'customer');
@@ -11,26 +11,26 @@
         <div class="admin-panel admin-search-panel p-6">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Admin / Users</p>
-                    <h1 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">User Overview</h1>
-                    <p class="mt-2 text-sm text-slate-600">Read-only account view with profile, addresses and recent activity.</p>
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{{ __('Admin / Users') }}</p>
+                    <h1 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{{ __('User Overview') }}</h1>
+                    <p class="mt-2 text-sm text-slate-600">{{ __('Read-only account view with profile, addresses and recent activity.') }}</p>
                 </div>
                 <div class="flex items-center gap-2">
                     @if ($loyaltyEnabled)
-                        <a href="{{ route('admin.users.loyalty', ['user_id' => $user->id]) }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Loyalty Ledger</a>
+                        <a href="{{ route('admin.users.loyalty', ['user_id' => $user->id]) }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">{{ __('Loyalty Ledger') }}</a>
                     @endif
-                    <a href="{{ route('admin.users.edit', ['user' => $user->id]) }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Edit User</a>
-                    <a href="{{ route('admin.users') }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Back</a>
+                    <a href="{{ route('admin.users.edit', ['user' => $user->id]) }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">{{ __('Edit User') }}</a>
+                    <a href="{{ route('admin.users') }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">{{ __('Back') }}</a>
                 </div>
             </div>
         </div>
 
         <div class="admin-panel admin-form-panel p-6">
-            <p class="admin-section-title">Core</p>
+            <p class="admin-section-title">{{ __('Core') }}</p>
             <div class="mt-4 grid gap-4" style="grid-template-columns: 7rem repeat(12, minmax(0, 1fr));">
                 <div class="flex items-start justify-center">
                     @if ($avatarUrl)
-                        <img src="{{ $avatarUrl }}" alt="Avatar" class="h-16 w-16 rounded-full border border-slate-200 object-cover" />
+                        <img src="{{ $avatarUrl }}" alt="{{ __('Avatar') }}" class="h-16 w-16 rounded-full border border-slate-200 object-cover" />
                     @else
                         <div class="flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-lg font-semibold text-white">
                             {{ strtoupper(substr((string) $user->name, 0, 1)) }}
@@ -38,31 +38,31 @@
                     @endif
                 </div>
                 <div style="grid-column: span 4;">
-                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Name</label>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Name') }}</label>
                     <div class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">{{ $user->name }}</div>
                 </div>
                 <div style="grid-column: span 4;">
-                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Email</label>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Email') }}</label>
                     <div class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">{{ $user->email }}</div>
                 </div>
                 <div style="grid-column: span 2;">
-                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Role</label>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Role') }}</label>
                     <div class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">{{ $roleLabel }}</div>
                 </div>
                 <div style="grid-column: span 2;">
-                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Verified</label>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Verified') }}</label>
                     <div class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm {{ $user->email_verified_at ? 'text-emerald-700' : 'text-amber-700' }}">
-                        {{ $user->email_verified_at ? 'Yes' : 'No' }}
+                        {{ $user->email_verified_at ? __('Yes') : __('No') }}
                     </div>
                 </div>
             </div>
             <div class="mt-4">
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Segments</label>
+                <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Segments') }}</label>
                 <div class="flex flex-wrap gap-2">
                     @forelse ($user->customerGroups as $group)
                         <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{{ $group->name }}</span>
                     @empty
-                        <span class="text-sm text-slate-500">No segments assigned.</span>
+                        <span class="text-sm text-slate-500">{{ __('No segments assigned.') }}</span>
                     @endforelse
                 </div>
             </div>
@@ -70,23 +70,23 @@
 
         <div class="grid gap-6" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <div class="admin-panel admin-form-panel p-6">
-                <p class="admin-section-title">Profile</p>
+                <p class="admin-section-title">{{ __('Profile') }}</p>
                 <div class="mt-4 grid gap-3" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
-                    <div><span class="text-xs uppercase tracking-[0.12em] text-slate-500">First name</span><div class="mt-1 text-sm text-slate-800">{{ $user->profile?->first_name ?: '-' }}</div></div>
-                    <div><span class="text-xs uppercase tracking-[0.12em] text-slate-500">Last name</span><div class="mt-1 text-sm text-slate-800">{{ $user->profile?->last_name ?: '-' }}</div></div>
-                    <div><span class="text-xs uppercase tracking-[0.12em] text-slate-500">Phone</span><div class="mt-1 text-sm text-slate-800">{{ $user->profile?->phone ?: '-' }}</div></div>
-                    <div><span class="text-xs uppercase tracking-[0.12em] text-slate-500">Birthday</span><div class="mt-1 text-sm text-slate-800">{{ $user->profile?->birthday?->format('Y-m-d') ?: '-' }}</div></div>
-                    <div><span class="text-xs uppercase tracking-[0.12em] text-slate-500">Company</span><div class="mt-1 text-sm text-slate-800">{{ $user->profile?->company ?: '-' }}</div></div>
+                    <div><span class="text-xs uppercase tracking-[0.12em] text-slate-500">{{ __('First name') }}</span><div class="mt-1 text-sm text-slate-800">{{ $user->profile?->first_name ?: '-' }}</div></div>
+                    <div><span class="text-xs uppercase tracking-[0.12em] text-slate-500">{{ __('Last name') }}</span><div class="mt-1 text-sm text-slate-800">{{ $user->profile?->last_name ?: '-' }}</div></div>
+                    <div><span class="text-xs uppercase tracking-[0.12em] text-slate-500">{{ __('Phone') }}</span><div class="mt-1 text-sm text-slate-800">{{ $user->profile?->phone ?: '-' }}</div></div>
+                    <div><span class="text-xs uppercase tracking-[0.12em] text-slate-500">{{ __('Birthday') }}</span><div class="mt-1 text-sm text-slate-800">{{ $user->profile?->birthday?->format('Y-m-d') ?: '-' }}</div></div>
+                    <div><span class="text-xs uppercase tracking-[0.12em] text-slate-500">{{ __('Company') }}</span><div class="mt-1 text-sm text-slate-800">{{ $user->profile?->company ?: '-' }}</div></div>
                     <div><span class="text-xs uppercase tracking-[0.12em] text-slate-500">OIB</span><div class="mt-1 text-sm text-slate-800">{{ $user->profile?->oib ?: '-' }}</div></div>
                 </div>
-                <div class="mt-3"><span class="text-xs uppercase tracking-[0.12em] text-slate-500">Bio</span><div class="mt-1 text-sm text-slate-700">{{ $user->profile?->bio ?: '-' }}</div></div>
+                <div class="mt-3"><span class="text-xs uppercase tracking-[0.12em] text-slate-500">{{ __('Bio') }}</span><div class="mt-1 text-sm text-slate-700">{{ $user->profile?->bio ?: '-' }}</div></div>
             </div>
 
             <div class="admin-panel admin-form-panel p-6">
-                <p class="admin-section-title">Addresses</p>
+                <p class="admin-section-title">{{ __('Addresses') }}</p>
                 <div class="mt-4 space-y-4">
                     <div class="rounded-xl border border-slate-200 bg-white p-3">
-                        <div class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Billing</div>
+                        <div class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{{ __('Billing') }}</div>
                         <div class="mt-2 text-sm text-slate-800">
                             {{ $billing?->first_name }} {{ $billing?->last_name }}<br>
                             {{ $billing?->company }} {{ $billing?->oib ? '('.$billing->oib.')' : '' }}<br>
@@ -95,7 +95,7 @@
                         </div>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-white p-3">
-                        <div class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Shipping</div>
+                        <div class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{{ __('Shipping') }}</div>
                         <div class="mt-2 text-sm text-slate-800">
                             {{ $shipping?->first_name }} {{ $shipping?->last_name }}<br>
                             {{ $shipping?->company }} {{ $shipping?->oib ? '('.$shipping->oib.')' : '' }}<br>
@@ -110,22 +110,22 @@
         <div class="grid gap-6" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             @if ($loyaltyEnabled)
                 <div class="admin-panel admin-panel-soft p-5">
-                    <h2 class="admin-section-title">Loyalty</h2>
+                    <h2 class="admin-section-title">{{ __('Loyalty') }}</h2>
                     <div class="mt-3 grid gap-2" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
                         <div class="rounded-xl border border-slate-200 bg-white p-2.5 text-center">
-                            <div class="text-[11px] uppercase tracking-[0.1em] text-slate-500">Balance</div>
+                            <div class="text-[11px] uppercase tracking-[0.1em] text-slate-500">{{ __('Balance') }}</div>
                             <div class="mt-1 text-sm font-semibold {{ $loyaltyStats['balance'] >= 0 ? 'text-emerald-700' : 'text-rose-700' }}">{{ $loyaltyStats['balance'] }}</div>
                         </div>
                         <div class="rounded-xl border border-slate-200 bg-white p-2.5 text-center">
-                            <div class="text-[11px] uppercase tracking-[0.1em] text-slate-500">Entries</div>
+                            <div class="text-[11px] uppercase tracking-[0.1em] text-slate-500">{{ __('Entries') }}</div>
                             <div class="mt-1 text-sm font-semibold text-slate-700">{{ $loyaltyStats['entries'] }}</div>
                         </div>
                         <div class="rounded-xl border border-slate-200 bg-white p-2.5 text-center">
-                            <div class="text-[11px] uppercase tracking-[0.1em] text-slate-500">Earned</div>
+                            <div class="text-[11px] uppercase tracking-[0.1em] text-slate-500">{{ __('Earned') }}</div>
                             <div class="mt-1 text-sm font-semibold text-emerald-700">{{ $loyaltyStats['earned'] }}</div>
                         </div>
                         <div class="rounded-xl border border-slate-200 bg-white p-2.5 text-center">
-                            <div class="text-[11px] uppercase tracking-[0.1em] text-slate-500">Spent/Reversed</div>
+                            <div class="text-[11px] uppercase tracking-[0.1em] text-slate-500">{{ __('Spent/Reversed') }}</div>
                             <div class="mt-1 text-sm font-semibold text-rose-700">{{ $loyaltyStats['spent'] }}</div>
                         </div>
                     </div>
@@ -133,11 +133,11 @@
                         <table class="admin-items-table min-w-full text-xs">
                             <thead>
                                 <tr>
-                                    <th class="px-2 py-2 text-left">Time</th>
-                                    <th class="px-2 py-2 text-left">Type</th>
-                                    <th class="px-2 py-2 text-center">Points</th>
-                                    <th class="px-2 py-2 text-left">Order</th>
-                                    <th class="px-2 py-2 text-left">Actor</th>
+                                    <th class="px-2 py-2 text-left">{{ __('Time') }}</th>
+                                    <th class="px-2 py-2 text-left">{{ __('Type') }}</th>
+                                    <th class="px-2 py-2 text-center">{{ __('Points') }}</th>
+                                    <th class="px-2 py-2 text-left">{{ __('Order') }}</th>
+                                    <th class="px-2 py-2 text-left">{{ __('Actor') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -157,10 +157,10 @@
                                                 -
                                             @endif
                                         </td>
-                                        <td class="px-2 py-2">{{ $entry->creator?->name ?: 'System' }}</td>
+                                        <td class="px-2 py-2">{{ $entry->creator?->name ?: __('System') }}</td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="5" class="px-2 py-4 text-center text-slate-500">No loyalty entries.</td></tr>
+                                    <tr><td colspan="5" class="px-2 py-4 text-center text-slate-500">{{ __('No loyalty entries.') }}</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -169,15 +169,15 @@
             @endif
 
             <div class="admin-panel admin-panel-soft p-5">
-                <h2 class="admin-section-title">Recent Orders</h2>
+                <h2 class="admin-section-title">{{ __('Recent Orders') }}</h2>
                 <div class="mt-3 overflow-x-auto">
                     <table class="admin-items-table min-w-full text-xs">
                         <thead>
                             <tr>
-                                <th class="px-2 py-2 text-left">Order</th>
-                                <th class="px-2 py-2 text-left">Status</th>
-                                <th class="px-2 py-2 text-right">Total</th>
-                                <th class="px-2 py-2 text-left">Created</th>
+                                <th class="px-2 py-2 text-left">{{ __('Order') }}</th>
+                                <th class="px-2 py-2 text-left">{{ __('Status') }}</th>
+                                <th class="px-2 py-2 text-right">{{ __('Total') }}</th>
+                                <th class="px-2 py-2 text-left">{{ __('Created') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -187,11 +187,11 @@
                                         <a href="{{ route('admin.orders.show', ['order' => $order->id]) }}" class="text-cyan-700 hover:text-cyan-900">{{ $order->order_number }}</a>
                                     </td>
                                     <td class="px-2 py-2">{{ $order->status?->name ?: '-' }}</td>
-                                    <td class="px-2 py-2 text-right">{{ number_format((float) $order->grand_total, 2) }} {{ $order->currency_code }}</td>
+                                    <td class="px-2 py-2 text-right">{{ \App\Support\Currency::format((float) $order->grand_total, $order->currency_code) }}</td>
                                     <td class="px-2 py-2">{{ $order->created_at?->format('Y-m-d H:i') ?? '-' }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="4" class="px-2 py-4 text-center text-slate-500">No orders for this user.</td></tr>
+                                <tr><td colspan="4" class="px-2 py-4 text-center text-slate-500">{{ __('No orders for this user.') }}</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -201,14 +201,14 @@
 
         <div class="grid gap-6" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <div class="admin-panel admin-panel-soft p-5">
-                <h2 class="admin-section-title">Recent Admin Activity</h2>
+                <h2 class="admin-section-title">{{ __('Recent Admin Activity') }}</h2>
                 <div class="mt-3 overflow-x-auto">
                     <table class="admin-items-table min-w-full text-xs">
                         <thead>
                             <tr>
-                                <th class="px-2 py-2 text-left">Time</th>
-                                <th class="px-2 py-2 text-left">Event</th>
-                                <th class="px-2 py-2 text-left">Description</th>
+                                <th class="px-2 py-2 text-left">{{ __('Time') }}</th>
+                                <th class="px-2 py-2 text-left">{{ __('Event') }}</th>
+                                <th class="px-2 py-2 text-left">{{ __('Description') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -219,7 +219,7 @@
                                     <td class="px-2 py-2">{{ $log->description }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="3" class="px-2 py-4 text-center text-slate-500">No admin activity.</td></tr>
+                                <tr><td colspan="3" class="px-2 py-4 text-center text-slate-500">{{ __('No admin activity.') }}</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -227,14 +227,14 @@
             </div>
 
             <div class="admin-panel admin-panel-soft p-5">
-                <h2 class="admin-section-title">Recent Tracking Events</h2>
+                <h2 class="admin-section-title">{{ __('Recent Tracking Events') }}</h2>
                 <div class="mt-3 overflow-x-auto">
                     <table class="admin-items-table min-w-full text-xs">
                         <thead>
                             <tr>
-                                <th class="px-2 py-2 text-left">Time</th>
-                                <th class="px-2 py-2 text-left">Event</th>
-                                <th class="px-2 py-2 text-left">URL</th>
+                                <th class="px-2 py-2 text-left">{{ __('Time') }}</th>
+                                <th class="px-2 py-2 text-left">{{ __('Event') }}</th>
+                                <th class="px-2 py-2 text-left">{{ __('URL') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -245,7 +245,7 @@
                                     <td class="px-2 py-2 max-w-[20rem] truncate">{{ $event->url ?: '-' }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="3" class="px-2 py-4 text-center text-slate-500">No tracking events.</td></tr>
+                                <tr><td colspan="3" class="px-2 py-4 text-center text-slate-500">{{ __('No tracking events.') }}</td></tr>
                             @endforelse
                         </tbody>
                     </table>

@@ -19,7 +19,7 @@
                     $ct = $category->translations->firstWhere('locale', app()->getLocale())
                         ?? $category->translations->firstWhere('locale', config('app.locale'));
                     $categoryName = $ct?->name ?: $category->code;
-                    $categoryDesc = trim((string) ($ct?->description ?? ''));
+                    $categoryDesc = trim((string) ($ct?->clean_description ?? ''));
                 @endphp
                 <article class="rounded-3xl border border-slate-200/60 bg-white p-7 shadow-sm transition hover:shadow-md">
                     <div class="h-32 rounded-2xl bg-gradient-to-br from-slate-200 to-blue-100"></div>

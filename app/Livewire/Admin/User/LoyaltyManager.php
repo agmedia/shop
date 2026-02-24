@@ -135,7 +135,7 @@ class LoyaltyManager extends Component
             'reason' => '',
         ];
 
-        $this->dispatch('notify', type: 'success', message: 'Manual loyalty adjustment saved.');
+        $this->dispatch('notify', type: 'success', message: __('Manual loyalty adjustment saved.'));
         $this->resetPage(pageName: self::PAGE_NAME);
     }
 
@@ -225,10 +225,10 @@ class LoyaltyManager extends Component
     private function typeOptions(): array
     {
         return [
-            'all' => 'All Types',
-            'order_settlement' => 'Order Settlement',
-            'order_reversal' => 'Order Reversal',
-            'manual_adjustment' => 'Manual Adjustment',
+            'all' => __('All Types'),
+            'order_settlement' => __('Order Settlement'),
+            'order_reversal' => __('Order Reversal'),
+            'manual_adjustment' => __('Manual Adjustment'),
         ];
     }
 

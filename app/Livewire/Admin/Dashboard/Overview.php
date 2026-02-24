@@ -46,6 +46,8 @@ class Overview extends Component
             'user_tracking_enabled',
             (bool) config('user_features.flags.user_tracking_enabled', true)
         );
+        $storeCurrencyCode = strtoupper((string) $settings->get('store_schema_product_currency', 'EUR'));
+        $storeCurrencySymbol = \App\Support\Currency::symbol($storeCurrencyCode);
 
         [$start, $end, $previousStart, $previousEnd, $days] = $this->resolveRangeWindow();
 
@@ -92,49 +94,49 @@ class Overview extends Component
 
         $kpis = [
             [
-                'label' => 'Orders',
+                'label' => __('Orders'),
                 'value' => number_format($ordersCurrentCount),
                 'delta' => $this->formatDelta($ordersCurrentCount, $ordersPreviousCount),
             ],
             [
-                'label' => 'Revenue',
+                'label' => __('Revenue'),
                 'value' => number_format($revenueCurrent, 2),
-                'suffix' => 'EUR',
+                'suffix' => $storeCurrencySymbol,
                 'delta' => $this->formatDelta($revenueCurrent, $revenuePrevious),
             ],
             [
-                'label' => 'AOV',
+                'label' => __('AOV'),
                 'value' => number_format($aovCurrent, 2),
-                'suffix' => 'EUR',
+                'suffix' => $storeCurrencySymbol,
                 'delta' => $this->formatDelta($aovCurrent, $aovPrevious),
             ],
             [
-                'label' => 'New Users',
+                'label' => __('New Users'),
                 'value' => number_format($usersCurrentCount),
                 'delta' => $this->formatDelta($usersCurrentCount, $usersPreviousCount),
             ],
             [
-                'label' => 'Paid Orders',
+                'label' => __('Paid Orders'),
                 'value' => number_format($paidOrdersCurrent),
                 'delta' => $this->formatDelta($paidOrdersCurrent, $paidOrdersPrevious),
             ],
             [
-                'label' => 'Items Sold',
+                'label' => __('Items Sold'),
                 'value' => number_format($itemsSoldCurrent),
                 'delta' => $this->formatDelta($itemsSoldCurrent, $itemsSoldPrevious),
             ],
             [
-                'label' => 'Customers Ordered',
+                'label' => __('Customers Ordered'),
                 'value' => number_format($customersCurrentCount),
                 'delta' => $this->formatDelta($customersCurrentCount, $customersPreviousCount),
             ],
             [
-                'label' => 'Avg Items / Order',
+                'label' => __('Avg Items / Order'),
                 'value' => number_format($avgItemsPerOrderCurrent, 2),
                 'delta' => $this->formatDelta($avgItemsPerOrderCurrent, $avgItemsPerOrderPrevious),
             ],
             [
-                'label' => 'New Products',
+                'label' => __('New Products'),
                 'value' => number_format($productsCurrentCount),
                 'delta' => $this->formatDelta($productsCurrentCount, $productsPreviousCount),
             ],
@@ -149,7 +151,7 @@ class Overview extends Component
                 ->sum('points');
 
             $kpis[] = [
-                'label' => 'Loyalty Net Points',
+                'label' => __('Loyalty Net Points'),
                 'value' => number_format($loyaltyCurrent),
                 'delta' => $this->formatDelta($loyaltyCurrent, $loyaltyPrevious),
             ];
@@ -171,7 +173,7 @@ class Overview extends Component
             $openOrdersPrevious = (int) $openOrdersPreviousQuery->count();
 
             $kpis[] = [
-                'label' => 'Open Orders',
+                'label' => __('Open Orders'),
                 'value' => number_format($openOrdersCurrent),
                 'delta' => $this->formatDelta($openOrdersCurrent, $openOrdersPrevious),
             ];
@@ -278,22 +280,22 @@ class Overview extends Component
 
         $catalogSnapshot = [
             [
-                'label' => 'Categories',
+                'label' => __('Categories'),
                 'value' => Category::query()->count(),
                 'url' => route('admin.categories'),
             ],
             [
-                'label' => 'Products',
+                'label' => __('Products'),
                 'value' => Product::query()->count(),
                 'url' => route('admin.products'),
             ],
             [
-                'label' => 'Active Products',
+                'label' => __('Active Products'),
                 'value' => Product::query()->where('is_active', true)->count(),
                 'url' => route('admin.products'),
             ],
             [
-                'label' => 'Pages',
+                'label' => __('Pages'),
                 'value' => InfoPage::query()->count(),
                 'url' => route('admin.content.pages.index'),
             ],
@@ -301,7 +303,7 @@ class Overview extends Component
 
         if (($catalogFeatures['catalog_use_blog'] ?? false) === true) {
             $catalogSnapshot[] = [
-                'label' => 'Blog Posts',
+                'label' => __('Blog Posts'),
                 'value' => BlogPost::query()->count(),
                 'url' => route('admin.content.blog.index'),
             ];
@@ -309,7 +311,7 @@ class Overview extends Component
 
         if (($catalogFeatures['catalog_use_manufacturers'] ?? false) === true) {
             $catalogSnapshot[] = [
-                'label' => 'Manufacturers',
+                'label' => __('Manufacturers'),
                 'value' => Manufacturer::query()->count(),
                 'url' => route('admin.manufacturers'),
             ];
@@ -317,7 +319,7 @@ class Overview extends Component
 
         if (($catalogFeatures['catalog_use_options'] ?? false) === true) {
             $catalogSnapshot[] = [
-                'label' => 'Options',
+                'label' => __('Options'),
                 'value' => Option::query()->count(),
                 'url' => route('admin.options'),
             ];
@@ -325,7 +327,7 @@ class Overview extends Component
 
         if (($catalogFeatures['catalog_use_attributes'] ?? false) === true) {
             $catalogSnapshot[] = [
-                'label' => 'Attributes',
+                'label' => __('Attributes'),
                 'value' => CatalogAttribute::query()->count(),
                 'url' => route('admin.attributes'),
             ];
@@ -333,7 +335,7 @@ class Overview extends Component
 
         if (($catalogFeatures['catalog_use_actions'] ?? false) === true) {
             $catalogSnapshot[] = [
-                'label' => 'Actions',
+                'label' => __('Actions'),
                 'value' => CatalogAction::query()->count(),
                 'url' => route('admin.actions'),
             ];
@@ -372,7 +374,7 @@ class Overview extends Component
                     'labels' => $trendLabels,
                     'datasets' => [
                         [
-                            'label' => 'Revenue (EUR)',
+                            'label' => __('Revenue (:currency)', ['currency' => $storeCurrencySymbol]),
                             'data' => $trendRevenue,
                             'yAxisID' => 'yRevenue',
                             'backgroundColor' => 'rgba(14, 116, 144, 0.28)',
@@ -382,7 +384,7 @@ class Overview extends Component
                         ],
                         [
                             'type' => 'line',
-                            'label' => 'Orders',
+                            'label' => __('Orders'),
                             'data' => $trendOrders,
                             'yAxisID' => 'yOrders',
                             'borderColor' => '#0f172a',
@@ -414,7 +416,7 @@ class Overview extends Component
                     'labels' => $trendLabels,
                     'datasets' => [
                         [
-                            'label' => 'New Users',
+                            'label' => __('New Users'),
                             'data' => $trendUsers,
                             'borderColor' => '#0891b2',
                             'backgroundColor' => 'rgba(8, 145, 178, 0.15)',
@@ -443,7 +445,7 @@ class Overview extends Component
                     'labels' => $pipelineLabels,
                     'datasets' => [
                         [
-                            'label' => 'Orders by Status',
+                            'label' => __('Orders by Status'),
                             'data' => $pipelineValues,
                             'backgroundColor' => $pipelineColors,
                             'borderColor' => '#ffffff',
@@ -462,14 +464,15 @@ class Overview extends Component
         ];
 
         $featureFlags = [
-            'User Tracking' => $trackingEnabled,
-            'User Loyalty' => $loyaltyEnabled,
-            'API' => (bool) ($catalogFeatures['catalog_use_api'] ?? false),
-            'Blog' => (bool) ($catalogFeatures['catalog_use_blog'] ?? false),
-            'Attributes' => (bool) ($catalogFeatures['catalog_use_attributes'] ?? false),
-            'Options' => (bool) ($catalogFeatures['catalog_use_options'] ?? false),
-            'Manufacturers' => (bool) ($catalogFeatures['catalog_use_manufacturers'] ?? false),
-            'Actions' => (bool) ($catalogFeatures['catalog_use_actions'] ?? false),
+            __('User Tracking') => $trackingEnabled,
+            __('User Loyalty') => $loyaltyEnabled,
+            __('API') => (bool) ($catalogFeatures['catalog_use_api'] ?? false),
+            __('Blog') => (bool) ($catalogFeatures['catalog_use_blog'] ?? false),
+            __('Attributes') => (bool) ($catalogFeatures['catalog_use_attributes'] ?? false),
+            __('Options') => (bool) ($catalogFeatures['catalog_use_options'] ?? false),
+            __('Manufacturers') => (bool) ($catalogFeatures['catalog_use_manufacturers'] ?? false),
+            __('Actions') => (bool) ($catalogFeatures['catalog_use_actions'] ?? false),
+            __('Mobile PWA View') => (bool) ($catalogFeatures['catalog_use_mobile_pwa'] ?? false),
         ];
 
         return view('livewire.admin.dashboard.overview', [
@@ -488,6 +491,7 @@ class Overview extends Component
             'catalogSnapshot' => $catalogSnapshot,
             'featureFlags' => $featureFlags,
             'dashboardCharts' => $dashboardCharts,
+            'storeCurrencyCode' => $storeCurrencyCode,
         ]);
     }
 

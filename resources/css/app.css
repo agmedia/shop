@@ -1,3 +1,68 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    html,
+    body {
+        font-family: 'Manrope', 'Noto Sans', 'Segoe UI', Roboto, Arial, sans-serif;
+    }
+}
+
+@layer components {
+    .content-richtext {
+        color: #1f2937;
+        line-height: 1.7;
+    }
+
+    .content-richtext h1,
+    .content-richtext h2,
+    .content-richtext h3,
+    .content-richtext h4,
+    .content-richtext h5,
+    .content-richtext h6 {
+        color: #0f172a;
+        font-weight: 800;
+        line-height: 1.25;
+        margin-top: 1.45em;
+        margin-bottom: 0.7em;
+    }
+
+    .content-richtext h1 { font-size: 2rem; }
+    .content-richtext h2 { font-size: 1.75rem; }
+    .content-richtext h3 { font-size: 1.4rem; }
+    .content-richtext h4 { font-size: 1.2rem; }
+    .content-richtext h5 { font-size: 1.08rem; }
+    .content-richtext h6 { font-size: 1rem; }
+
+    .content-richtext p {
+        margin: 0 0 0.95rem;
+    }
+
+    .content-richtext ul,
+    .content-richtext ol {
+        margin: 0 0 0.85rem 1.25rem;
+    }
+
+    .content-richtext a {
+        color: #0f172a;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        font-weight: 700;
+    }
+
+    .faq-accordion-item {
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .faq-accordion-summary {
+        list-style: none;
+        cursor: pointer;
+    }
+
+    .faq-accordion-summary::-webkit-details-marker {
+        display: none;
+    }
+}

@@ -176,6 +176,10 @@ return [
             'mutate' => ['content.blocks.update', 'content.blocks.create'],
             'delete' => ['content.blocks.delete'],
         ],
+        'admin.content.navigation*' => [
+            'view' => ['content.navigation.view'],
+            'mutate' => ['content.navigation.update'],
+        ],
 
         'admin.content.slots.create' => [
             'view' => ['content.slots.create'],
@@ -207,6 +211,10 @@ return [
         'admin.settings.system.catalog-features' => [
             'view' => ['settings.system.catalog_features.manage'],
             'mutate' => ['settings.system.catalog_features.manage'],
+        ],
+        'admin.settings.system.store-settings' => [
+            'view' => ['settings.system.store.manage'],
+            'mutate' => ['settings.system.store.manage'],
         ],
         'admin.settings.api.*' => [
             'view' => ['settings.api.manage'],

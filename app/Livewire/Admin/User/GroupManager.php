@@ -82,7 +82,7 @@ class GroupManager extends Component
                 ->log($this->editingId ? 'Customer group updated' : 'Customer group created');
         });
 
-        $this->dispatch('notify', type: 'success', message: $this->editingId ? 'Group updated.' : 'Group created.');
+        $this->dispatch('notify', type: 'success', message: $this->editingId ? __('Group updated.') : __('Group created.'));
         $this->resetForm();
     }
 
@@ -135,7 +135,7 @@ class GroupManager extends Component
             $this->resetForm();
         }
 
-        $this->dispatch('notify', type: 'success', message: 'Group deleted.');
+        $this->dispatch('notify', type: 'success', message: __('Group deleted.'));
     }
 
     public function toggleActive(int $groupId): void
@@ -143,7 +143,7 @@ class GroupManager extends Component
         $group = CustomerGroup::query()->findOrFail($groupId);
         $group->update(['is_active' => !$group->is_active]);
 
-        $this->dispatch('notify', type: 'info', message: $group->is_active ? 'Group activated.' : 'Group deactivated.');
+        $this->dispatch('notify', type: 'info', message: $group->is_active ? __('Group activated.') : __('Group deactivated.'));
     }
 
     public function makeDefault(int $groupId): void
@@ -153,7 +153,7 @@ class GroupManager extends Component
             CustomerGroup::query()->whereKey($groupId)->update(['is_default' => true]);
         });
 
-        $this->dispatch('notify', type: 'success', message: 'Default group updated.');
+        $this->dispatch('notify', type: 'success', message: __('Default group updated.'));
     }
 
     public function render()

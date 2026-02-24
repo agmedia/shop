@@ -141,7 +141,7 @@ class OptionValuesManager extends Component
         }
 
         if ($this->primaryOptionId === $this->secondaryOptionId) {
-            $this->dispatch('notify', type: 'warning', message: 'Choose different primary and secondary options.');
+            $this->dispatch('notify', type: 'warning', message: __('Choose different primary and secondary options.'));
             return;
         }
 
@@ -180,7 +180,7 @@ class OptionValuesManager extends Component
         ]);
 
         if (empty($this->assignedOptions)) {
-            $this->dispatch('notify', type: 'warning', message: 'Assign option groups first.');
+            $this->dispatch('notify', type: 'warning', message: __('Assign option groups first.'));
             return;
         }
 
@@ -191,8 +191,8 @@ class OptionValuesManager extends Component
 
         if ($this->mode === 'single') {
             if (!$this->singleOptionId || !isset($allowedOptionIds[$this->singleOptionId])) {
-                $this->addError('singleOptionId', 'Select one assigned option.');
-                $this->dispatch('notify', type: 'danger', message: 'Select a valid option for single mode.');
+                $this->addError('singleOptionId', __('Select one assigned option.'));
+                $this->dispatch('notify', type: 'danger', message: __('Select a valid option for single mode.'));
                 return;
             }
 
@@ -204,15 +204,15 @@ class OptionValuesManager extends Component
                 || !isset($allowedOptionIds[$this->primaryOptionId])
                 || !isset($allowedOptionIds[$this->secondaryOptionId])
             ) {
-                $this->addError('primaryOptionId', 'Select assigned options.');
-                $this->addError('secondaryOptionId', 'Select assigned options.');
-                $this->dispatch('notify', type: 'danger', message: 'Select valid primary and secondary options.');
+                $this->addError('primaryOptionId', __('Select assigned options.'));
+                $this->addError('secondaryOptionId', __('Select assigned options.'));
+                $this->dispatch('notify', type: 'danger', message: __('Select valid primary and secondary options.'));
                 return;
             }
 
             if ($this->primaryOptionId === $this->secondaryOptionId) {
-                $this->addError('secondaryOptionId', 'Secondary option must differ from primary.');
-                $this->dispatch('notify', type: 'danger', message: 'Primary and secondary options must be different.');
+                $this->addError('secondaryOptionId', __('Secondary option must differ from primary.'));
+                $this->dispatch('notify', type: 'danger', message: __('Primary and secondary options must be different.'));
                 return;
             }
 
@@ -227,20 +227,20 @@ class OptionValuesManager extends Component
                 : null;
 
             if ($valueId <= 0) {
-                $this->addError('rows.'.$index.'.option_value_id', 'Value is required.');
+                $this->addError('rows.'.$index.'.option_value_id', __('Value is required.'));
                 $hasRowErrors = true;
                 continue;
             }
 
             if (!isset($validValueIds[$valueId])) {
-                $this->addError('rows.'.$index.'.option_value_id', 'Invalid value for selected option.');
+                $this->addError('rows.'.$index.'.option_value_id', __('Invalid value for selected option.'));
                 $hasRowErrors = true;
                 continue;
             }
 
             if ($this->mode === 'linked') {
                 if (!$parentId || !isset($validParentIds[$parentId])) {
-                    $this->addError('rows.'.$index.'.parent_option_value_id', 'Invalid primary value.');
+                    $this->addError('rows.'.$index.'.parent_option_value_id', __('Invalid primary value.'));
                     $hasRowErrors = true;
                     continue;
                 }
@@ -251,7 +251,7 @@ class OptionValuesManager extends Component
                 : 'l:'.$parentId.':'.$valueId;
 
             if (isset($seenCombinations[$combinationKey])) {
-                $this->addError('rows.'.$index.'.option_value_id', 'Duplicate combination.');
+                $this->addError('rows.'.$index.'.option_value_id', __('Duplicate combination.'));
                 $hasRowErrors = true;
                 continue;
             }
@@ -259,7 +259,7 @@ class OptionValuesManager extends Component
 
             $stockRaw = $row['stock_qty'] ?? 0;
             if (!is_numeric($stockRaw) || (int) $stockRaw < 0) {
-                $this->addError('rows.'.$index.'.stock_qty', 'Stock must be a non-negative integer.');
+                $this->addError('rows.'.$index.'.stock_qty', __('Stock must be a non-negative integer.'));
                 $hasRowErrors = true;
                 continue;
             }
@@ -287,7 +287,7 @@ class OptionValuesManager extends Component
         }
 
         if ($hasRowErrors) {
-            $this->dispatch('notify', type: 'danger', message: 'Fix validation errors before saving.');
+            $this->dispatch('notify', type: 'danger', message: __('Fix validation errors before saving.'));
             return;
         }
 
@@ -309,8 +309,8 @@ class OptionValuesManager extends Component
 
         $count = count($rowsToInsert);
         $message = $count > 0
-            ? 'Product option values saved ('.$count.' rows).'
-            : 'All product option values cleared.';
+            ? __('Product option values saved (:count rows).', ['count' => $count])
+            : __('All product option values cleared.');
 
         $this->dispatch('notify', type: $count > 0 ? 'success' : 'info', message: $message);
         $this->loadExistingRows();
@@ -425,6 +425,9 @@ class OptionValuesManager extends Component
 
         if ($this->mode === 'single') {
             $this->singleOptionId = $this->optionIdForValue((int) $existing->first()->option_value_id);
+            if (!$this->singleOptionId) {
+                $this->singleOptionId = isset($this->assignedOptions[0]['id']) ? (int) $this->assignedOptions[0]['id'] : null;
+            }
             $this->primaryOptionId = null;
             $this->secondaryOptionId = null;
         } else {
@@ -449,6 +452,8 @@ class OptionValuesManager extends Component
             })
             ->values()
             ->all();
+
+        $this->sanitizeRowsForCurrentMode();
     }
 
     private function applyModeDefaults(): void
@@ -584,6 +589,45 @@ class OptionValuesManager extends Component
         }
     }
 
+    private function sanitizeRowsForCurrentMode(): void
+    {
+        if (empty($this->rows)) {
+            return;
+        }
+
+        if ($this->mode === 'single') {
+            $validValueIds = array_flip($this->valueIdsForOption($this->singleOptionId));
+            $this->rows = array_map(function (array $row) use ($validValueIds): array {
+                $valueId = (int) ($row['option_value_id'] ?? 0);
+                if ($valueId <= 0 || !isset($validValueIds[$valueId])) {
+                    $row['option_value_id'] = null;
+                }
+
+                return $row;
+            }, $this->rows);
+
+            return;
+        }
+
+        $validParentIds = array_flip($this->valueIdsForOption($this->primaryOptionId));
+        $validValueIds = array_flip($this->valueIdsForOption($this->secondaryOptionId));
+
+        $this->rows = array_map(function (array $row) use ($validParentIds, $validValueIds): array {
+            $parentId = (int) ($row['parent_option_value_id'] ?? 0);
+            $valueId = (int) ($row['option_value_id'] ?? 0);
+
+            if ($parentId <= 0 || !isset($validParentIds[$parentId])) {
+                $row['parent_option_value_id'] = null;
+            }
+
+            if ($valueId <= 0 || !isset($validValueIds[$valueId])) {
+                $row['option_value_id'] = null;
+            }
+
+            return $row;
+        }, $this->rows);
+    }
+
     private function rowTemplate(?int $valueId, ?int $parentValueId): array
     {
         return [
@@ -627,13 +671,13 @@ class OptionValuesManager extends Component
 
         $normalized = str_replace(',', '.', $raw);
         if (!is_numeric($normalized)) {
-            $this->addError($field, 'Price must be numeric.');
+            $this->addError($field, __('Price must be numeric.'));
             return false;
         }
 
         $price = (float) $normalized;
         if ($price < 0) {
-            $this->addError($field, 'Price cannot be negative.');
+            $this->addError($field, __('Price cannot be negative.'));
             return false;
         }
 
