@@ -46,6 +46,8 @@ return [
             'catalog_features' => 'Opcije kataloga',
             'store_settings' => 'Postavke trgovine',
             'api' => 'API',
+            'wholesale_api' => 'Wholesale API',
+            'luceed_api' => 'Luceed API',
             'user' => 'Korisnik',
             'users' => 'Korisnici',
             'users_list' => 'Lista korisnika',

@@ -593,10 +593,10 @@ return [
         ],
         'admin.settings.api.*' => [
             'title' => 'Settings / API',
-            'summary' => 'Control wholesale API access by user, issue scoped Sanctum tokens, and revoke credentials.',
+            'summary' => 'Manage two API integrations: internal Wholesale API token access and external Luceed connector + full sync action console.',
             'sections' => [
                 [
-                    'title' => 'What This Is',
+                    'title' => 'Wholesale API',
                     'items' => [
                         'API access toggle per user (hard gate).',
                         'Token list with ability scopes and lifecycle fields.',
@@ -604,13 +604,48 @@ return [
                     ],
                 ],
                 [
-                    'title' => 'How To Use',
+                    'title' => 'Wholesale API Workflow',
                     'items' => [
                         '1) Enable API access for specific user.',
                         '2) Issue token with minimal required abilities.',
                         '3) Copy plain token once and store securely.',
                         '4) Revoke token immediately on client/system change.',
                         '5) Disable user API access to revoke all user tokens at once.',
+                    ],
+                ],
+                [
+                    'title' => 'Luceed API',
+                    'items' => [
+                        'Connection tab configures Luceed DataSnap base URI and auth strategy (Basic/Bearer/Header/Query/None).',
+                        'Sync Manager tab exposes full operation set: dictionaries, products, prices, quantities, actions, related items, and order statuses.',
+                        'Each action runs manually in admin and writes a run log (status, summary, timestamps, and stats/error details).',
+                        'Run history is persistent and visible in History tab for post-run verification.',
+                    ],
+                ],
+                [
+                    'title' => 'Luceed Sync Workflow',
+                    'items' => [
+                        '1) Enable Luceed in Catalog Features (`Use Luceed API`) and enable Luceed connector toggle in Luceed API settings.',
+                        '2) Save connection/auth and run Test Connection probe.',
+                        '3) Open Sync Manager / Settings tab and define locale, stock warehouse CSV, and partner parameters for B2B pricing.',
+                        '4) Run actions in order: categories/manufacturers/payments -> products -> prices/quantities -> order statuses.',
+                        '5) Inspect History tab after each run; failed actions keep exact error message for troubleshooting.',
+                    ],
+                ],
+                [
+                    'title' => 'Luceed Sync Action Groups',
+                    'items' => [
+                        'Catalog Foundations: Import/Update categories, Sync category UIDs, Import manufacturers, Sync manufacturer UIDs, Import warehouses, Import payment methods.',
+                        'Products And Prices: Import/Update products, Additional product data, Related products, Import actions, Last-30d action prices, Update prices, Update B2B prices, Update VPC prices, Update quantities, Combined price+quantity update.',
+                        'Order Status Sync: Update order statuses, Update B2B order statuses, Check order status duration.',
+                    ],
+                ],
+                [
+                    'title' => 'Gates And Safety',
+                    'items' => [
+                        'Catalog Features switch `Use Luceed API` gates the entire Luceed module (menu entry, route access, and runtime usage).',
+                        'Connection toggle `Luceed connector enabled` is a second gate; both gates must be ON to execute actions.',
+                        'TLS verification should remain enabled in production unless endpoint uses trusted self-signed certificates in controlled environments.',
                     ],
                 ],
             ],

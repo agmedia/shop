@@ -13,6 +13,10 @@
                         'title' => __('Use Wholesale API'),
                         'description' => __('Enable API settings page and `/api/v1/wholesale/*` endpoints.'),
                     ],
+                    'catalog_use_luceed_api' => [
+                        'title' => __('Use Luceed API'),
+                        'description' => __('Enable Luceed connector settings, sync actions, and Luceed runtime calls in admin.'),
+                    ],
                     'catalog_use_blog' => [
                         'title' => __('Use Blog'),
                         'description' => __('Enable blog module in Content section and related front routes.'),

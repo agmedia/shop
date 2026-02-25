@@ -1,5 +1,10 @@
 @php
     $hasNavigation = !empty($mainNavigation ?? []);
+    try {
+        $showBlog = app(\App\Services\Catalog\CatalogFeatureService::class)->useBlog();
+    } catch (\Throwable) {
+        $showBlog = (bool) config('catalog_features.flags.catalog_use_blog', true);
+    }
 @endphp
 
 @if ($hasNavigation)
@@ -161,7 +166,7 @@
 @else
     <a href="{{ route('shop.index') }}" class="inline-flex items-center py-6 hover:text-slate-600"><span class="border-b border-transparent pb-0.5 transition hover:border-slate-400">{{ __('ui.front.desktop.nav.new') }}</span></a>
     <a href="{{ route('categories.index') }}" class="inline-flex items-center py-6 hover:text-slate-600"><span class="border-b border-transparent pb-0.5 transition hover:border-slate-400">Kategorije</span></a>
-    @if ($catalogFeatures->useBlog())
+    @if ($showBlog)
         <a href="{{ route('blog.index') }}" class="inline-flex items-center py-6 hover:text-slate-600"><span class="border-b border-transparent pb-0.5 transition hover:border-slate-400">{{ __('ui.front.desktop.nav.blog') }}</span></a>
     @endif
     <a href="{{ route('faq.index') }}" class="inline-flex items-center py-6 hover:text-slate-600"><span class="border-b border-transparent pb-0.5 transition hover:border-slate-400">{{ __('ui.front.desktop.nav.faq') }}</span></a>

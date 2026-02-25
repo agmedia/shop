@@ -57,6 +57,11 @@ class CatalogFeatureService
         return $this->enabled('catalog_use_api');
     }
 
+    public function useLuceedApi(): bool
+    {
+        return $this->enabled('catalog_use_luceed_api');
+    }
+
     public function useOptions(): bool
     {
         return $this->enabled('catalog_use_options');

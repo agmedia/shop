@@ -1776,6 +1776,7 @@ class DummyWebshopSeeder extends Seeder
     {
         app(SystemSettingsService::class)->putMany([
             'catalog_use_api' => true,
+            'catalog_use_luceed_api' => true,
             'catalog_use_blog' => true,
             'catalog_use_attributes' => true,
             'catalog_use_options' => true,

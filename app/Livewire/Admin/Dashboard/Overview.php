@@ -467,6 +467,7 @@ class Overview extends Component
             __('User Tracking') => $trackingEnabled,
             __('User Loyalty') => $loyaltyEnabled,
             __('API') => (bool) ($catalogFeatures['catalog_use_api'] ?? false),
+            __('Luceed API') => (bool) ($catalogFeatures['catalog_use_luceed_api'] ?? false),
             __('Blog') => (bool) ($catalogFeatures['catalog_use_blog'] ?? false),
             __('Attributes') => (bool) ($catalogFeatures['catalog_use_attributes'] ?? false),
             __('Options') => (bool) ($catalogFeatures['catalog_use_options'] ?? false),

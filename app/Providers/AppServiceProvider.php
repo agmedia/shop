@@ -20,6 +20,7 @@ use App\Services\Content\ContentBlockResolver;
 use App\Services\Front\NavigationMenuService;
 use App\Services\Front\StoreSettingsService;
 use App\Services\Front\WishlistService;
+use App\Services\Integrations\Luceed\LuceedSdkService;
 use App\Services\Loyalty\LoyaltyService;
 use App\Services\Settings\LocalSettingsService;
 use App\Services\Settings\SystemSettingsService;
@@ -47,6 +48,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(StoreSettingsService::class, fn ($app) => new StoreSettingsService($app->make(SystemSettingsService::class)));
         $this->app->singleton(UserTrackingService::class, fn ($app) => new UserTrackingService($app->make(SystemSettingsService::class)));
         $this->app->singleton(LoyaltyService::class, fn ($app) => new LoyaltyService($app->make(SystemSettingsService::class)));
+        $this->app->singleton(
+            LuceedSdkService::class,
+            fn ($app) => new LuceedSdkService(
+                $app->make(SystemSettingsService::class),
+                $app->make(CatalogFeatureService::class)
+            )
+        );
     }
 
     /**

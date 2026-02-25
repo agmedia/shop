@@ -29,6 +29,8 @@ final class CountryCatalog
             return $cached;
         }
 
+        $intlAvailable = class_exists(\Locale::class);
+
         /** @var array<string, string> $regions */
         $regions = require base_path('vendor/nesbot/carbon/src/Carbon/List/regions.php');
         $countries = [];
@@ -39,8 +41,12 @@ final class CountryCatalog
                 continue;
             }
 
-            $en = trim((string) \Locale::getDisplayRegion('und-'.$iso, 'en'));
-            $hr = trim((string) \Locale::getDisplayRegion('und-'.$iso, 'hr'));
+            $en = $intlAvailable
+                ? trim((string) \Locale::getDisplayRegion('und-'.$iso, 'en'))
+                : '';
+            $hr = $intlAvailable
+                ? trim((string) \Locale::getDisplayRegion('und-'.$iso, 'hr'))
+                : '';
 
             if ($en === '') {
                 $en = (string) $fallbackEnName;

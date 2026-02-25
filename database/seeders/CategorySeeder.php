@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Catalog\Category\Category;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class CategorySeeder extends Seeder
@@ -162,6 +163,8 @@ class CategorySeeder extends Seeder
             ],
             payload: ['show_in_footer' => true]
         );
+
+        Category::query()->fixTree();
     }
 
     /**
@@ -177,41 +180,42 @@ class CategorySeeder extends Seeder
         array $translations,
         ?array $payload = null
     ): Category {
-        $category = Category::query()->firstOrCreate(
-            [
-                'scope' => $scope,
-                'code' => $code,
-            ],
-            [
-                'is_active' => true,
-                'show_in_menu' => true,
-                'sort_order' => $sortOrder,
-                'payload' => $payload,
-                'created_by' => $userId,
-                'updated_by' => $userId,
-            ]
-        );
+        $desiredParentId = $parent?->id;
+        $now = now();
 
-        $category->fill([
+        $categoryId = Category::query()
+            ->where('scope', $scope)
+            ->where('code', $code)
+            ->value('id');
+
+        $basePayload = [
             'scope' => $scope,
+            'code' => $code,
             'is_active' => true,
             'show_in_menu' => true,
             'sort_order' => $sortOrder,
-            'payload' => $payload,
+            'payload' => is_array($payload)
+                ? json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                : null,
+            'parent_id' => $desiredParentId,
             'updated_by' => $userId,
-        ]);
+            'updated_at' => $now,
+        ];
 
-        $desiredParentId = $parent?->id;
-
-        if ((int) $category->parent_id !== (int) $desiredParentId) {
-            if ($parent) {
-                $category->appendToNode($parent)->save();
-            } else {
-                $category->saveAsRoot();
-            }
+        if ($categoryId) {
+            DB::table('categories')
+                ->where('id', $categoryId)
+                ->update($basePayload);
         } else {
-            $category->save();
+            $categoryId = (int) DB::table('categories')->insertGetId($basePayload + [
+                'created_by' => $userId,
+                'created_at' => $now,
+                '_lft' => 0,
+                '_rgt' => 0,
+            ]);
         }
+
+        $category = Category::query()->findOrFail($categoryId);
 
         foreach ($translations as $locale => $data) {
             $name = $data['name'];

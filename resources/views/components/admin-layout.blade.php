@@ -1010,6 +1010,7 @@
                 @php
                     $catalogUseBlog = app(\App\Services\Catalog\CatalogFeatureService::class)->useBlog();
                     $catalogUseApi = app(\App\Services\Catalog\CatalogFeatureService::class)->useApi();
+                    $catalogUseLuceedApi = app(\App\Services\Catalog\CatalogFeatureService::class)->useLuceedApi();
                     $catalogUseAttributes = app(\App\Services\Catalog\CatalogFeatureService::class)->useAttributes();
                     $catalogUseOptions = app(\App\Services\Catalog\CatalogFeatureService::class)->useOptions();
                     $catalogUseManufacturers = app(\App\Services\Catalog\CatalogFeatureService::class)->useManufacturers();
@@ -1034,6 +1035,7 @@
                     $settingsOpen = request()->routeIs('admin.settings.*');
                     $settingsLocalOpen = request()->routeIs('admin.settings.local.*');
                     $settingsSystemOpen = request()->routeIs('admin.settings.system.*');
+                    $settingsApiOpen = request()->routeIs('admin.settings.api.*');
                     $canManageUsersAccess = auth()->user() && (auth()->user()->isA('superadmin') || auth()->user()->can('users.access.manage'));
                     $canManageCatalogFeatures = auth()->user() && (auth()->user()->isA('superadmin') || auth()->user()->can('settings.system.catalog_features.manage'));
                     $canManageRuntimeTools = auth()->user() && (
@@ -1048,6 +1050,7 @@
                         auth()->user()->isA('superadmin')
                         || auth()->user()->can('settings.api.manage')
                     );
+                    $showSettingsApiMenu = $canManageApiSettings && ($catalogUseApi || $catalogUseLuceedApi);
                     $usersListActive = request()->routeIs('admin.users') || request()->routeIs('admin.users.edit') || request()->routeIs('admin.users.show');
                     $usersGroupsActive = request()->routeIs('admin.users.groups');
                     $usersAccessActive = $canManageUsersAccess && request()->routeIs('admin.users.access');
@@ -1541,16 +1544,39 @@
                                 </div>
                             </details>
 
-                            @if ($canManageApiSettings && $catalogUseApi)
-                                <a
-                                    href="{{ route('admin.settings.api.index') }}"
-                                    class="sidebar-dropdown-link block rounded-lg font-medium {{ request()->routeIs('admin.settings.api.*') ? 'is-active-leaf' : 'text-slate-700 hover:bg-slate-100' }}"
-                                >
-                                    <span class="flex items-center gap-2">
-                                        <span class="sidebar-dot"></span>
-                                        <span>{{ __('admin.layout.menu.api') }}</span>
-                                    </span>
-                                </a>
+                            @if ($showSettingsApiMenu)
+                                <details class="group rounded-lg" @if($settingsApiOpen) open @endif>
+                                    <summary class="sidebar-dropdown-summary flex cursor-pointer list-none items-center justify-between rounded-lg text-xs font-semibold [&::-webkit-details-marker]:hidden [&::marker]:content-[''] {{ $settingsApiOpen ? 'bg-slate-200 text-slate-900' : 'text-slate-700 hover:bg-slate-100' }}">
+                                        <span class="flex items-center gap-2">
+                                            <span class="sidebar-branch">&gt;</span>
+                                            <span>{{ __('admin.layout.menu.api') }}</span>
+                                        </span>
+                                    </summary>
+                                    <div class="ml-2 mt-1 space-y-1 border-l border-slate-200 pl-2">
+                                        @if ($catalogUseApi)
+                                            <a
+                                                href="{{ route('admin.settings.api.wholesale') }}"
+                                                class="sidebar-dropdown-link block rounded-lg font-medium {{ request()->routeIs('admin.settings.api.wholesale') ? 'is-active-leaf' : 'text-slate-700 hover:bg-slate-100' }}"
+                                            >
+                                                <span class="flex items-center gap-2">
+                                                    <span class="sidebar-dot"></span>
+                                                    <span>{{ __('admin.layout.menu.wholesale_api') }}</span>
+                                                </span>
+                                            </a>
+                                        @endif
+                                        @if ($catalogUseLuceedApi)
+                                            <a
+                                                href="{{ route('admin.settings.api.luceed') }}"
+                                                class="sidebar-dropdown-link block rounded-lg font-medium {{ request()->routeIs('admin.settings.api.luceed') ? 'is-active-leaf' : 'text-slate-700 hover:bg-slate-100' }}"
+                                            >
+                                                <span class="flex items-center gap-2">
+                                                    <span class="sidebar-dot"></span>
+                                                    <span>{{ __('admin.layout.menu.luceed_api') }}</span>
+                                                </span>
+                                            </a>
+                                        @endif
+                                    </div>
+                                </details>
                             @endif
 
                             <a

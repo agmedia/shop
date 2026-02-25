@@ -11,6 +11,7 @@ class CatalogFeatures extends Component
 {
     public array $form = [
         'catalog_use_api' => false,
+        'catalog_use_luceed_api' => false,
         'catalog_use_blog' => false,
         'catalog_use_attributes' => false,
         'catalog_use_options' => false,

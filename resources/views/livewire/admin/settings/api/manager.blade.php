@@ -2,7 +2,7 @@
     <div class="admin-panel admin-search-panel p-6">
         <div class="flex items-end justify-between gap-4">
             <div>
-                <h1 class="text-xl font-semibold tracking-tight">{{ __('API Settings') }}</h1>
+                <h1 class="text-xl font-semibold tracking-tight">{{ __('Wholesale API Settings') }}</h1>
                 <p class="mt-2 text-sm text-slate-600">{{ __('Wholesale API base URL:') }} <code>/api/v1/wholesale</code></p>
                 <p class="mt-2 text-xs text-slate-500">{{ __('Approve users for API access, issue scoped tokens, and revoke credentials.') }}</p>
             </div>

@@ -6,6 +6,7 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
+        "agmedia/luceed-sdk": "dev-main",
         "php": "^8.4",
         "kalnoy/nestedset": "^6.0",
         "laravel/ai": "^0.1.5",
@@ -20,6 +21,12 @@
         "spatie/laravel-activitylog": "^4.11",
         "spatie/laravel-medialibrary": "^11.18"
     },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/agmedia/luceed-sdk.git"
+        }
+    ],
     "require-dev": {
         "fakerphp/faker": "^1.23",
         "laravel/breeze": "^2.3",

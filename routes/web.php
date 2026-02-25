@@ -390,15 +390,54 @@ Route::middleware(['admin.locale', 'auth', 'verified', 'admin.access', 'admin.ma
                 Route::view('system/admin-appearance-controls', 'admin.settings.system.admin-appearance-controls')->name('system.admin-appearance-controls');
                 Route::view('system/catalog-features', 'admin.settings.system.catalog-features')->name('system.catalog-features');
                 Route::view('system/store-settings', 'admin.settings.system.store-settings')->name('system.store-settings');
-                Route::middleware('catalog.feature:catalog_use_api')->get('api', function () {
-                    $current = auth()->user();
-                    abort_unless(
-                        $current && ($current->isA('superadmin') || $current->can('settings.api.manage')),
-                        403
-                    );
+                Route::prefix('api')
+                    ->as('api.')
+                    ->group(function (): void {
+                        Route::get('/', function () {
+                            $current = auth()->user();
+                            abort_unless(
+                                $current && ($current->isA('superadmin') || $current->can('settings.api.manage')),
+                                403
+                            );
 
-                    return view('admin.settings.api.index');
-                })->name('api.index');
+                            $features = app(\App\Services\Catalog\CatalogFeatureService::class);
+                            $catalogUseApi = $features->useApi();
+                            $catalogUseLuceed = $features->useLuceedApi();
+
+                            if ($catalogUseApi) {
+                                return redirect()->route('admin.settings.api.wholesale');
+                            }
+
+                            if ($catalogUseLuceed) {
+                                return redirect()->route('admin.settings.api.luceed');
+                            }
+
+                            return redirect()->route('admin.settings.system.catalog-features')->with('notify', [
+                                'type' => 'warning',
+                                'message' => 'No API modules are enabled in Catalog Features.',
+                            ]);
+                        })->name('index');
+
+                        Route::middleware('catalog.feature:catalog_use_api')->get('wholesale', function () {
+                            $current = auth()->user();
+                            abort_unless(
+                                $current && ($current->isA('superadmin') || $current->can('settings.api.manage')),
+                                403
+                            );
+
+                            return view('admin.settings.api.wholesale');
+                        })->name('wholesale');
+
+                        Route::middleware('catalog.feature:catalog_use_luceed_api')->get('luceed', function () {
+                            $current = auth()->user();
+                            abort_unless(
+                                $current && ($current->isA('superadmin') || $current->can('settings.api.manage')),
+                                403
+                            );
+
+                            return view('admin.settings.api.luceed');
+                        })->name('luceed');
+                    });
                 Route::view('user', 'admin.settings.user.index')->name('user.index');
             });
 

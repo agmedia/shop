@@ -46,6 +46,8 @@ return [
             'catalog_features' => 'Catalog Features',
             'store_settings' => 'Store Settings',
             'api' => 'API',
+            'wholesale_api' => 'Wholesale API',
+            'luceed_api' => 'Luceed API',
             'user' => 'User',
             'users' => 'Users',
             'users_list' => 'Users List',

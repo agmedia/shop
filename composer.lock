@@ -4,8 +4,77 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ba5ea8022bd289c8f3c6fb6bd9a82fcf",
+    "content-hash": "4108a60fea91c3bb49747ab72392e46b",
     "packages": [
+        {
+            "name": "agmedia/luceed-sdk",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/agmedia/luceed-sdk.git",
+                "reference": "f2e7ff02202228696e6850ca3784b098438f15b3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/agmedia/luceed-sdk/zipball/f2e7ff02202228696e6850ca3784b098438f15b3",
+                "reference": "f2e7ff02202228696e6850ca3784b098438f15b3",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.1",
+                "psr/http-client": "^1.0",
+                "psr/http-factory": "^1.0",
+                "psr/http-message": "^1.1 || ^2.0",
+                "psr/log": "^1.1 || ^2.0 || ^3.0"
+            },
+            "require-dev": {
+                "nyholm/psr7": "^1.8",
+                "phpunit/phpunit": "^10.5"
+            },
+            "default-branch": true,
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Agmedia\\Luceed\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Agmedia\\Luceed\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "lint": [
+                    "find src tests -name '*.php' -print0 | xargs -0 -n 1 php -l"
+                ],
+                "test": [
+                    "phpunit"
+                ],
+                "qa": [
+                    "@lint",
+                    "@test"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Typed PHP SDK for Luceed DataSnap REST API",
+            "homepage": "https://github.com/balakan/luceed-php-api",
+            "keywords": [
+                "api",
+                "datasnap",
+                "laravel",
+                "luceed",
+                "opencart",
+                "php",
+                "sdk"
+            ],
+            "support": {
+                "issues": "https://github.com/balakan/luceed-php-api/issues",
+                "source": "https://github.com/balakan/luceed-php-api"
+            },
+            "time": "2026-02-15T18:05:41+00:00"
+        },
         {
             "name": "brick/math",
             "version": "0.14.8",
@@ -9691,7 +9760,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "agmedia/luceed-sdk": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
