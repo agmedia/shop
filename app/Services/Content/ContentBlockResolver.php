@@ -13,7 +13,7 @@ class ContentBlockResolver
         string $placement,
         ?string $locale = null,
         ?string $targetType = null,
-        ?string $targetRef = null,
+        string|array|null $targetRef = null,
         ?string $frontendVariant = null,
         bool $strictVariant = false
     ): Collection {
@@ -23,9 +23,17 @@ class ContentBlockResolver
 
         $locale = $locale ?: app()->getLocale();
         $targetType = $targetType !== '' ? $targetType : null;
-        $targetRef = $targetRef !== '' ? $targetRef : null;
+        $targetRefs = collect(is_array($targetRef) ? $targetRef : [$targetRef])
+            ->map(static fn ($ref): string => trim((string) $ref))
+            ->filter(static fn (string $ref): bool => $ref !== '')
+            ->unique()
+            ->values()
+            ->all();
         $frontendVariant = in_array($frontendVariant, ['desktop', 'mobile'], true) ? $frontendVariant : null;
         $version = (int) Cache::get($this->versionKey(), 1);
+        $targetCacheKey = $targetRefs === []
+            ? 'global'
+            : sha1((string) json_encode($targetRefs));
 
         $cacheKey = sprintf(
             'content_blocks:v%s:%s:%s:%s:%s:%s:%s',
@@ -33,7 +41,7 @@ class ContentBlockResolver
             $placement,
             $locale,
             $targetType ?: 'global',
-            $targetRef ?: 'global',
+            $targetCacheKey,
             $frontendVariant ?: 'all',
             $strictVariant ? 'strict' : 'fallback'
         );
@@ -41,7 +49,7 @@ class ContentBlockResolver
         return Cache::remember(
             $cacheKey,
             (int) config('content_blocks.cache.ttl_seconds', 3600),
-            function () use ($placement, $locale, $targetType, $targetRef, $frontendVariant, $strictVariant): Collection {
+            function () use ($placement, $locale, $targetType, $targetRefs, $frontendVariant, $strictVariant): Collection {
                 $baseQuery = ContentBlockSlot::query()
                     ->with([
                         'block',
@@ -50,16 +58,16 @@ class ContentBlockResolver
                     ])
                     ->where('placement', $placement)
                     ->currentlyActive()
-                    ->when($targetType !== null, function ($query) use ($targetType, $targetRef): void {
-                        $query->where(function ($q) use ($targetType, $targetRef): void {
+                    ->when($targetType !== null, function ($query) use ($targetType, $targetRefs): void {
+                        $query->where(function ($q) use ($targetType, $targetRefs): void {
                             $q->whereNull('target_type')
-                                ->orWhere(function ($specific) use ($targetType, $targetRef): void {
+                                ->orWhere(function ($specific) use ($targetType, $targetRefs): void {
                                     $specific->where('target_type', $targetType)
-                                        ->where(function ($refQuery) use ($targetRef): void {
+                                        ->where(function ($refQuery) use ($targetRefs): void {
                                             $refQuery->whereNull('target_ref');
 
-                                            if ($targetRef !== null && $targetRef !== '') {
-                                                $refQuery->orWhere('target_ref', $targetRef);
+                                            if ($targetRefs !== []) {
+                                                $refQuery->orWhereIn('target_ref', $targetRefs);
                                             }
                                         });
                                 });

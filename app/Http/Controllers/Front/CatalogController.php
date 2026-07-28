@@ -338,18 +338,59 @@ class CatalogController extends Controller
         $gridCols = $this->resolveGridCols($request, $this->defaultDesktopGridCols($request));
         $this->queueGridColsCookie($gridCols);
 
-        $category = Category::query()
+        $categoryQuery = Category::query()
             ->where('scope', Category::SCOPE_CATALOG)
-            ->currentlyVisible()
-            ->whereHas('translations', function ($q) use ($locale, $fallbackLocale, $categorySlug): void {
+            ->currentlyVisible();
+
+        $findCategoryByLocale = static function (Builder $query, string $translationLocale) use ($categorySlug): ?Category {
+            return $query
+                ->whereHas('translations', function ($translationQuery) use ($translationLocale, $categorySlug): void {
+                    $translationQuery
+                        ->where('scope', Category::SCOPE_CATALOG)
+                        ->where('locale', $translationLocale)
+                        ->where('slug', $categorySlug);
+                })
+                ->first();
+        };
+
+        $category = $findCategoryByLocale(clone $categoryQuery, $locale);
+
+        if (! $category && $fallbackLocale !== $locale) {
+            $category = $findCategoryByLocale(clone $categoryQuery, $fallbackLocale);
+        }
+
+        $category ??= (clone $categoryQuery)
+            ->whereHas('translations', function ($q) use ($categorySlug): void {
                 $q->where('scope', Category::SCOPE_CATALOG)
-                    ->whereIn('locale', [$locale, $fallbackLocale])
                     ->where('slug', $categorySlug);
             })
-            ->with([
-                'translations' => fn ($q) => $q->where('scope', Category::SCOPE_CATALOG)->whereIn('locale', [$locale, $fallbackLocale]),
-            ])
             ->firstOrFail();
+
+        $category->load([
+            'translations' => fn ($q) => $q->where('scope', Category::SCOPE_CATALOG),
+        ]);
+
+        $localizedCategorySlug = trim((string) (
+            $category->translations->firstWhere('locale', $locale)?->slug
+            ?? $category->translations->firstWhere('locale', $fallbackLocale)?->slug
+            ?? ''
+        ));
+
+        if ($localizedCategorySlug !== '' && $localizedCategorySlug !== $categorySlug) {
+            return redirect()->route(
+                'categories.show',
+                ['slug' => $localizedCategorySlug] + $request->query()
+            );
+        }
+
+        $categoryTargetRefs = $category->translations
+            ->pluck('slug')
+            ->push($category->code)
+            ->filter(static fn ($ref): bool => trim((string) $ref) !== '')
+            ->map(static fn ($ref): string => trim((string) $ref))
+            ->unique()
+            ->values()
+            ->all();
 
         $showCategoryProducts = $category->catalogPageShowsProducts();
         $showCategoryFilters = $category->catalogPageShowsFilters();
@@ -583,7 +624,7 @@ class CatalogController extends Controller
             placement: 'category.top',
             locale: $locale,
             targetType: 'category',
-            targetRef: $categorySlug,
+            targetRef: $categoryTargetRefs,
             frontendVariant: $variant
         );
 
@@ -591,7 +632,7 @@ class CatalogController extends Controller
             placement: 'category.bottom',
             locale: $locale,
             targetType: 'category',
-            targetRef: $categorySlug,
+            targetRef: $categoryTargetRefs,
             frontendVariant: $variant
         );
 

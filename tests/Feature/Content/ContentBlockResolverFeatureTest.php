@@ -149,8 +149,19 @@ class ContentBlockResolverFeatureTest extends TestCase
 
         $womenRows = app(ContentBlockResolver::class)->forPlacement('category.top', 'hr', 'category', 'zene', 'desktop');
         $menRows = app(ContentBlockResolver::class)->forPlacement('category.top', 'hr', 'category', 'muskarci', 'desktop');
+        $translatedWomenRows = app(ContentBlockResolver::class)->forPlacement(
+            'category.top',
+            'en',
+            'category',
+            ['women', 'zene'],
+            'desktop'
+        );
 
         $this->assertSame(['category-global-top', 'category-zene-editorial'], $womenRows->pluck('block.code')->all());
         $this->assertSame(['category-global-top'], $menRows->pluck('block.code')->all());
+        $this->assertSame(
+            ['category-global-top', 'category-zene-editorial'],
+            $translatedWomenRows->pluck('block.code')->all()
+        );
     }
 }

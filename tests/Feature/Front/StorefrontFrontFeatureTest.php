@@ -1937,8 +1937,23 @@ class StorefrontFrontFeatureTest extends TestCase
 
     public function test_category_editorial_tiles_block_renders_on_targeted_category(): void
     {
-        $this->useEnglishStorefrontLocale();
+        config([
+            'app.locale' => 'hr',
+            'app.fallback_locale' => 'hr',
+        ]);
+        app()->setLocale('en');
+        $this->withoutMiddleware(\App\Http\Middleware\SetFrontendLocale::class);
+
         [$category, $categorySlug] = $this->seedCategory();
+
+        CategoryTranslation::query()->create([
+            'category_id' => $category->id,
+            'scope' => Category::SCOPE_CATALOG,
+            'locale' => 'hr',
+            'name' => 'Kategorija za editorijal',
+            'slug' => 'hr-'.$categorySlug,
+            'description' => 'Opis kategorije',
+        ]);
 
         $block = ContentBlock::query()->create([
             'code' => 'category-editorial-test',
@@ -1949,7 +1964,7 @@ class StorefrontFrontFeatureTest extends TestCase
         ]);
 
         $block->translations()->create([
-            'locale' => 'en',
+            'locale' => 'hr',
             'title' => null,
             'subtitle' => null,
             'cta_label' => null,
@@ -1961,7 +1976,7 @@ class StorefrontFrontFeatureTest extends TestCase
             'placement' => 'category.top',
             'frontend_variant' => 'all',
             'target_type' => 'category',
-            'target_ref' => $categorySlug,
+            'target_ref' => 'hr-'.$categorySlug,
             'sort_order' => 0,
             'is_active' => true,
         ]);
@@ -1973,9 +1988,9 @@ class StorefrontFrontFeatureTest extends TestCase
             ->usingName('tile-1')
             ->usingFileName('tile-1.jpg')
             ->withCustomProperties([
-                'block_title' => ['en' => 'Nightwear'],
-                'link_url' => ['en' => '/category/nightwear'],
-                'alt' => ['en' => 'Nightwear'],
+                'block_title' => ['hr' => 'Nightwear'],
+                'link_url' => ['hr' => '/category/nightwear'],
+                'alt' => ['hr' => 'Nightwear'],
             ])
             ->toMediaCollection('block_slides');
 
