@@ -1955,6 +1955,15 @@ class StorefrontFrontFeatureTest extends TestCase
             'description' => 'Opis kategorije',
         ]);
 
+        CategoryTranslation::query()->create([
+            'category_id' => $category->id,
+            'scope' => Category::SCOPE_CATALOG,
+            'locale' => 'de',
+            'name' => 'Editorial-Kategorie',
+            'slug' => 'de-'.$categorySlug,
+            'description' => 'Kategoriebeschreibung',
+        ]);
+
         $block = ContentBlock::query()->create([
             'code' => 'category-editorial-test',
             'name' => 'Category Editorial Test',
@@ -1996,10 +2005,19 @@ class StorefrontFrontFeatureTest extends TestCase
 
         $this->assertNotNull($media);
 
-        $this->get('/category/'.$categorySlug)
-            ->assertOk()
-            ->assertSee('Nightwear')
-            ->assertSee('/category/nightwear', false);
+        foreach ([
+            'hr' => 'hr-'.$categorySlug,
+            'en' => $categorySlug,
+            'de' => 'de-'.$categorySlug,
+        ] as $locale => $localizedSlug) {
+            app()->setLocale($locale);
+
+            $this->get('/category/'.$localizedSlug)
+                ->assertOk()
+                ->assertSee('lang="'.$locale.'"', false)
+                ->assertSee('Nightwear')
+                ->assertSee('/category/nightwear', false);
+        }
     }
 
     /**

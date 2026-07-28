@@ -188,6 +188,7 @@ return [
                 'shipping_returns' => 'Shipping and returns',
                 'secure_checkout' => 'Secure checkout',
                 'copyright' => 'All rights reserved.',
+                'agmedia' => 'Web by: AG media.',
             ],
             'social' => [
                 'facebook' => 'Facebook',

@@ -54,6 +54,20 @@ class StorefrontLocaleFeatureTest extends TestCase
             ->assertSee('/rucksendungen-und-reklamationen', false);
     }
 
+    public function test_core_storefront_pages_render_in_every_configured_language(): void
+    {
+        $this->seedLanguages();
+
+        foreach (['hr', 'en', 'de'] as $locale) {
+            foreach (['/', '/shop', '/categories', '/faq', '/contact', '/cart'] as $path) {
+                $response = $this->withSession(['front_locale' => $locale])->get($path);
+
+                $this->assertSame(200, $response->status(), $locale.' storefront route failed: '.$path);
+                $response->assertSee('lang="'.$locale.'"', false);
+            }
+        }
+    }
+
     public function test_category_language_switch_redirects_to_the_localized_slug(): void
     {
         $this->seedLanguages();
@@ -84,33 +98,53 @@ class StorefrontLocaleFeatureTest extends TestCase
             'description' => null,
         ]);
 
-        $this->get('/category/muskarci')
-            ->assertOk()
-            ->assertSee('Muškarci');
+        CategoryTranslation::query()->create([
+            'category_id' => $category->id,
+            'scope' => Category::SCOPE_CATALOG,
+            'locale' => 'de',
+            'name' => 'Herren',
+            'slug' => 'herren',
+            'description' => null,
+        ]);
 
-        $this->from('/category/muskarci')
-            ->get('/locale/en')
-            ->assertRedirect('/category/muskarci')
-            ->assertSessionHas('front_locale', 'en');
+        $languages = [
+            'hr' => ['slug' => 'muskarci', 'name' => 'Muškarci'],
+            'en' => ['slug' => 'men', 'name' => 'Men'],
+            'de' => ['slug' => 'herren', 'name' => 'Herren'],
+        ];
 
-        $this->get('/category/muskarci?sort=newest')
-            ->assertRedirect('/category/men?sort=newest');
+        foreach ($languages as $sourceLocale => $source) {
+            $sourcePath = '/category/'.$source['slug'];
 
-        $this->get('/category/men')
-            ->assertOk()
-            ->assertSee('Men');
+            $this->withSession(['front_locale' => $sourceLocale])
+                ->get($sourcePath)
+                ->assertOk()
+                ->assertSee($source['name'])
+                ->assertSee('lang="'.$sourceLocale.'"', false);
 
-        $this->from('/category/men')
-            ->get('/locale/hr')
-            ->assertRedirect('/category/men')
-            ->assertSessionHas('front_locale', 'hr');
+            foreach ($languages as $targetLocale => $target) {
+                if ($targetLocale === $sourceLocale) {
+                    continue;
+                }
 
-        $this->get('/category/men?sort=newest')
-            ->assertRedirect('/category/muskarci?sort=newest');
+                $targetPath = '/category/'.$target['slug'];
 
-        $this->get('/category/muskarci')
-            ->assertOk()
-            ->assertSee('Muškarci');
+                $this->withSession(['front_locale' => $sourceLocale])
+                    ->from($sourcePath)
+                    ->get('/locale/'.$targetLocale)
+                    ->assertRedirect($sourcePath)
+                    ->assertSessionHas('front_locale', $targetLocale);
+
+                $this->get($sourcePath.'?sort=newest')
+                    ->assertRedirect($targetPath.'?sort=newest');
+
+                $this->get($targetPath)
+                    ->assertOk()
+                    ->assertSee($target['name'])
+                    ->assertSee('lang="'.$targetLocale.'"', false)
+                    ->assertSessionHas('front_locale', $targetLocale);
+            }
+        }
     }
 
     private function seedLanguages(): void
