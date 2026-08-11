@@ -17,7 +17,7 @@ class KiposSyncPricesFeatureTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_kipos_price_update_merges_base_and_extended_feeds_and_updates_full_variant_prices(): void
+    public function test_kipos_price_update_uses_complete_extended_feed_and_updates_full_variant_prices_in_bulk(): void
     {
         $admin = User::factory()->create();
         $product = $this->createProduct($admin, 'W7030', 99);
@@ -39,13 +39,13 @@ class KiposSyncPricesFeatureTest extends TestCase
             '*getitemsextended*' => Http::response([
                 ['IDROBA' => 'W7030.S', 'IDODJEL' => 'W7030', 'IDVELICINA' => 'S', 'CIJENA_MPC' => '10,00', 'CIJENA_NAJNIZA_30DANA' => '9,50'],
                 ['IDROBA' => 'W7030.M', 'IDODJEL' => 'W7030', 'IDVELICINA' => 'M', 'CIJENA_MPC' => '15,50', 'CIJENA_NAJNIZA_30DANA' => '14,00'],
+                ['IDROBA' => 'W8000', 'IDODJEL' => 'W8000', 'CIJENA_MPC' => '1.234,56', 'CIJENA_NAJNIZA_30DANA' => '1.100,00'],
                 ['IDROBA' => 'M7066.S', 'IDODJEL' => 'M7066', 'IDVELICINA' => 'S', 'CIJENA_MPC' => '15,99'],
                 ['IDROBA' => 'M7066.XXL', 'IDODJEL' => 'M7066', 'IDVELICINA' => 'XXL', 'CIJENA_MPC' => '17,99'],
+                ['IDROBA' => 'UNKNOWN', 'IDODJEL' => 'UNKNOWN', 'CIJENA_MPC' => '20,00'],
             ], 200),
             '*getitems*' => Http::response([
-                ['IDROBA' => 'W7030.S', 'IDODJEL' => 'W7030', 'IDVELICINA' => 'S', 'CIJENA_MPC' => '9,00', 'CIJENA_NAJNIZA_30DANA' => '8,50'],
-                ['IDROBA' => 'W8000', 'IDODJEL' => 'W8000', 'CIJENA_MPC' => '1.234,56', 'CIJENA_NAJNIZA_30DANA' => '1.100,00'],
-                ['IDROBA' => 'UNKNOWN', 'IDODJEL' => 'UNKNOWN', 'CIJENA_MPC' => '20,00'],
+                ['IDROBA' => 'W7030.S', 'IDODJEL' => 'W7030', 'IDVELICINA' => 'S', 'CIJENA_MPC' => '9,00'],
             ], 200),
         ]);
 
@@ -69,7 +69,7 @@ class KiposSyncPricesFeatureTest extends TestCase
         $this->assertSame(3, (int) (($run->stats ?? [])['updated_products'] ?? 0));
         $this->assertSame(4, (int) (($run->stats ?? [])['updated_variants'] ?? 0));
         $this->assertSame(1, (int) (($run->stats ?? [])['unmatched_products'] ?? 0));
-        Http::assertSent(
+        Http::assertNotSent(
             fn ($request): bool => str_contains($request->url(), 'getitems')
                 && ! str_contains($request->url(), 'getitemsextended')
         );

@@ -675,10 +675,10 @@ class KiposSyncManagerFeatureTest extends TestCase
     private function fakeKiposPrice(string $code, string $price): void
     {
         Http::fake([
-            '*getitemsextended*' => Http::response([], 200),
-            '*getitems*' => Http::response([
+            '*getitemsextended*' => Http::response([
                 ['IDROBA' => $code, 'IDODJEL' => $code, 'CIJENA_MPC' => $price],
             ], 200),
+            '*getitems*' => Http::response([], 200),
         ]);
     }
 

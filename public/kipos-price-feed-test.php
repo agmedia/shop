@@ -245,12 +245,12 @@ $query = trim((string) ($_GET['q'] ?? ''));
 $limit = max(1, min(2000, (int) ($_GET['limit'] ?? 500)));
 $format = strtolower(trim((string) ($_GET['format'] ?? (PHP_SAPI === 'cli' ? 'csv' : 'html'))));
 $source = strtolower(trim((string) ($_GET['source'] ?? 'admin')));
-$source = in_array($source, ['admin', 'extended'], true) ? $source : 'admin';
-$route = $source === 'extended' ? 'sif_roba/getitemsextended' : 'sif_roba/getitems';
+$source = $source === 'base' ? 'base' : 'admin';
+$route = $source === 'base' ? 'sif_roba/getitems' : 'sif_roba/getitemsextended';
 $token = (string) ($_GET['token'] ?? '');
 
 try {
-    // Admin Update Prices currently calls assertEnabled() and sif_roba/getitems.
+    // Admin Update Prices calls assertEnabled() and sif_roba/getitemsextended.
     $kipos->assertEnabled();
     $allRows = $kipos->getRows($route);
 } catch (Throwable $exception) {
@@ -436,8 +436,8 @@ header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; 
             <label>
                 Izvor
                 <select name="source">
-                    <option value="admin" <?= $source === 'admin' ? 'selected' : '' ?>>Admin update — getitems</option>
-                    <option value="extended" <?= $source === 'extended' ? 'selected' : '' ?>>Extended — getitemsextended</option>
+                    <option value="admin" <?= $source === 'admin' ? 'selected' : '' ?>>Admin update — getitemsextended</option>
+                    <option value="base" <?= $source === 'base' ? 'selected' : '' ?>>Base usporedba — getitems</option>
                 </select>
             </label>
             <label>
