@@ -74,7 +74,7 @@ class KiposSyncService
                 'actions' => [
                     ['key' => 'import_products', 'label' => 'Import Products', 'description' => 'Create missing products only for entered Kipos product codes.'],
                     ['key' => 'update_content', 'label' => 'Update Content', 'description' => 'Update names, descriptions, active state, and structural variant mapping without touching prices or quantities.'],
-                    ['key' => 'update_prices', 'label' => 'Update Prices', 'description' => 'Refresh product base price and size price overrides from selected Kipos price field.'],
+                    ['key' => 'update_prices', 'label' => 'Update Prices', 'description' => 'Refresh product base price and size price overrides from the complete Kipos item feeds.'],
                     ['key' => 'update_quantities', 'label' => 'Update Quantities', 'description' => 'Refresh stock only, with warehouse filtering and quantity override rules.'],
                     ['key' => 'update_actions', 'label' => 'Update Actions', 'description' => 'Create / update Kipos-driven catalog actions from `AKCIJSKA_CIJENA`.'],
                 ],
@@ -468,7 +468,7 @@ class KiposSyncService
     private function handleUpdatePrices(): array
     {
         $groups = $this->groupRowsByDepartment(
-            $this->kipos->getRows('sif_roba/getitems')
+            $this->mergedProductRows()
         );
         $products = Product::query()
             ->with('optionValues')

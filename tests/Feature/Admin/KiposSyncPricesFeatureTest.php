@@ -17,11 +17,12 @@ class KiposSyncPricesFeatureTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_kipos_price_update_updates_products_and_size_rows_with_full_prices(): void
+    public function test_kipos_price_update_merges_base_and_extended_feeds_and_updates_full_variant_prices(): void
     {
         $admin = User::factory()->create();
         $product = $this->createProduct($admin, 'W7030', 99);
         $plainProduct = $this->createProduct($admin, 'W8000', 99);
+        $extendedOnlyProduct = $this->createProduct($admin, 'M7066', 15.26);
 
         $size = $this->createOption($admin, 'size');
         $small = $this->createOptionValue($admin, $size, 's', 1);
@@ -29,16 +30,20 @@ class KiposSyncPricesFeatureTest extends TestCase
 
         $this->createProductOptionRow($admin, $product, $small, 'W7030.S', 99, 0);
         $this->createProductOptionRow($admin, $product, $medium, 'W7030.M', 99, 1);
+        $this->createProductOptionRow($admin, $extendedOnlyProduct, $small, 'M7066.S', 15.26, 0);
+        $this->createProductOptionRow($admin, $extendedOnlyProduct, $medium, 'M7066.XXL', 17.65, 1);
 
         $this->enableKiposSync();
 
         Http::fake([
             '*getitemsextended*' => Http::response([
-                ['IDROBA' => 'W7030.S', 'CIJENA_NAJNIZA_30DANA' => '1,00'],
-            ], 200),
-            '*getitems*' => Http::response([
                 ['IDROBA' => 'W7030.S', 'IDODJEL' => 'W7030', 'IDVELICINA' => 'S', 'CIJENA_MPC' => '10,00', 'CIJENA_NAJNIZA_30DANA' => '9,50'],
                 ['IDROBA' => 'W7030.M', 'IDODJEL' => 'W7030', 'IDVELICINA' => 'M', 'CIJENA_MPC' => '15,50', 'CIJENA_NAJNIZA_30DANA' => '14,00'],
+                ['IDROBA' => 'M7066.S', 'IDODJEL' => 'M7066', 'IDVELICINA' => 'S', 'CIJENA_MPC' => '15,99'],
+                ['IDROBA' => 'M7066.XXL', 'IDODJEL' => 'M7066', 'IDVELICINA' => 'XXL', 'CIJENA_MPC' => '17,99'],
+            ], 200),
+            '*getitems*' => Http::response([
+                ['IDROBA' => 'W7030.S', 'IDODJEL' => 'W7030', 'IDVELICINA' => 'S', 'CIJENA_MPC' => '9,00', 'CIJENA_NAJNIZA_30DANA' => '8,50'],
                 ['IDROBA' => 'W8000', 'IDODJEL' => 'W8000', 'CIJENA_MPC' => '1.234,56', 'CIJENA_NAJNIZA_30DANA' => '1.100,00'],
                 ['IDROBA' => 'UNKNOWN', 'IDODJEL' => 'UNKNOWN', 'CIJENA_MPC' => '20,00'],
             ], 200),
@@ -48,18 +53,27 @@ class KiposSyncPricesFeatureTest extends TestCase
 
         $fresh = $product->fresh()->load('optionValues');
         $freshPlain = $plainProduct->fresh();
+        $freshExtendedOnly = $extendedOnlyProduct->fresh()->load('optionValues');
         $rows = $fresh->optionValues->keyBy('sku');
+        $extendedOnlyRows = $freshExtendedOnly->optionValues->keyBy('sku');
 
         $this->assertSame('success', $run->status);
         $this->assertEqualsWithDelta(10.00, (float) $fresh->base_price, 0.001);
         $this->assertEqualsWithDelta(10.00, (float) $rows->get('W7030.S')?->price_override, 0.001);
         $this->assertEqualsWithDelta(15.50, (float) $rows->get('W7030.M')?->price_override, 0.001);
         $this->assertEqualsWithDelta(1234.56, (float) $freshPlain->base_price, 0.001);
+        $this->assertEqualsWithDelta(15.99, (float) $freshExtendedOnly->base_price, 0.001);
+        $this->assertEqualsWithDelta(15.99, (float) $extendedOnlyRows->get('M7066.S')?->price_override, 0.001);
+        $this->assertEqualsWithDelta(17.99, (float) $extendedOnlyRows->get('M7066.XXL')?->price_override, 0.001);
         $this->assertEqualsWithDelta(9.50, (float) data_get($fresh->payload, 'kipos.lowest_30_days_price'), 0.001);
-        $this->assertSame(2, (int) (($run->stats ?? [])['updated_products'] ?? 0));
-        $this->assertSame(2, (int) (($run->stats ?? [])['updated_variants'] ?? 0));
+        $this->assertSame(3, (int) (($run->stats ?? [])['updated_products'] ?? 0));
+        $this->assertSame(4, (int) (($run->stats ?? [])['updated_variants'] ?? 0));
         $this->assertSame(1, (int) (($run->stats ?? [])['unmatched_products'] ?? 0));
-        Http::assertNotSent(
+        Http::assertSent(
+            fn ($request): bool => str_contains($request->url(), 'getitems')
+                && ! str_contains($request->url(), 'getitemsextended')
+        );
+        Http::assertSent(
             fn ($request): bool => str_contains($request->url(), 'getitemsextended')
         );
     }
