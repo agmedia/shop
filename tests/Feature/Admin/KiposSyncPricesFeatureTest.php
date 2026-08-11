@@ -34,14 +34,12 @@ class KiposSyncPricesFeatureTest extends TestCase
 
         Http::fake([
             '*getitemsextended*' => Http::response([
-                ['IDROBA' => 'W7030.S', 'CIJENA_NAJNIZA_30DANA' => '9,50'],
-                ['IDROBA' => 'W7030.M', 'CIJENA_NAJNIZA_30DANA' => '14,00'],
-                ['IDROBA' => 'W8000', 'CIJENA_NAJNIZA_30DANA' => '1.100,00'],
+                ['IDROBA' => 'W7030.S', 'CIJENA_NAJNIZA_30DANA' => '1,00'],
             ], 200),
             '*getitems*' => Http::response([
-                ['IDROBA' => 'W7030.S', 'IDODJEL' => 'W7030', 'IDVELICINA' => 'S', 'CIJENA_MPC' => '10,00'],
-                ['IDROBA' => 'W7030.M', 'IDODJEL' => 'W7030', 'IDVELICINA' => 'M', 'CIJENA_MPC' => '15,50'],
-                ['IDROBA' => 'W8000', 'IDODJEL' => 'W8000', 'CIJENA_MPC' => '1.234,56'],
+                ['IDROBA' => 'W7030.S', 'IDODJEL' => 'W7030', 'IDVELICINA' => 'S', 'CIJENA_MPC' => '10,00', 'CIJENA_NAJNIZA_30DANA' => '9,50'],
+                ['IDROBA' => 'W7030.M', 'IDODJEL' => 'W7030', 'IDVELICINA' => 'M', 'CIJENA_MPC' => '15,50', 'CIJENA_NAJNIZA_30DANA' => '14,00'],
+                ['IDROBA' => 'W8000', 'IDODJEL' => 'W8000', 'CIJENA_MPC' => '1.234,56', 'CIJENA_NAJNIZA_30DANA' => '1.100,00'],
                 ['IDROBA' => 'UNKNOWN', 'IDODJEL' => 'UNKNOWN', 'CIJENA_MPC' => '20,00'],
             ], 200),
         ]);
@@ -61,6 +59,9 @@ class KiposSyncPricesFeatureTest extends TestCase
         $this->assertSame(2, (int) (($run->stats ?? [])['updated_products'] ?? 0));
         $this->assertSame(2, (int) (($run->stats ?? [])['updated_variants'] ?? 0));
         $this->assertSame(1, (int) (($run->stats ?? [])['unmatched_products'] ?? 0));
+        Http::assertNotSent(
+            fn ($request): bool => str_contains($request->url(), 'getitemsextended')
+        );
     }
 
     private function createProduct(User $admin, string $code, float $basePrice): Product

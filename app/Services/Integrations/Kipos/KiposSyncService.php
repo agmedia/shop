@@ -467,7 +467,9 @@ class KiposSyncService
      */
     private function handleUpdatePrices(): array
     {
-        $groups = $this->groupRowsByDepartment($this->mergedProductRows());
+        $groups = $this->groupRowsByDepartment(
+            $this->kipos->getRows('sif_roba/getitems')
+        );
         $products = Product::query()
             ->with('optionValues')
             ->whereIn('code', array_keys($groups))
