@@ -274,7 +274,7 @@
                                             class="h-4 w-4 border-slate-300 text-slate-900 focus:ring-0"
                                             required
                                         >
-                                        <span class="font-semibold text-slate-900">{{ $method->name }}</span>
+                                        <span class="font-semibold text-slate-900">{{ $method->display_name ?: $method->name }}</span>
                                     </span>
                                     <span class="text-slate-600">{{ \App\Support\Currency::format((float) $method->price) }}</span>
                                 </label>
@@ -315,10 +315,10 @@
                                         @if (in_array(strtolower((string) $method->code), ['keks', 'keks_pay', 'kekspay'], true))
                                             <span class="inline-flex items-center gap-2">
                                                 <img src="{{ asset('assets/payments/keks-logo.svg') }}" alt="KEKS Pay" class="h-5 w-auto max-w-[110px]">
-                                                <span class="font-semibold text-slate-900">{{ $method->name }}</span>
+                                                <span class="font-semibold text-slate-900">{{ $method->display_name ?: $method->name }}</span>
                                             </span>
                                         @else
-                                            <span class="font-semibold text-slate-900">{{ $method->name }}</span>
+                                            <span class="font-semibold text-slate-900">{{ $method->display_name ?: $method->name }}</span>
                                         @endif
                                     </span>
                                 </label>

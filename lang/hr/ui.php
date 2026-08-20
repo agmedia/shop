@@ -89,6 +89,7 @@ return [
                 'contact' => 'Kontakt',
             ],
             'account' => 'Moj račun',
+            'customer_reviews' => 'Komentari kupca',
             'search' => 'Pretraži',
             'favorites' => 'Favoriti',
             'cart' => 'Košarica',
@@ -181,6 +182,7 @@ return [
                 'about' => 'O nama',
                 'webshop_queries' => 'Webshop upiti',
                 'work_hours' => 'PON - PET 08:00 - 16:00',
+                'return_form' => 'Obrazac za povrat',
                 'career' => 'Karijera',
                 'terms' => 'Uvjeti korištenja',
                 'privacy' => 'Politika privatnosti',
@@ -221,6 +223,11 @@ return [
         'lowest_price_30_days' => 'Najniža cijena u prethodnih 30 dana: :price',
         'comments_title' => 'Komentari',
         'comments_empty' => 'Još nema komentara za ovaj artikl.',
+        'attribute_groups' => [
+            'composition' => 'Sastav',
+            'quality' => 'Kvaliteta',
+            'warranty' => 'Garancija',
+        ],
         'comments_anonymous' => 'Anonimno',
         'reviews_count' => '{1} :count komentar|[2,*] :count komentara',
         'reviews_summary_aria' => ':count komentara, prosječna ocjena :rating od 5',
@@ -296,7 +303,7 @@ return [
         'table' => [
             'product' => 'Proizvod',
             'price' => 'Cijena',
-            'quantity' => 'Kol',
+            'quantity' => 'Količina',
             'total' => 'Ukupno',
             'actions' => 'Akcije',
             'save' => 'Spremi',
@@ -395,6 +402,15 @@ return [
         ],
         'actions' => [
             'place_order' => 'Naruči',
+        ],
+        'shipping_methods' => [
+            'standard' => 'Dostava DPD Hrvatska - Besplatna dostava za narudžbe iznad 50 €',
+            'pickup' => 'Preuzimanje u trgovini (Hrupine 19, 40323, Prelog, Croatia)',
+        ],
+        'payment_methods' => [
+            'cod' => 'Plaćanje prilikom preuzimanja',
+            'corvuspay' => 'Plaćanje kreditnim i debitnim karticama - Corvuspay',
+            'bank' => 'Bankovna transakcija / Bankovna uplata / QR kod',
         ],
         'boxnow' => [
             'select_locker' => 'Odaberi BOX NOW paketomat',

@@ -37,7 +37,7 @@ class CheckoutService
     {
         $zoneIds = $this->resolveGeoZoneIdsForAddress($countryCode, $regionCode, $postalCode);
 
-        return PaymentMethod::query()
+        $methods = PaymentMethod::query()
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('id')
@@ -45,6 +45,8 @@ class CheckoutService
             ->filter(fn (PaymentMethod $method) => $this->methodMatchesGeoZones($method->geo_zone_id, $zoneIds))
             ->filter(fn (PaymentMethod $method) => $this->subtotalFits($subtotal, $method->min_subtotal, $method->max_subtotal))
             ->values();
+
+        return $this->withLocalizedMethodNames($methods, 'payment_methods');
     }
 
     /**
@@ -59,7 +61,7 @@ class CheckoutService
     {
         $zoneIds = $this->resolveGeoZoneIdsForAddress($countryCode, $regionCode, $postalCode);
 
-        return ShippingMethod::query()
+        $methods = ShippingMethod::query()
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('id')
@@ -67,6 +69,8 @@ class CheckoutService
             ->filter(fn (ShippingMethod $method) => $this->methodMatchesGeoZones($method->geo_zone_id, $zoneIds))
             ->filter(fn (ShippingMethod $method) => $this->subtotalFits($subtotal, $method->min_subtotal, $method->max_subtotal))
             ->values();
+
+        return $this->withLocalizedMethodNames($methods, 'shipping_methods');
     }
 
     /**
@@ -212,9 +216,9 @@ class CheckoutService
                 'shipping_country_code' => (string) ($payload['shipping_country_code'] ?? 'HR'),
 
                 'payment_method_code' => (string) $paymentMethod->code,
-                'payment_method_name' => (string) $paymentMethod->name,
+                'payment_method_name' => (string) ($paymentMethod->display_name ?: $paymentMethod->name),
                 'shipping_method_code' => (string) $shippingMethod->code,
-                'shipping_method_name' => (string) $shippingMethod->name,
+                'shipping_method_name' => (string) ($shippingMethod->display_name ?: $shippingMethod->name),
 
                 'item_qty' => (int) $lines->sum('quantity'),
                 'subtotal' => $subtotal,
@@ -460,6 +464,22 @@ class CheckoutService
             'shipping_method_code' => (string) ($shippingMethod?->code ?? ''),
             'payment_method_code' => (string) ($paymentMethod?->code ?? ''),
         ];
+    }
+
+    /**
+     * @template TMethod of PaymentMethod|ShippingMethod
+     *
+     * @param  Collection<int, TMethod>  $methods
+     * @return Collection<int, TMethod>
+     */
+    private function withLocalizedMethodNames(Collection $methods, string $translationGroup): Collection
+    {
+        return $methods->each(function (PaymentMethod|ShippingMethod $method) use ($translationGroup): void {
+            $key = 'ui.checkout.'.$translationGroup.'.'.strtolower(trim((string) $method->code));
+            $translated = (string) __($key);
+
+            $method->setAttribute('display_name', $translated !== $key ? $translated : (string) $method->name);
+        });
     }
 
     /**

@@ -953,8 +953,7 @@ class CatalogController extends Controller
                     ?? $groupRows->flatMap(fn (Attribute $attribute) => $attribute->translations)->first();
 
                 $label = match ($groupCode) {
-                    'sastav' => in_array(strtolower($locale), ['hr', 'hr-hr'], true) ? 'Sastav' : 'Composition',
-                    'material' => in_array(strtolower($locale), ['hr', 'hr-hr'], true) ? 'Sastav' : 'Composition',
+                    'sastav', 'material' => (string) __('ui.product.attribute_groups.composition'),
                     default => trim((string) ($firstTranslation?->group_name ?? '')),
                 };
 

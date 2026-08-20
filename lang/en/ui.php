@@ -89,6 +89,7 @@ return [
                 'contact' => 'Contact',
             ],
             'account' => 'My account',
+            'customer_reviews' => 'Customer reviews',
             'search' => 'Search',
             'favorites' => 'Favorites',
             'cart' => 'Cart',
@@ -180,7 +181,8 @@ return [
                 'home' => 'Home',
                 'about' => 'About us',
                 'webshop_queries' => 'Webshop inquiries',
-                'work_hours' => 'MON - FRI 08:00 - 16:00',
+                'work_hours' => 'Mon – Fri, 8:00 AM – 4:00 PM',
+                'return_form' => 'Return form',
                 'career' => 'Career',
                 'terms' => 'Terms of use',
                 'privacy' => 'Privacy policy',
@@ -221,6 +223,11 @@ return [
         'lowest_price_30_days' => 'Lowest price in the last 30 days: :price',
         'comments_title' => 'Comments',
         'comments_empty' => 'There are no comments for this product yet.',
+        'attribute_groups' => [
+            'composition' => 'Composition',
+            'quality' => 'Quality',
+            'warranty' => 'Warranty',
+        ],
         'comments_anonymous' => 'Anonymous',
         'reviews_count' => '{1} :count review|[2,*] :count reviews',
         'reviews_summary_aria' => ':count reviews, average rating :rating out of 5',
@@ -296,7 +303,7 @@ return [
         'table' => [
             'product' => 'Product',
             'price' => 'Price',
-            'quantity' => 'Qty',
+            'quantity' => 'Quantity',
             'total' => 'Total',
             'actions' => 'Actions',
             'save' => 'Save',
@@ -395,6 +402,15 @@ return [
         ],
         'actions' => [
             'place_order' => 'Place order',
+        ],
+        'shipping_methods' => [
+            'standard' => 'DPD Croatia shipping - Free shipping on orders over €50',
+            'pickup' => 'Store pickup (Hrupine 19, 40323, Prelog, Croatia)',
+        ],
+        'payment_methods' => [
+            'cod' => 'Cash on delivery',
+            'corvuspay' => 'Credit and debit card payment - CorvusPay',
+            'bank' => 'Bank transaction / Bank transfer / QR code',
         ],
         'boxnow' => [
             'select_locker' => 'Select BOX NOW locker',

@@ -439,19 +439,21 @@
             <div class="hidden h-full items-stretch border-l border-slate-200 lg:flex">
                 @php
                     $activeLocale = (string) ($frontLocale ?? app()->getLocale());
-                    $switchLanguage = collect($frontLanguages ?? [])->first(
+                    $switchLanguages = collect($frontLanguages ?? [])->filter(
                         static fn (array $language): bool => (string) ($language['code'] ?? '') !== $activeLocale
                     );
                 @endphp
-                @if ($switchLanguage)
-                    <div class="inline-flex w-[76px] items-center justify-center border-r border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-700">
-                        <a
-                            href="{{ route('front.locale.switch', ['code' => $switchLanguage['code']]) }}"
-                            class="text-slate-500 hover:text-black"
-                            hreflang="{{ $switchLanguage['code'] }}"
-                        >
-                            {{ strtoupper((string) $switchLanguage['code']) }}
-                        </a>
+                @if ($switchLanguages->isNotEmpty())
+                    <div class="inline-flex min-w-[76px] items-center justify-center gap-2 border-r border-slate-200 px-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
+                        @foreach ($switchLanguages as $switchLanguage)
+                            <a
+                                href="{{ route('front.locale.switch', ['code' => $switchLanguage['code']]) }}"
+                                class="text-slate-500 hover:text-black"
+                                hreflang="{{ $switchLanguage['code'] }}"
+                            >
+                                {{ strtoupper((string) $switchLanguage['code']) }}
+                            </a>
+                        @endforeach
                     </div>
                 @endif
 

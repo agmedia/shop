@@ -5,7 +5,13 @@ namespace Tests\Feature\Front;
 use App\Models\Catalog\Category\Category;
 use App\Models\Catalog\Category\CategoryTranslation;
 use App\Models\Settings\Local\Language;
+use App\Models\Settings\Local\PaymentMethod;
+use App\Models\Settings\Local\ShippingMethod;
+use App\Services\Front\CheckoutService;
+use App\Services\Front\StoreSettingsService;
+use App\Services\Settings\SystemSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\App;
 use Tests\TestCase;
 
 class StorefrontLocaleFeatureTest extends TestCase
@@ -66,6 +72,73 @@ class StorefrontLocaleFeatureTest extends TestCase
                 $response->assertSee('lang="'.$locale.'"', false);
             }
         }
+    }
+
+    public function test_language_switcher_exposes_english_and_german(): void
+    {
+        $this->seedLanguages();
+
+        $this->withSession(['front_locale' => 'hr'])
+            ->get('/?frontend_variant=desktop')
+            ->assertOk()
+            ->assertSee('/locale/en', false)
+            ->assertSee('/locale/de', false);
+    }
+
+    public function test_client_supplied_german_copy_and_checkout_method_names_are_used(): void
+    {
+        $this->seedLanguages();
+        App::setLocale('de');
+
+        ShippingMethod::query()->create([
+            'code' => 'standard',
+            'name' => 'Dostava DPD Hrvatska',
+            'price' => 0,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        PaymentMethod::query()->create([
+            'code' => 'corvuspay',
+            'name' => 'Plaćanje kreditnim i debitnim karticama - Corvuspay',
+            'fee_type' => 'fixed',
+            'fee_value' => 0,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $checkout = app(CheckoutService::class);
+
+        $this->assertSame('Mein Konto', __('ui.front.desktop.account'));
+        $this->assertSame('Materialzusammensetzung', __('ui.product.attribute_groups.composition'));
+        $this->assertSame(
+            'Versand mit DPD Kroatien – Kostenloser Versand für Bestellungen über 50 €',
+            $checkout->availableShippingMethods(60)->first()?->display_name
+        );
+        $this->assertSame(
+            'Zahlung mit Kredit- und Debitkarten – CorvusPay',
+            $checkout->availablePaymentMethods(60)->first()?->display_name
+        );
+    }
+
+    public function test_german_footer_uses_lang_copy_when_database_has_no_german_override(): void
+    {
+        app(SystemSettingsService::class)->putMany([
+            'store_footer_hours' => 'PON - PET od 8 do 16h',
+            'store_footer_col_2_title' => 'Pomoć',
+            'store_footer_col_2_title_translations' => [
+                'hr' => 'Pomoć',
+                'en' => 'Help',
+            ],
+        ]);
+
+        config(['app.locale' => 'hr', 'app.fallback_locale' => 'hr']);
+        App::setLocale('de');
+
+        $footer = app(StoreSettingsService::class)->footer();
+
+        $this->assertSame('Mo. – Fr. von 8:00 bis 16:00 Uhr', $footer['hours']);
+        $this->assertSame('HILFE', $footer['link_columns'][1]['title']);
     }
 
     public function test_category_language_switch_redirects_to_the_localized_slug(): void

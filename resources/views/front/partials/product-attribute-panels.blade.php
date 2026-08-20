@@ -1,9 +1,9 @@
 @php
     $attributeOrder = ['sastav', 'kvaliteta', 'garancija'];
     $fallbackLabels = [
-        'sastav' => 'Sastav',
-        'kvaliteta' => 'Kvaliteta',
-        'garancija' => 'Garancija',
+        'sastav' => __('ui.product.attribute_groups.composition'),
+        'kvaliteta' => __('ui.product.attribute_groups.quality'),
+        'garancija' => __('ui.product.attribute_groups.warranty'),
     ];
     $attributes = $product->relationLoaded('attributes') ? $product->attributes : collect();
 

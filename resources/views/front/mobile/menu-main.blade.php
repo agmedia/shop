@@ -228,6 +228,25 @@
         box-shadow: inset 0 1px 0 #d5dde7;
         background: #ffffff;
     }
+    #menu-main .mobile-menu-languages {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+    #menu-main .mobile-menu-language {
+        color: #475569;
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    #menu-main .mobile-menu-language.is-active {
+        color: #0f172a;
+        text-decoration: underline;
+        text-underline-offset: 0.25rem;
+    }
     @media (max-width: 768px) {
         .mobile-nav-row {
             padding: 0.95rem 1.2rem;
@@ -346,6 +365,20 @@
     </div>
 
     <div class="mobile-menu-footer">
+        @if (count($frontLanguages ?? []) > 1)
+            <div class="mobile-menu-languages" aria-label="Languages">
+                @foreach ($frontLanguages as $language)
+                    @php($languageCode = (string) ($language['code'] ?? ''))
+                    @if ($languageCode === (string) ($frontLocale ?? app()->getLocale()))
+                        <span class="mobile-menu-language is-active">{{ strtoupper($languageCode) }}</span>
+                    @else
+                        <a href="{{ route('front.locale.switch', ['code' => $languageCode]) }}" class="mobile-menu-language" hreflang="{{ $languageCode }}">
+                            {{ strtoupper($languageCode) }}
+                        </a>
+                    @endif
+                @endforeach
+            </div>
+        @endif
         <a href="#" data-menu="menu-colors" class="btn btn-full rounded-0 font-13 font-700 bg-highlight">
             {{ __('ui.mobile.menu.theme_colors') }}
         </a>

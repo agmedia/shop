@@ -224,7 +224,7 @@
                                     data-boxnow-partner-id="{{ (string) ((is_array($method->settings ?? null) ? ($method->settings['boxnow_partner_id'] ?? '') : '') ?: '') }}"
                                     @checked($selectedShippingCode === (string) $method->code)
                                     required
-                                > {{ $method->name }}
+                                > {{ $method->display_name ?: $method->name }}
                             </span>
                             <span>{{ \App\Support\Currency::format((float) $method->price) }}</span>
                         </label>
@@ -263,10 +263,10 @@
                                 <span class="d-flex align-items-center gap-2">
                                     <input type="radio" name="payment_method_code" value="{{ $method->code }}" @checked($selectedPaymentCode === (string) $method->code) required>
                                     <img src="{{ asset('assets/payments/keks-logo.svg') }}" alt="KEKS Pay" style="height:20px; width:auto; max-width:100px;">
-                                    <span>{{ $method->name }}</span>
+                                    <span>{{ $method->display_name ?: $method->name }}</span>
                                 </span>
                             @else
-                                <span><input type="radio" name="payment_method_code" value="{{ $method->code }}" @checked($selectedPaymentCode === (string) $method->code) required> {{ $method->name }}</span>
+                                <span><input type="radio" name="payment_method_code" value="{{ $method->code }}" @checked($selectedPaymentCode === (string) $method->code) required> {{ $method->display_name ?: $method->name }}</span>
                             @endif
                         </label>
                     @endforeach

@@ -341,7 +341,7 @@ class CheckoutController extends Controller
         return response()->json([
             'shipping_methods' => $shippingMethods->map(fn ($method) => [
                 'code' => (string) $method->code,
-                'name' => (string) $method->name,
+                'name' => (string) ($method->display_name ?: $method->name),
                 'price' => round((float) $method->price, 2),
                 'price_formatted' => Currency::format((float) $method->price),
                 'is_boxnow' => in_array(strtolower((string) $method->code), ['boxnow', 'box_now'], true),
@@ -349,7 +349,7 @@ class CheckoutController extends Controller
             ])->all(),
             'payment_methods' => $paymentMethods->map(fn ($method) => [
                 'code' => (string) $method->code,
-                'name' => (string) $method->name,
+                'name' => (string) ($method->display_name ?: $method->name),
             ])->all(),
             'totals' => [
                 'subtotal' => round((float) $totals['subtotal'], 2),

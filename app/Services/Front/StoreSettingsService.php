@@ -151,7 +151,7 @@ class StoreSettingsService
     public function footer(): array
     {
         $locale = app()->getLocale();
-        $fallbackLocale = (string) config('app.locale');
+        $fallbackLocale = (string) config('app.fallback_locale', config('app.locale'));
         $linkColumns = $this->resolveFooterLinkColumns($locale, $fallbackLocale);
         $bottomLinks = $this->resolveFooterPageLinks(
             $locale,
@@ -163,7 +163,13 @@ class StoreSettingsService
             'phone' => trim((string) $this->settings->get('store_footer_phone', '')),
             'email_sales' => trim((string) $this->settings->get('store_footer_email_sales', '')),
             'email_support' => trim((string) $this->settings->get('store_footer_email_support', '')),
-            'hours' => trim((string) $this->localizedSetting('store_footer_hours', '', $locale, $fallbackLocale)),
+            'hours' => trim((string) $this->localizedSetting(
+                'store_footer_hours',
+                __('ui.front.desktop.footer.work_hours'),
+                $locale,
+                $fallbackLocale,
+                true
+            )),
             'link_columns' => $linkColumns,
             'bottom_links' => $bottomLinks,
             'bottom_copyright_text' => trim((string) $this->localizedSetting('store_footer_bottom_copyright_text', '', $locale, $fallbackLocale)),
@@ -362,7 +368,13 @@ class StoreSettingsService
 
         $result = [];
         foreach ([1, 2, 3] as $col) {
-            $title = trim((string) $this->localizedSetting('store_footer_col_'.$col.'_title', $defaults[$col], $locale, $fallbackLocale));
+            $title = trim((string) $this->localizedSetting(
+                'store_footer_col_'.$col.'_title',
+                $defaults[$col],
+                $locale,
+                $fallbackLocale,
+                true
+            ));
             if ($title === '') {
                 $title = $defaults[$col];
             }
@@ -400,14 +412,19 @@ class StoreSettingsService
         string $key,
         mixed $default = null,
         ?string $locale = null,
-        ?string $fallbackLocale = null
+        ?string $fallbackLocale = null,
+        bool $preferProvidedDefault = false
     ): mixed {
         $locale = strtolower(trim((string) ($locale ?? app()->getLocale())));
-        $fallbackLocale = strtolower(trim((string) ($fallbackLocale ?? config('app.locale', 'en'))));
+        $fallbackLocale = strtolower(trim((string) ($fallbackLocale ?? config('app.fallback_locale', config('app.locale', 'en')))));
         $translations = $this->settings->get($key.'_translations', []);
 
         if (is_array($translations)) {
-            foreach ([$locale, $fallbackLocale] as $preferredLocale) {
+            $preferredLocales = $preferProvidedDefault && $locale !== $fallbackLocale
+                ? [$locale]
+                : [$locale, $fallbackLocale];
+
+            foreach ($preferredLocales as $preferredLocale) {
                 if ($preferredLocale !== '' && array_key_exists($preferredLocale, $translations)) {
                     $value = $translations[$preferredLocale];
                     if ($value !== null && (! is_string($value) || trim($value) !== '')) {
@@ -415,6 +432,10 @@ class StoreSettingsService
                     }
                 }
             }
+        }
+
+        if ($preferProvidedDefault && $locale !== $fallbackLocale) {
+            return $default;
         }
 
         return $this->settings->get($key, $default);
