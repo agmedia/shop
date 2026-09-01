@@ -1,5 +1,9 @@
 <?php
 
+if (($_GET['_route_'] ?? null) === 'kipos-kolicine.php') {
+    require __DIR__.'/kipos-kolicine.php';
+}
+
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
