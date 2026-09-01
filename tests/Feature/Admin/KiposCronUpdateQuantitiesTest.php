@@ -51,12 +51,6 @@ class KiposCronUpdateQuantitiesTest extends TestCase
         ]);
 
         Http::fake([
-            '*getitemsextended*' => Http::response([
-                [
-                    'IDROBA' => 'W7030',
-                    'IDODJEL' => 'W7030',
-                ],
-            ], 200),
             '*getZalihaK*' => Http::response([
                 [
                     'IDROBA' => 'W7030',
@@ -75,8 +69,6 @@ class KiposCronUpdateQuantitiesTest extends TestCase
 
         $this->assertSame(8, (int) $product->fresh()?->stock_qty);
 
-        Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), 'getitemsextended')
-            && str_contains((string) $request->url(), 'webshop=2'));
         Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), 'getZalihaK')
             && str_contains((string) $request->url(), 'webshop=2'));
     }
@@ -93,16 +85,9 @@ class KiposCronUpdateQuantitiesTest extends TestCase
             ['sku' => '', 'stock_qty' => 33],
         ]);
 
-        $this->fakeKiposFeeds(
-            catalogRows: [
-                ['IDROBA' => 'M7066.S', 'IDODJEL' => 'M7066'],
-                ['IDROBA' => 'M7066.M', 'IDODJEL' => 'M7066'],
-                ['IDROBA' => 'W9999.S', 'IDODJEL' => 'W9999'],
-            ],
-            stockRows: [
-                ['IDROBA' => 'W9999.S', 'IDODJEL' => 'W9999', 'ZALIHAK' => 4, 'IDSKL' => '200'],
-            ],
-        );
+        $this->fakeKiposStockFeed([
+            ['IDROBA' => 'W9999.S', 'IDODJEL' => 'W9999', 'ZALIHAK' => 4, 'IDSKL' => '200'],
+        ]);
 
         $this->getJson('/cron/kipos/update-quantities?token=valid-token')
             ->assertOk()
@@ -135,15 +120,9 @@ class KiposCronUpdateQuantitiesTest extends TestCase
             ['sku' => 'M7100.M', 'stock_qty' => 19],
         ]);
 
-        $this->fakeKiposFeeds(
-            catalogRows: [
-                ['IDROBA' => 'M7100.S', 'IDODJEL' => 'M7100'],
-                ['IDROBA' => 'M7100.M', 'IDODJEL' => 'M7100'],
-            ],
-            stockRows: [
-                ['IDROBA' => 'M7100.S', 'IDODJEL' => 'M7100', 'ZALIHAK' => 6, 'IDSKL' => '200'],
-            ],
-        );
+        $this->fakeKiposStockFeed([
+            ['IDROBA' => 'M7100.S', 'IDODJEL' => 'M7100', 'ZALIHAK' => 6, 'IDSKL' => '200'],
+        ]);
 
         $this->getJson('/cron/kipos/update-quantities?token=valid-token')
             ->assertOk()
@@ -173,16 +152,10 @@ class KiposCronUpdateQuantitiesTest extends TestCase
             ['sku' => 'M7010.M', 'stock_qty' => 5],
         ]);
 
-        $this->fakeKiposFeeds(
-            catalogRows: [
-                ['IDROBA' => 'M7010.S', 'IDODJEL' => 'M7010'],
-                ['IDROBA' => 'M7010.M', 'IDODJEL' => 'M7010'],
-            ],
-            stockRows: [
-                ['IDROBA' => 'M7010.S', 'IDODJEL' => 'M7010', 'ZALIHAK' => 0, 'IDSKL' => '200'],
-                ['IDROBA' => 'M7010.M', 'IDODJEL' => 'M7010', 'ZALIHAK' => -4, 'IDSKL' => '200'],
-            ],
-        );
+        $this->fakeKiposStockFeed([
+            ['IDROBA' => 'M7010.S', 'IDODJEL' => 'M7010', 'ZALIHAK' => 0, 'IDSKL' => '200'],
+            ['IDROBA' => 'M7010.M', 'IDODJEL' => 'M7010', 'ZALIHAK' => -4, 'IDSKL' => '200'],
+        ]);
 
         $this->getJson('/cron/kipos/update-quantities?token=valid-token')
             ->assertOk()
@@ -212,39 +185,7 @@ class KiposCronUpdateQuantitiesTest extends TestCase
             ['sku' => 'M7066.M', 'stock_qty' => 60],
         ]);
 
-        $this->fakeKiposFeeds(
-            catalogRows: [
-                ['IDROBA' => 'M7066.S', 'IDODJEL' => 'M7066'],
-                ['IDROBA' => 'M7066.M', 'IDODJEL' => 'M7066'],
-            ],
-            stockRows: [],
-        );
-
-        $this->getJson('/cron/kipos/update-quantities?token=valid-token')
-            ->assertStatus(500)
-            ->assertJsonPath('ok', false)
-            ->assertJsonPath('status', 'failed');
-
-        $this->assertCatalogStateUnchanged($product, $variants);
-    }
-
-    public function test_kipos_quantity_cron_fails_without_mutation_when_catalog_feed_is_empty(): void
-    {
-        $this->enableKiposCronSync();
-
-        $admin = User::factory()->create();
-        $product = $this->createProduct($admin, 'M7066', 100);
-        $variants = $this->createSizeVariants($admin, $product, [
-            ['sku' => 'M7066.S', 'stock_qty' => 40],
-            ['sku' => 'M7066.M', 'stock_qty' => 60],
-        ]);
-
-        $this->fakeKiposFeeds(
-            catalogRows: [],
-            stockRows: [
-                ['IDROBA' => 'M7066.S', 'IDODJEL' => 'M7066', 'ZALIHAK' => 4, 'IDSKL' => '200'],
-            ],
-        );
+        $this->fakeKiposStockFeed([]);
 
         $this->getJson('/cron/kipos/update-quantities?token=valid-token')
             ->assertStatus(500)
@@ -280,7 +221,11 @@ class KiposCronUpdateQuantitiesTest extends TestCase
             'is_active' => true,
             'base_price' => 10,
             'stock_qty' => $stockQty,
-            'payload' => null,
+            'payload' => [
+                'kipos' => [
+                    'department_code' => $code,
+                ],
+            ],
             'created_by' => $admin->id,
             'updated_by' => $admin->id,
         ]);
@@ -347,13 +292,11 @@ class KiposCronUpdateQuantitiesTest extends TestCase
     }
 
     /**
-     * @param  list<array<string, mixed>>  $catalogRows
      * @param  list<array<string, mixed>>  $stockRows
      */
-    private function fakeKiposFeeds(array $catalogRows, array $stockRows): void
+    private function fakeKiposStockFeed(array $stockRows): void
     {
         Http::fake([
-            '*getitemsextended*' => Http::response($catalogRows, 200),
             '*getZalihaK*' => Http::response($stockRows, 200),
         ]);
     }

@@ -52,23 +52,6 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
         Cache::put('front:product:last-modified:'.$product->id, 123, now()->addMinutes(2));
 
         Http::fake([
-            '*getitemsextended*' => Http::response([
-                [
-                    'IDROBA' => 'W7030.S',
-                    'IDODJEL' => 'W7030',
-                    'ZALIHAK' => 2,
-                ],
-                [
-                    'IDROBA' => 'W7030.M',
-                    'IDODJEL' => 'W7030',
-                    'ZALIHAK' => 3,
-                ],
-                [
-                    'IDROBA' => 'W7030.L',
-                    'IDODJEL' => 'W7030',
-                    'ZALIHAK' => 0,
-                ],
-            ], 200),
             '*getZalihaK*' => Http::response([
                 [
                     'IDROBA' => 'W7030.S',
@@ -108,8 +91,7 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
         Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), 'getZalihaK')
             && str_contains((string) $request->url(), 'idskl=100')
             && str_contains((string) $request->url(), 'webshop=2'));
-        Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), 'getitemsextended')
-            && str_contains((string) $request->url(), 'webshop=2'));
+        Http::assertNotSent(fn ($request): bool => str_contains((string) $request->url(), 'getitemsextended'));
     }
 
     public function test_kipos_quantity_update_uses_extended_stock_when_no_warehouse_filter_is_set(): void
@@ -170,11 +152,18 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
         $this->assertSame(20, (int) $fresh->optionValues->firstWhere('sku', 'W7037.4XL')?->stock_qty);
     }
 
-    public function test_kipos_quantity_update_deactivates_a_catalog_product_when_none_of_its_skus_are_in_stock_feed(): void
+    public function test_kipos_quantity_update_never_fetches_the_catalog_and_deactivates_missing_products_and_skus(): void
     {
         $admin = User::factory()->create();
         $product = $this->createProduct($admin, 'M7066');
-        $product->update(['stock_qty' => 100]);
+        $product->update([
+            'stock_qty' => 100,
+            'payload' => [
+                'kipos' => [
+                    'department_code' => 'M7066',
+                ],
+            ],
+        ]);
 
         $this->createSizeRows($admin, $product, [
             ['label' => 'S', 'sku' => 'M7066.S', 'stock_qty' => 100],
@@ -182,32 +171,42 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
             ['label' => 'No SKU', 'sku' => '', 'stock_qty' => 33],
         ]);
 
+        $partiallyPresentProduct = $this->createProduct($admin, 'M7010');
+        $partiallyPresentProduct->update([
+            'stock_qty' => 80,
+            'payload' => [
+                'kipos' => [
+                    'department_code' => 'M7010',
+                ],
+            ],
+        ]);
+
+        $size = Option::query()->where('code', 'size')->firstOrFail();
+        $partialSmall = $this->createOptionValue($admin, $size, 'partial-s', 'S', 'partial-s', 10);
+        $partialMedium = $this->createOptionValue($admin, $size, 'partial-m', 'M', 'partial-m', 11);
+
+        $partiallyPresentProduct->options()->sync([
+            $size->id => [
+                'is_required' => true,
+                'sort_order' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->createProductOptionRow($admin, $partiallyPresentProduct, $partialSmall, 'M7010.S', 40, 0);
+        $this->createProductOptionRow($admin, $partiallyPresentProduct, $partialMedium, 'M7010.M', 40, 1);
+
         $this->enableKiposSync([
             'kipos_sync_stock_warehouse_ids' => '100',
         ]);
 
+        Http::preventStrayRequests();
         Http::fake([
-            '*getitemsextended*' => Http::response([
-                [
-                    'IDROBA' => 'M7066.S',
-                    'IDODJEL' => 'M7066',
-                    'ZALIHAK' => 0,
-                ],
-                [
-                    'IDROBA' => 'M7066.M',
-                    'IDODJEL' => 'M7066',
-                    'ZALIHAK' => 0,
-                ],
-                [
-                    'IDROBA' => 'W7030.S',
-                    'IDODJEL' => 'W7030',
-                ],
-            ], 200),
             '*getZalihaK*' => Http::response([
                 [
-                    'IDROBA' => 'W7030.S',
-                    'IDODJEL' => 'W7030',
-                    'ZALIHAK' => 8,
+                    'IDROBA' => 'M7010.S',
+                    'ZALIHAK' => 6,
                     'IDSKL' => '100',
                 ],
             ], 200),
@@ -217,6 +216,8 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
 
         $fresh = $product->fresh()->load('optionValues');
         $rows = $fresh->optionValues->keyBy('sku');
+        $freshPartiallyPresent = $partiallyPresentProduct->fresh()->load('optionValues');
+        $partiallyPresentRows = $freshPartiallyPresent->optionValues->keyBy('sku');
 
         $this->assertSame('success', $run->status);
         $this->assertSame(0, (int) $fresh->stock_qty);
@@ -227,10 +228,15 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
         $this->assertFalse($rows->get('M7066.M')?->is_active);
         $this->assertSame(33, (int) $rows->get('')?->stock_qty);
         $this->assertTrue($rows->get('')?->is_active);
+        $this->assertSame(6, (int) $freshPartiallyPresent->stock_qty);
+        $this->assertTrue($freshPartiallyPresent->is_active);
+        $this->assertSame(6, (int) $partiallyPresentRows->get('M7010.S')?->stock_qty);
+        $this->assertTrue($partiallyPresentRows->get('M7010.S')?->is_active);
+        $this->assertSame(0, (int) $partiallyPresentRows->get('M7010.M')?->stock_qty);
+        $this->assertFalse($partiallyPresentRows->get('M7010.M')?->is_active);
         Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), 'getZalihaK')
             && str_contains((string) $request->url(), 'webshop=2'));
-        Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), 'getitemsextended')
-            && str_contains((string) $request->url(), 'webshop=2'));
+        Http::assertNotSent(fn ($request): bool => str_contains((string) $request->url(), 'getitemsextended'));
     }
 
     public function test_kipos_quantity_update_deactivates_only_missing_sibling_and_keeps_present_zero_or_negative_skus_active(): void
@@ -251,11 +257,6 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
         ]);
 
         Http::fake([
-            '*getitemsextended*' => Http::response([
-                ['IDROBA' => 'M7010.S', 'IDODJEL' => 'M7010'],
-                ['IDROBA' => 'M7010.M', 'IDODJEL' => 'M7010'],
-                ['IDROBA' => 'M7010.L', 'IDODJEL' => 'M7010'],
-            ], 200),
             '*getZalihaK*' => Http::response([
                 [
                     'IDROBA' => 'M7010.S',
@@ -315,16 +316,6 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
         ]);
 
         Http::fake([
-            '*getitemsextended*' => Http::sequence()
-                ->push([
-                    ['IDROBA' => 'M7066.S', 'IDODJEL' => 'M7066'],
-                    ['IDROBA' => 'M7066.M', 'IDODJEL' => 'M7066'],
-                    ['IDROBA' => 'W7030.S', 'IDODJEL' => 'W7030'],
-                ], 200)
-                ->push([
-                    ['IDROBA' => 'M7066.S', 'IDODJEL' => 'M7066'],
-                    ['IDROBA' => 'M7066.M', 'IDODJEL' => 'M7066'],
-                ], 200),
             '*getZalihaK*' => Http::sequence()
                 ->push([
                     [
@@ -411,9 +402,6 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
         ]);
 
         Http::fake([
-            '*getitemsextended*' => Http::response([
-                ['IDROBA' => 'M7066.S', 'IDODJEL' => 'M7066'],
-            ], 200),
             '*getZalihaK*' => Http::response([], 200),
         ]);
 
@@ -426,52 +414,6 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
         }
 
         $this->assertNotNull($caughtException, 'Empty Kipos stock feed must fail the quantity sync.');
-        $this->assertNotSame('', $caughtException->getMessage());
-
-        $fresh = $product->fresh()->load('optionValues');
-        $row = $fresh->optionValues->firstWhere('sku', 'M7066.S');
-
-        $this->assertSame(100, (int) $fresh->stock_qty);
-        $this->assertTrue($fresh->is_active);
-        $this->assertSame(100, (int) $row?->stock_qty);
-        $this->assertTrue($row?->is_active);
-    }
-
-    public function test_kipos_quantity_update_fails_without_mutation_when_catalog_feed_is_empty(): void
-    {
-        $admin = User::factory()->create();
-        $product = $this->createProduct($admin, 'M7066');
-        $product->update(['stock_qty' => 100]);
-
-        $this->createSizeRows($admin, $product, [
-            ['label' => 'S', 'sku' => 'M7066.S', 'stock_qty' => 100],
-        ]);
-
-        $this->enableKiposSync([
-            'kipos_sync_stock_warehouse_ids' => '100',
-        ]);
-
-        Http::fake([
-            '*getitemsextended*' => Http::response([], 200),
-            '*getZalihaK*' => Http::response([
-                [
-                    'IDROBA' => 'M7066.S',
-                    'IDODJEL' => 'M7066',
-                    'ZALIHAK' => 9,
-                    'IDSKL' => '100',
-                ],
-            ], 200),
-        ]);
-
-        $caughtException = null;
-
-        try {
-            app(KiposSyncService::class)->run('update_quantities', $admin->id);
-        } catch (RuntimeException $exception) {
-            $caughtException = $exception;
-        }
-
-        $this->assertNotNull($caughtException, 'Empty Kipos catalog feed must fail the quantity sync.');
         $this->assertNotSame('', $caughtException->getMessage());
 
         $fresh = $product->fresh()->load('optionValues');
@@ -497,17 +439,12 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
             'kipos_sync_stock_warehouse_ids' => '100',
         ]);
 
-        $catalogRows = [];
         $completeStockRows = [];
 
         foreach (range(1, 10) as $index) {
             $department = 'W'.(9000 + $index);
             $sku = $department.'.S';
 
-            $catalogRows[] = [
-                'IDROBA' => $sku,
-                'IDODJEL' => $department,
-            ];
             $completeStockRows[] = [
                 'IDROBA' => $sku,
                 'IDODJEL' => $department,
@@ -520,9 +457,6 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
         $truncatedStockRows[0]['ZALIHAK'] = 2;
 
         Http::fake([
-            '*getitemsextended*' => Http::sequence()
-                ->push($catalogRows, 200)
-                ->push($catalogRows, 200),
             '*getZalihaK*' => Http::sequence()
                 ->push($completeStockRows, 200)
                 ->push($truncatedStockRows, 200),
@@ -583,7 +517,11 @@ class KiposSyncQuantitiesFeatureTest extends TestCase
             'is_active' => true,
             'base_price' => 10,
             'stock_qty' => 0,
-            'payload' => null,
+            'payload' => [
+                'kipos' => [
+                    'department_code' => $code,
+                ],
+            ],
             'created_by' => $admin->id,
             'updated_by' => $admin->id,
         ]);

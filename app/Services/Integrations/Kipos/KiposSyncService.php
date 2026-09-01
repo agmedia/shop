@@ -566,20 +566,42 @@ class KiposSyncService
     private function handleUpdateQuantities(): array
     {
         $stockRows = $this->normalizedStockRows();
-        $groups = $this->groupRowsByDepartment($stockRows);
+        $rowsBySku = collect($stockRows)->keyBy(
+            fn (array $row): string => $this->itemCode($row)
+        );
+        $sourceSkuSet = array_fill_keys($rowsBySku->keys()->all(), true);
         $products = Product::query()
             ->with('optionValues')
-            ->where(function ($query) use ($groups): void {
-                $query
-                    ->whereIn('code', array_keys($groups))
-                    ->orWhereNotNull('payload');
-            })
             ->get()
-            ->filter(function (Product $product) use ($groups): bool {
-                $code = strtoupper(trim((string) $product->code));
+            ->filter(function (Product $product) use ($sourceSkuSet): bool {
+                if (data_get($product->payload, 'kipos') !== null) {
+                    return true;
+                }
 
-                return isset($groups[$code]) || data_get($product->payload, 'kipos') !== null;
+                return collect($this->productStockIdentifiers($product))
+                    ->contains(fn (string $identifier): bool => isset($sourceSkuSet[$identifier]));
             });
+
+        $managedIdentifiers = $products
+            ->filter(fn (Product $product): bool => data_get($product->payload, 'kipos') !== null)
+            ->flatMap(fn (Product $product): array => $this->productStockIdentifiers($product))
+            ->unique()
+            ->values();
+
+        if ($managedIdentifiers->count() >= 10) {
+            $presentManagedIdentifiers = $managedIdentifiers
+                ->filter(fn (string $identifier): bool => isset($sourceSkuSet[$identifier]))
+                ->count();
+            $minimumManagedOverlap = max(1, (int) ceil($managedIdentifiers->count() * 0.1));
+
+            if ($presentManagedIdentifiers < $minimumManagedOverlap) {
+                throw new RuntimeException(sprintf(
+                    'Kipos quantity sync stopped because only %d of %d managed SKUs are present in the stock feed.',
+                    $presentManagedIdentifiers,
+                    $managedIdentifiers->count()
+                ));
+            }
+        }
 
         $updatedProducts = 0;
         $updatedVariants = 0;
@@ -591,39 +613,12 @@ class KiposSyncService
         $userId = $this->currentUserId();
         $productUpdates = [];
         $variantUpdates = [];
-        $matchedGroupCodes = [];
+        $usedSourceSkus = [];
 
         foreach ($products as $product) {
-            $groupCode = strtoupper(trim((string) $product->code));
-            $rows = $groups[$groupCode] ?? [];
-            if ($rows !== []) {
-                $matchedGroupCodes[$groupCode] = true;
-            }
-
-            $productIsPresent = collect($rows)->contains(
-                fn (array $row): bool => $this->stockRowIsPresent($row)
-            );
-            $productState = $productIsPresent
-                ? $this->restoreStockFeedState((array) ($product->payload ?? []), (bool) $product->is_active)
-                : $this->markStockFeedMissing((array) ($product->payload ?? []), (bool) $product->is_active);
-
-            $disabledProducts += (int) $productState['disabled'];
-            $reactivatedProducts += (int) $productState['reactivated'];
-
-            $productUpdates[] = [
-                'id' => $product->id,
-                'code' => $product->code,
-                'stock_qty' => $productIsPresent ? $this->groupQuantity($rows) : 0,
-                'is_active' => $productState['is_active'],
-                'payload' => $this->encodeJsonColumn($productState['payload']),
-                'updated_by' => $userId,
-                'updated_at' => $now,
-            ];
-            $updatedProducts++;
-
-            $rowsByItemCode = collect($rows)->keyBy(
-                fn (array $row): string => $this->itemCode($row)
-            );
+            $productCode = strtoupper(trim((string) $product->code));
+            $matchedProductRows = [];
+            $hasVariantSkus = false;
 
             foreach ($product->optionValues as $variant) {
                 $sku = strtoupper(trim((string) $variant->sku));
@@ -631,8 +626,15 @@ class KiposSyncService
                     continue;
                 }
 
-                $sourceRow = $rowsByItemCode->get($sku);
-                $variantIsPresent = is_array($sourceRow) && $this->stockRowIsPresent($sourceRow);
+                $hasVariantSkus = true;
+                $sourceRow = $rowsBySku->get($sku);
+                $variantIsPresent = is_array($sourceRow);
+                if ($variantIsPresent) {
+                    $sourceRow['IDODJEL'] = $productCode;
+                    $matchedProductRows[$sku] = $sourceRow;
+                    $usedSourceSkus[$sku] = true;
+                }
+
                 $variantState = $variantIsPresent
                     ? $this->restoreStockFeedState((array) ($variant->payload ?? []), (bool) $variant->is_active)
                     : $this->markStockFeedMissing((array) ($variant->payload ?? []), (bool) $variant->is_active);
@@ -654,6 +656,54 @@ class KiposSyncService
 
                 $updatedVariants++;
             }
+
+            if (! $hasVariantSkus) {
+                foreach ([$product->sku, $product->code] as $identifier) {
+                    $sku = strtoupper(trim((string) $identifier));
+                    if ($sku === '' || isset($matchedProductRows[$sku])) {
+                        continue;
+                    }
+
+                    $sourceRow = $rowsBySku->get($sku);
+                    if (! is_array($sourceRow)) {
+                        continue;
+                    }
+
+                    $sourceRow['IDODJEL'] = $productCode;
+                    $matchedProductRows[$sku] = $sourceRow;
+                    $usedSourceSkus[$sku] = true;
+
+                    break;
+                }
+            }
+
+            $productIsPresent = $matchedProductRows !== [];
+            $productPayload = (array) ($product->payload ?? []);
+            if ($productIsPresent) {
+                $productPayload['kipos'] = array_merge(
+                    (array) ($productPayload['kipos'] ?? []),
+                    ['stock_synced_at' => $now->toIso8601String()]
+                );
+            }
+
+            $productState = $productIsPresent
+                ? $this->restoreStockFeedState($productPayload, (bool) $product->is_active)
+                : $this->markStockFeedMissing($productPayload, (bool) $product->is_active);
+
+            $disabledProducts += (int) $productState['disabled'];
+            $reactivatedProducts += (int) $productState['reactivated'];
+
+            $productUpdates[] = [
+                'id' => $product->id,
+                'code' => $product->code,
+                'stock_qty' => (int) collect($matchedProductRows)
+                    ->sum(fn (array $row): int => $this->rowQuantity($row)),
+                'is_active' => $productState['is_active'],
+                'payload' => $this->encodeJsonColumn($productState['payload']),
+                'updated_by' => $userId,
+                'updated_at' => $now,
+            ];
+            $updatedProducts++;
         }
 
         DB::transaction(function () use ($productUpdates, $variantUpdates): void {
@@ -676,21 +726,13 @@ class KiposSyncService
 
         $this->forgetFrontendProductCache(array_column($productUpdates, 'id'));
 
-        $presentGroups = array_filter(
-            $groups,
-            fn (array $rows): bool => collect($rows)->contains(
-                fn (array $row): bool => $this->stockRowIsPresent($row)
-            )
-        );
-        $unmatched = count(array_diff(array_keys($presentGroups), array_keys($matchedGroupCodes)));
-        $sourceSkus = count(array_filter(
-            $stockRows,
-            fn (array $row): bool => $this->stockRowIsPresent($row)
-        ));
+        $sourceGroups = count($this->groupRowsByDepartment($stockRows));
+        $sourceSkus = count($stockRows);
+        $unmatched = max(0, $sourceSkus - count($usedSourceSkus));
 
         return [
             'summary' => sprintf(
-                'Quantities: %d products updated, %d variant rows updated, %d products and %d variants disabled, %d unmatched.',
+                'Quantities: %d products updated, %d variant rows updated, %d products and %d variants disabled, %d source SKUs unmatched.',
                 $updatedProducts,
                 $updatedVariants,
                 $disabledProducts,
@@ -703,8 +745,8 @@ class KiposSyncService
             'disabled_variants' => $disabledVariants,
             'reactivated_products' => $reactivatedProducts,
             'reactivated_variants' => $reactivatedVariants,
-            'unmatched_products' => $unmatched,
-            'source_groups' => count($presentGroups),
+            'unmatched_skus' => $unmatched,
+            'source_groups' => $sourceGroups,
             'source_skus' => $sourceSkus,
             'warehouse_filter' => $this->warehouseFilter(),
         ];
@@ -1931,7 +1973,7 @@ class KiposSyncService
     {
         $warehouses = $this->warehouseFilter();
         if ($warehouses === []) {
-            $rows = $this->mergedProductRows(['webshop' => 2]);
+            $rows = $this->kipos->getRows('sif_roba/getitemsextended', ['webshop' => 2]);
             if ($rows === []) {
                 throw new RuntimeException('Kipos quantity sync stopped because the product feed is empty.');
             }
@@ -1941,24 +1983,6 @@ class KiposSyncService
 
                 return $row;
             }, $rows);
-        }
-
-        $catalogRows = $this->kipos->getRows('sif_roba/getitemsextended', ['webshop' => 2]);
-        $catalogByItemCode = [];
-
-        foreach ($catalogRows as $row) {
-            $itemCode = $this->itemCode($row);
-            if ($itemCode === '') {
-                continue;
-            }
-
-            $row['IDROBA'] = $itemCode;
-            $row['IDODJEL'] = $this->departmentCode($row);
-            $catalogByItemCode[$itemCode] = $row;
-        }
-
-        if ($catalogByItemCode === []) {
-            throw new RuntimeException('Kipos quantity sync stopped because the catalog feed is empty.');
         }
 
         $rows = [];
@@ -1987,7 +2011,6 @@ class KiposSyncService
         }
 
         $grouped = [];
-        $unmappedItemCodes = [];
 
         foreach ($rows as $row) {
             $itemCode = $this->itemCode($row);
@@ -1995,15 +2018,8 @@ class KiposSyncService
                 continue;
             }
 
-            $catalogRow = $catalogByItemCode[$itemCode] ?? null;
-            if (! is_array($catalogRow)) {
-                $unmappedItemCodes[$itemCode] = true;
-
-                continue;
-            }
-
             $row['IDROBA'] = $itemCode;
-            $row['IDODJEL'] = $this->departmentCode($catalogRow);
+            $row['IDODJEL'] = $this->departmentCode($row);
             $row[self::STOCK_FEED_PRESENT_KEY] = true;
 
             $grouped[$itemCode] ??= [
@@ -2017,55 +2033,27 @@ class KiposSyncService
             $grouped[$itemCode]['ZALIHAK'] += $this->floatValue($row, 'ZALIHAK');
         }
 
-        if ($unmappedItemCodes !== []) {
-            throw new RuntimeException(sprintf(
-                'Kipos quantity sync stopped because %d stock SKUs are missing from the catalog feed (for example: %s).',
-                count($unmappedItemCodes),
-                implode(', ', array_slice(array_keys($unmappedItemCodes), 0, 5))
-            ));
-        }
-
         foreach ($grouped as &$row) {
-            $row['ZALIHAK'] = $this->rowQuantity($row);
+            $row['ZALIHAK'] = max(0, (int) round((float) $row['ZALIHAK']));
         }
         unset($row);
 
-        $this->assertStockFeedIsPlausible($grouped, $catalogByItemCode, $warehouses);
-
-        foreach ($catalogByItemCode as $itemCode => $catalogRow) {
-            if (isset($grouped[$itemCode])) {
-                continue;
-            }
-
-            $grouped[$itemCode] = [
-                'IDROBA' => $itemCode,
-                'IDODJEL' => $this->departmentCode($catalogRow),
-                'ZALIHAK' => 0,
-                'DATUM_USER' => $this->stringValue($catalogRow, 'DATUM_USER'),
-                self::STOCK_FEED_PRESENT_KEY => false,
-            ];
+        if ($grouped === []) {
+            throw new RuntimeException('Kipos quantity sync stopped because the stock feed contains no valid SKUs.');
         }
+
+        $this->assertStockFeedIsPlausible($grouped, $warehouses);
 
         return array_values($grouped);
     }
 
     /**
      * @param  array<string, array<string, mixed>>  $stockRowsBySku
-     * @param  array<string, array<string, mixed>>  $catalogRowsBySku
      * @param  array<int, string>  $warehouses
      */
-    private function assertStockFeedIsPlausible(array $stockRowsBySku, array $catalogRowsBySku, array $warehouses): void
+    private function assertStockFeedIsPlausible(array $stockRowsBySku, array $warehouses): void
     {
         $sourceSkuCount = count($stockRowsBySku);
-        $minimumCatalogRatio = max(1, (int) ceil(count($catalogRowsBySku) * 0.1));
-        if ($sourceSkuCount < $minimumCatalogRatio) {
-            throw new RuntimeException(sprintf(
-                'Kipos quantity sync stopped because the stock feed looks incomplete (%d of %d catalog SKUs).',
-                $sourceSkuCount,
-                count($catalogRowsBySku)
-            ));
-        }
-
         $sourceGroupCount = count($this->groupRowsByDepartment(array_values($stockRowsBySku)));
         $currentWarehouses = collect($warehouses)
             ->map(fn ($warehouse): string => strtoupper(trim((string) $warehouse)))
@@ -2340,6 +2328,30 @@ class KiposSyncService
     {
         return ! array_key_exists(self::STOCK_FEED_PRESENT_KEY, $row)
             || $row[self::STOCK_FEED_PRESENT_KEY] === true;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function productStockIdentifiers(Product $product): array
+    {
+        $variantSkus = $product->optionValues
+            ->pluck('sku')
+            ->map(fn ($identifier): string => strtoupper(trim((string) $identifier)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($variantSkus->isNotEmpty()) {
+            return $variantSkus->all();
+        }
+
+        return collect([$product->sku, $product->code])
+            ->map(fn ($identifier): string => strtoupper(trim((string) $identifier)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

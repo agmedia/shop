@@ -13,15 +13,16 @@ use RuntimeException;
 class KiposSdkService
 {
     public const PROBE_ITEMS = 'sif_roba/getitems';
+
     private const GET_RETRY_ATTEMPTS = 3;
+
     private const GET_RETRY_DELAY_MICROSECONDS = 250000;
 
     public function __construct(
         private readonly SystemSettingsService $settings,
         private readonly CatalogFeatureService $catalogFeatures,
         private readonly HttpFactory $http
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -154,7 +155,9 @@ class KiposSdkService
             ->asJson()
             ->connectTimeout(min($timeout, 15))
             ->timeout($timeout)
+            ->withOptions(['decode_content' => true])
             ->withHeaders([
+                'Accept-Encoding' => 'gzip',
                 'User-Agent' => 'AGShop-Kipos-Connector/1.0',
             ]);
 
