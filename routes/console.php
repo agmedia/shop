@@ -44,7 +44,7 @@ Artisan::command('kipos:sync-nightly', function (KiposSyncService $sync): int {
 
         return self::FAILURE;
     }
-})->purpose('Import new Kipos webshop products, reconcile options, and refresh prices and quantities');
+})->purpose('Import new Kipos webshop products and images, reconcile options, and refresh prices and quantities');
 
 Schedule::command('kipos:sync-nightly')
     ->dailyAt((string) config('services.kipos.nightly_catalog_sync_time', '02:20'))

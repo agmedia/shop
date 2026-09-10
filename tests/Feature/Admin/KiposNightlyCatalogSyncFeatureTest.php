@@ -11,6 +11,7 @@ use App\Services\Integrations\Kipos\KiposSyncService;
 use App\Services\Settings\SystemSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class KiposNightlyCatalogSyncFeatureTest extends TestCase
@@ -19,6 +20,12 @@ class KiposNightlyCatalogSyncFeatureTest extends TestCase
 
     public function test_nightly_sync_imports_webshop_products_reconciles_and_sorts_sizes_and_preserves_curated_content(): void
     {
+        Storage::fake('public');
+        config([
+            'media-library.disk_name' => 'public',
+            'media-library.queue_conversions_by_default' => false,
+        ]);
+
         $admin = User::factory()->create();
         $size = $this->createOption($admin, 'size', true);
         $color = $this->createOption($admin, 'color', false);
@@ -73,6 +80,12 @@ class KiposNightlyCatalogSyncFeatureTest extends TestCase
             '*getZalihaK*' => Http::response($stockRows, 200),
             '*getitemsextended*' => Http::response($extendedRows, 200),
             '*getitems*' => Http::response($baseRows, 200),
+            '*getOdjelSlike*' => Http::response([
+                $this->imageRow('W8000', 'http://images.test/W8000'),
+            ], 200),
+            'http://images.test/W8000' => Http::response($this->tinyPng(), 200, [
+                'Content-Type' => 'image/png',
+            ]),
         ]);
 
         $run = app(KiposSyncService::class)->run('nightly_catalog_sync', $admin->id);
@@ -121,6 +134,151 @@ class KiposNightlyCatalogSyncFeatureTest extends TestCase
         ]);
         $this->assertSame(1, (int) data_get($run->stats, 'inferred_color_values'));
         $this->assertSame(1, (int) data_get($run->stats, 'created'));
+        $this->assertSame(1, (int) data_get($run->stats, 'images.updated_products'));
+        $this->assertSame(0, (int) data_get($run->stats, 'images.still_pending'));
+
+        $imported = Product::query()->where('code', 'W8000')->firstOrFail();
+        $this->assertTrue($imported->is_active);
+        $this->assertNotNull($imported->getFirstMedia('product_main'));
+        $this->assertFalse((bool) data_get($imported->payload, 'kipos.image_activation_pending', false));
+    }
+
+    public function test_nightly_sync_keeps_new_products_without_remote_images_hidden_and_retries_without_specific_lookups(): void
+    {
+        Storage::fake('public');
+        config([
+            'media-library.disk_name' => 'public',
+            'media-library.queue_conversions_by_default' => false,
+        ]);
+
+        $admin = User::factory()->create();
+        $size = $this->createOption($admin, 'size', true);
+        $rows = [$this->itemRow('W8001', 'W8001', '', 'New product awaiting image', 5)];
+        $stockRows = [array_merge($rows[0], ['IDSKL' => '200'])];
+
+        $this->enableKiposSync($size);
+        Http::fake([
+            '*getZalihaK*' => Http::response($stockRows, 200),
+            '*getitemsextended*' => Http::response($rows, 200),
+            '*getitems*' => Http::response($rows, 200),
+            '*getOdjelSlike*' => Http::sequence()
+                ->push([], 200)
+                ->push([$this->imageRow('W8001', 'http://images.test/W8001')], 200),
+            '*getSlike&*' => Http::response([], 200),
+            'http://images.test/W8001' => Http::response($this->tinyPng(), 200, [
+                'Content-Type' => 'image/png',
+            ]),
+        ]);
+
+        $firstRun = app(KiposSyncService::class)->run('nightly_catalog_sync', $admin->id);
+        $pending = Product::query()->where('code', 'W8001')->firstOrFail();
+
+        $this->assertSame('success', $firstRun->status, (string) $firstRun->error_message);
+        $this->assertFalse($pending->is_active);
+        $this->assertTrue((bool) data_get($pending->payload, 'kipos.image_activation_pending'));
+        $this->assertSame(1, (int) data_get($firstRun->stats, 'images.still_pending'));
+        $this->assertSame(0, (int) data_get($firstRun->stats, 'images.fallback_product_lookups'));
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), '/W8001'));
+
+        $secondRun = app(KiposSyncService::class)->run('nightly_catalog_sync', $admin->id);
+        $imported = $pending->fresh();
+
+        $this->assertSame('success', $secondRun->status, (string) $secondRun->error_message);
+        $this->assertSame(0, (int) data_get($secondRun->stats, 'created'));
+        $this->assertSame(1, (int) data_get($secondRun->stats, 'images.updated_products'));
+        $this->assertTrue((bool) $imported?->is_active);
+        $this->assertNotNull($imported?->getFirstMedia('product_main'));
+        $this->assertFalse((bool) data_get($imported?->payload, 'kipos.image_activation_pending', false));
+    }
+
+    public function test_nightly_sync_does_not_publish_a_new_product_when_the_remote_image_is_invalid(): void
+    {
+        Storage::fake('public');
+        config([
+            'media-library.disk_name' => 'public',
+            'media-library.queue_conversions_by_default' => false,
+        ]);
+
+        $admin = User::factory()->create();
+        $size = $this->createOption($admin, 'size', true);
+        $rows = [$this->itemRow('W8002', 'W8002', '', 'New product with broken image', 2)];
+
+        $this->enableKiposSync($size);
+        Http::fake([
+            '*getZalihaK*' => Http::response([
+                array_merge($rows[0], ['IDSKL' => '200']),
+            ], 200),
+            '*getitemsextended*' => Http::response($rows, 200),
+            '*getitems*' => Http::response($rows, 200),
+            '*getOdjelSlike*' => Http::response([
+                $this->imageRow('W8002', 'http://images.test/W8002'),
+            ], 200),
+            'http://images.test/W8002' => Http::response('<html>missing image</html>', 200, [
+                'Content-Type' => 'text/html',
+            ]),
+        ]);
+
+        $run = app(KiposSyncService::class)->run('nightly_catalog_sync', $admin->id);
+        $product = Product::query()->where('code', 'W8002')->firstOrFail();
+
+        $this->assertSame('success', $run->status, (string) $run->error_message);
+        $this->assertFalse($product->is_active);
+        $this->assertNull($product->getFirstMedia('product_main'));
+        $this->assertTrue((bool) data_get($product->payload, 'kipos.image_activation_pending'));
+        $this->assertSame(1, (int) data_get($run->stats, 'images.download_failures'));
+        $this->assertSame(1, (int) data_get($run->stats, 'images.still_pending'));
+    }
+
+    public function test_image_gate_respects_missing_stock_and_activates_only_after_stock_returns(): void
+    {
+        Storage::fake('public');
+        config([
+            'media-library.disk_name' => 'public',
+            'media-library.queue_conversions_by_default' => false,
+        ]);
+
+        $admin = User::factory()->create();
+        $size = $this->createOption($admin, 'size', true);
+        $rows = [$this->itemRow('W8003', 'W8003', '', 'New product awaiting stock', 0)];
+        $unrelatedStock = array_merge(
+            $this->itemRow('OTHER', 'OTHER', '', 'Unrelated stock row', 1),
+            ['IDSKL' => '200']
+        );
+        $matchingStock = array_merge($rows[0], ['IDSKL' => '200', 'ZALIHAK' => 4]);
+
+        $this->enableKiposSync($size);
+        Http::fake([
+            '*getZalihaK*' => Http::sequence()
+                ->push([$unrelatedStock], 200)
+                ->push([$matchingStock], 200),
+            '*getitemsextended*' => Http::response($rows, 200),
+            '*getitems*' => Http::response($rows, 200),
+            '*getOdjelSlike*' => Http::response([
+                $this->imageRow('W8003', 'http://images.test/W8003'),
+            ], 200),
+            'http://images.test/W8003' => Http::response($this->tinyPng(), 200, [
+                'Content-Type' => 'image/png',
+            ]),
+        ]);
+
+        $firstRun = app(KiposSyncService::class)->run('nightly_catalog_sync', $admin->id);
+        $waitingForStock = Product::query()->where('code', 'W8003')->firstOrFail();
+
+        $this->assertSame('success', $firstRun->status, (string) $firstRun->error_message);
+        $this->assertFalse($waitingForStock->is_active);
+        $this->assertNotNull($waitingForStock->getFirstMedia('product_main'));
+        $this->assertFalse((bool) data_get($waitingForStock->payload, 'kipos.image_activation_pending', false));
+        $this->assertTrue((bool) data_get($waitingForStock->payload, 'kipos.stock_feed_missing'));
+        $this->assertTrue((bool) data_get($waitingForStock->payload, 'kipos.stock_feed_restore_active'));
+
+        $secondRun = app(KiposSyncService::class)->run('nightly_catalog_sync', $admin->id);
+        $active = $waitingForStock->fresh();
+
+        $this->assertSame('success', $secondRun->status, (string) $secondRun->error_message);
+        $this->assertTrue((bool) $active?->is_active);
+        $this->assertSame(4, (int) $active?->stock_qty);
+        $this->assertFalse((bool) data_get($active?->payload, 'kipos.stock_feed_missing', false));
+        $this->assertSame(0, (int) data_get($secondRun->stats, 'images.pending_products'));
     }
 
     private function createOption(User $admin, string $code, bool $showOnProductPage): Option
@@ -230,6 +388,26 @@ class KiposNightlyCatalogSyncFeatureTest extends TestCase
             'CIJENA_MPC' => '18,50',
             'ZALIHAK' => $stock,
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private function imageRow(string $group, string $url): array
+    {
+        return [
+            'IDODJEL' => $group,
+            'URL' => $url,
+            'NAZIV' => $group,
+            'GLAVNA' => 'D',
+            'TIP' => 'SLIKA',
+        ];
+    }
+
+    private function tinyPng(): string
+    {
+        return (string) base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5Wk1cAAAAASUVORK5CYII=',
+            true
+        );
     }
 
     private function enableKiposSync(Option $size): void

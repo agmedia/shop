@@ -15,6 +15,7 @@ use App\Models\Integrations\KiposSyncRun;
 use App\Services\Catalog\CatalogFeatureService;
 use App\Services\Integrations\Kipos\Concerns\SyncsKiposOrderStatuses;
 use App\Services\Settings\SystemSettingsService;
+use App\Support\Media\MediaUrl;
 use Illuminate\Http\File as HttpFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -77,7 +78,7 @@ class KiposSyncService
                 'title' => 'Catalog Sync',
                 'description' => 'Granular Kipos product sync so you can update only the fields you want.',
                 'actions' => [
-                    ['key' => 'nightly_catalog_sync', 'label' => 'Nightly Catalog Sync', 'description' => 'Import missing webshop products, add new size rows, sort sizes, and refresh prices and warehouse quantities without overwriting curated content.'],
+                    ['key' => 'nightly_catalog_sync', 'label' => 'Nightly Catalog Sync', 'description' => 'Import missing webshop products, add new size rows, sort sizes, import available images, and refresh prices and warehouse quantities without overwriting curated content. New products stay hidden until they have an image.'],
                     ['key' => 'import_products', 'label' => 'Import Products', 'description' => 'Create missing products only for entered Kipos product codes.'],
                     ['key' => 'update_content', 'label' => 'Update Content', 'description' => 'Update names, descriptions, active state, and structural variant mapping without touching prices or quantities.'],
                     ['key' => 'update_prices', 'label' => 'Update Prices', 'description' => 'Bulk refresh product and size prices from the complete Kipos extended item feed.'],
@@ -473,17 +474,21 @@ class KiposSyncService
             applyPricing: true,
             applyQuantities: false,
             sourceRows: $this->nightlyCatalogRows(),
-            preserveExistingContent: true
+            preserveExistingContent: true,
+            gateNewProductsUntilImage: true
         );
         $quantities = $this->handleUpdateQuantities();
+        $images = $this->syncNightlyPendingImages();
 
         return [
             'summary' => sprintf(
-                'Nightly catalog: %d products created, %d existing products checked, %d size rows synced, %d colors inferred; quantities refreshed for %d products and %d variant rows.',
+                'Nightly catalog: %d products created, %d existing products checked, %d size rows synced, %d colors inferred; images added to %d products, %d products kept hidden pending an image; quantities refreshed for %d products and %d variant rows.',
                 (int) ($catalog['created'] ?? 0),
                 (int) ($catalog['updated'] ?? 0),
                 (int) ($catalog['option_rows_synced'] ?? 0),
                 (int) ($catalog['inferred_color_values'] ?? 0),
+                (int) ($images['updated_products'] ?? 0),
+                (int) ($images['still_pending'] ?? 0),
                 (int) ($quantities['updated_products'] ?? 0),
                 (int) ($quantities['updated_variants'] ?? 0)
             ),
@@ -492,6 +497,7 @@ class KiposSyncService
             'option_rows_synced' => (int) ($catalog['option_rows_synced'] ?? 0),
             'inferred_color_values' => (int) ($catalog['inferred_color_values'] ?? 0),
             'catalog' => $catalog,
+            'images' => $images,
             'quantities' => $quantities,
         ];
     }
@@ -1149,7 +1155,8 @@ class KiposSyncService
         bool $applyQuantities,
         ?array $productCodeFilter = null,
         ?array $sourceRows = null,
-        bool $preserveExistingContent = false
+        bool $preserveExistingContent = false,
+        bool $gateNewProductsUntilImage = false
     ): array {
         $sourceRows ??= $this->mergedProductRows();
         $productCodeFilter = $productCodeFilter !== null
@@ -1212,6 +1219,16 @@ class KiposSyncService
                 'sample_row' => $rows[0] ?? null,
             ]);
 
+            $imageActivationPending = (bool) data_get($payload, 'kipos.image_activation_pending', false);
+            if ($gateNewProductsUntilImage && ($isNew || $imageActivationPending)) {
+                $payload['kipos']['image_activation_pending'] = true;
+                $payload['kipos']['image_activation_target_active'] = $this->groupIsActive($rows);
+                $payload['kipos']['image_activation_pending_since'] = (string) (
+                    $payload['kipos']['image_activation_pending_since'] ?? now()->toIso8601String()
+                );
+                $imageActivationPending = true;
+            }
+
             $fill = [
                 'code' => $groupCode,
                 'sku' => $this->groupUsesSizeOptions($rows) ? $groupCode : $this->itemCode($rows[0] ?? []),
@@ -1219,7 +1236,9 @@ class KiposSyncService
                 'updated_by' => $this->currentUserId(),
             ];
 
-            if ($isNew || ! $preserveExistingContent) {
+            if ($imageActivationPending) {
+                $fill['is_active'] = false;
+            } elseif ($isNew || ! $preserveExistingContent) {
                 $fill['is_active'] = $this->groupIsActive($rows);
             }
 
@@ -1723,6 +1742,178 @@ class KiposSyncService
         [$group, $rank] = $this->sizeSortKey($size);
 
         return ($group * 10000) + $rank;
+    }
+
+    /**
+     * Import images for products created by the nightly sync without issuing the
+     * expensive per-product fallback requests used by the manual image tools.
+     *
+     * @return array<string, mixed>
+     */
+    private function syncNightlyPendingImages(): array
+    {
+        $locale = $this->defaultLocale();
+        $products = Product::query()
+            ->with([
+                'translations' => fn ($query) => $query->where('locale', $locale),
+                'media',
+            ])
+            ->whereNotNull('code')
+            ->where('code', '!=', '')
+            ->get()
+            ->filter(fn (Product $product): bool => (bool) data_get(
+                $product->payload,
+                'kipos.image_activation_pending',
+                false
+            ));
+
+        $stats = [
+            'summary' => 'Nightly images: no products are waiting for an image.',
+            'pending_products' => $products->count(),
+            'matched_remote_products' => 0,
+            'updated_products' => 0,
+            'released_existing_images' => 0,
+            'activated_products' => 0,
+            'still_pending' => 0,
+            'main_images_attached' => 0,
+            'gallery_images_attached' => 0,
+            'download_failures' => 0,
+            'download_failure_details' => [],
+            'remote_groups' => 0,
+            'fallback_product_lookups' => 0,
+        ];
+
+        if ($products->isEmpty()) {
+            return $stats;
+        }
+
+        $grouped = $this->remoteImageRowsByGroup();
+        $stats['remote_groups'] = count($grouped);
+
+        config([
+            'media-library.max_file_size' => max((int) config('media-library.max_file_size', 0), 25 * 1024 * 1024),
+        ]);
+
+        $cacheProductIds = [];
+
+        foreach ($products as $product) {
+            if ($this->productHasUsableLocalImages($product)) {
+                $wasActivated = $this->releaseNightlyImageGate($product);
+                $stats['released_existing_images']++;
+                $stats['activated_products'] += (int) $wasActivated;
+                $cacheProductIds[] = (int) $product->id;
+
+                continue;
+            }
+
+            $groupCode = strtoupper(trim((string) $product->code));
+            $imageRows = $grouped[$groupCode] ?? [];
+            if ($imageRows === []) {
+                if ($this->keepNightlyImageGateClosed($product)) {
+                    $cacheProductIds[] = (int) $product->id;
+                }
+                $stats['still_pending']++;
+
+                continue;
+            }
+
+            $stats['matched_remote_products']++;
+            $imageStats = $this->syncImageRowsForProduct(
+                product: $product,
+                imageRows: $imageRows,
+                replaceExisting: true,
+                locale: $locale
+            );
+            $stats['main_images_attached'] += (int) ($imageStats['main_images_attached'] ?? 0);
+            $stats['gallery_images_attached'] += (int) ($imageStats['gallery_images_attached'] ?? 0);
+            $stats['download_failures'] += (int) ($imageStats['download_failures'] ?? 0);
+            $stats['download_failure_details'] = array_slice(array_merge(
+                (array) $stats['download_failure_details'],
+                (array) ($imageStats['download_failure_details'] ?? [])
+            ), 0, 50);
+
+            $product->unsetRelation('media');
+            $product->load('media');
+
+            if ($this->productHasUsableLocalImages($product)) {
+                $wasActivated = $this->releaseNightlyImageGate($product);
+                $stats['updated_products']++;
+                $stats['activated_products'] += (int) $wasActivated;
+                $cacheProductIds[] = (int) $product->id;
+
+                continue;
+            }
+
+            if ($this->keepNightlyImageGateClosed($product)) {
+                $cacheProductIds[] = (int) $product->id;
+            }
+            $stats['still_pending']++;
+        }
+
+        $this->forgetFrontendProductCache($cacheProductIds);
+
+        $stats['summary'] = sprintf(
+            'Nightly images: %d products updated, %d existing images accepted, %d products kept hidden pending an image, %d download failures.',
+            (int) $stats['updated_products'],
+            (int) $stats['released_existing_images'],
+            (int) $stats['still_pending'],
+            (int) $stats['download_failures']
+        );
+
+        return $stats;
+    }
+
+    private function releaseNightlyImageGate(Product $product): bool
+    {
+        $payload = (array) ($product->payload ?? []);
+        $kipos = (array) ($payload['kipos'] ?? []);
+        $targetActive = (bool) ($kipos['image_activation_target_active'] ?? false);
+        $stockFeedMissing = (bool) ($kipos['stock_feed_missing'] ?? false);
+
+        unset(
+            $kipos['image_activation_pending'],
+            $kipos['image_activation_target_active'],
+            $kipos['image_activation_pending_since']
+        );
+
+        if ($stockFeedMissing) {
+            $kipos['stock_feed_restore_active'] = $targetActive;
+        }
+
+        $payload['kipos'] = $kipos;
+        $active = $targetActive && ! $stockFeedMissing;
+
+        $product->forceFill([
+            'is_active' => $active,
+            'payload' => $payload,
+            'updated_by' => $this->currentUserId(),
+        ])->save();
+
+        return $active;
+    }
+
+    private function keepNightlyImageGateClosed(Product $product): bool
+    {
+        if (! $product->is_active) {
+            return false;
+        }
+
+        $product->forceFill([
+            'is_active' => false,
+            'updated_by' => $this->currentUserId(),
+        ])->save();
+
+        return true;
+    }
+
+    private function productHasUsableLocalImages(Product $product): bool
+    {
+        return $product->media
+            ->whereIn('collection_name', ['product_main', 'product_gallery'])
+            ->contains(fn ($media): bool => MediaUrl::hasUsableSource(
+                $media,
+                ['card_720w', 'card_480w', 'card_320w']
+            ));
     }
 
     /**
