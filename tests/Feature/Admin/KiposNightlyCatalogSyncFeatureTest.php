@@ -88,11 +88,21 @@ class KiposNightlyCatalogSyncFeatureTest extends TestCase
             ]),
         ]);
 
-        $run = app(KiposSyncService::class)->run('nightly_catalog_sync', $admin->id);
+        $progress = [];
+        $run = app(KiposSyncService::class)->run(
+            'nightly_catalog_sync',
+            $admin->id,
+            function (string $message) use (&$progress): void {
+                $progress[] = $message;
+            }
+        );
 
         Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'getitemsextended'));
 
         $this->assertSame('success', $run->status, (string) $run->error_message);
+        $this->assertTrue(collect($progress)->contains(fn (string $message): bool => str_starts_with($message, '[1/3] Katalog gotov:')));
+        $this->assertTrue(collect($progress)->contains(fn (string $message): bool => str_starts_with($message, '[2/3] Količine gotove:')));
+        $this->assertTrue(collect($progress)->contains(fn (string $message): bool => str_starts_with($message, '[3/3] Slike gotove:')));
         $this->assertDatabaseHas('products', ['code' => 'W8000']);
         $this->assertDatabaseMissing('products', ['code' => 'W9999']);
         $this->assertDatabaseHas('product_translations', [

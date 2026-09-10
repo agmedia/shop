@@ -16,6 +16,7 @@ use App\Services\Catalog\CatalogFeatureService;
 use App\Services\Integrations\Kipos\Concerns\SyncsKiposOrderStatuses;
 use App\Services\Settings\SystemSettingsService;
 use App\Support\Media\MediaUrl;
+use Closure;
 use Illuminate\Http\File as HttpFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +42,8 @@ class KiposSyncService
     private ?Option $filterOnlyColorOption = null;
 
     private ?int $runInitiatedBy = null;
+
+    private ?Closure $progressReporter = null;
 
     public function __construct(
         private readonly KiposSdkService $kipos,
@@ -249,7 +252,7 @@ class KiposSyncService
             ->exists();
     }
 
-    public function run(string $actionKey, ?int $initiatedBy = null): KiposSyncRun
+    public function run(string $actionKey, ?int $initiatedBy = null, ?callable $progressReporter = null): KiposSyncRun
     {
         $action = $this->resolveAction($actionKey);
 
@@ -261,7 +264,13 @@ class KiposSyncService
             'initiated_by' => $initiatedBy,
         ]);
 
-        return $this->performRun($run);
+        $this->progressReporter = $progressReporter ? Closure::fromCallable($progressReporter) : null;
+
+        try {
+            return $this->performRun($run);
+        } finally {
+            $this->progressReporter = null;
+        }
     }
 
     /**
@@ -492,6 +501,7 @@ class KiposSyncService
      */
     private function handleNightlyCatalogSync(): array
     {
+        $this->reportProgress('[1/3] Preuzimam katalog te ažuriram artikle, opcije i cijene...');
         $catalog = $this->syncProducts(
             createMissing: true,
             updateExisting: true,
@@ -501,8 +511,28 @@ class KiposSyncService
             preserveExistingContent: true,
             gateNewProductsUntilImage: true
         );
+        $this->reportProgress(sprintf(
+            '[1/3] Katalog gotov: %d novih, %d postojećih, %d opcija.',
+            (int) ($catalog['created'] ?? 0),
+            (int) ($catalog['updated'] ?? 0),
+            (int) ($catalog['option_rows_synced'] ?? 0)
+        ));
+
+        $this->reportProgress('[2/3] Preuzimam i ažuriram količine...');
         $quantities = $this->handleUpdateQuantities();
+        $this->reportProgress(sprintf(
+            '[2/3] Količine gotove: %d artikala i %d opcija.',
+            (int) ($quantities['updated_products'] ?? 0),
+            (int) ($quantities['updated_variants'] ?? 0)
+        ));
+
+        $this->reportProgress('[3/3] Provjeravam i preuzimam slike...');
         $images = $this->syncNightlyPendingImages();
+        $this->reportProgress(sprintf(
+            '[3/3] Slike gotove: %d dodano, %d još čeka sliku.',
+            (int) ($images['updated_products'] ?? 0),
+            (int) ($images['still_pending'] ?? 0)
+        ));
 
         return [
             'summary' => sprintf(
@@ -1837,7 +1867,16 @@ class KiposSyncService
 
         $cacheProductIds = [];
 
-        foreach ($products as $product) {
+        foreach ($products->values() as $index => $product) {
+            if ($index % 10 === 0) {
+                $this->reportProgress(sprintf(
+                    '[3/3] Slike: %d/%d obrađeno, %d dodano...',
+                    $index,
+                    $products->count(),
+                    (int) $stats['updated_products']
+                ));
+            }
+
             if ($this->productHasUsableLocalImages($product)) {
                 $wasActivated = $this->releaseNightlyImageGate($product);
                 $stats['released_existing_images']++;
@@ -1893,6 +1932,13 @@ class KiposSyncService
 
         $this->forgetFrontendProductCache($cacheProductIds);
 
+        $this->reportProgress(sprintf(
+            '[3/3] Slike: %d/%d obrađeno, %d dodano.',
+            $products->count(),
+            $products->count(),
+            (int) $stats['updated_products']
+        ));
+
         $stats['summary'] = sprintf(
             'Nightly images: %d products updated, %d existing images accepted, %d products kept hidden pending an image, %d download failures.',
             (int) $stats['updated_products'],
@@ -1902,6 +1948,13 @@ class KiposSyncService
         );
 
         return $stats;
+    }
+
+    private function reportProgress(string $message): void
+    {
+        if ($this->progressReporter) {
+            ($this->progressReporter)($message);
+        }
     }
 
     private function releaseNightlyImageGate(Product $product): bool
