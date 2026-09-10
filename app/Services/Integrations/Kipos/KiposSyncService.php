@@ -1259,10 +1259,14 @@ class KiposSyncService
             $imageActivationPending = (bool) data_get($payload, 'kipos.image_activation_pending', false);
             if ($gateNewProductsUntilImage && ($isNew || $imageActivationPending)) {
                 $payload['kipos']['image_activation_pending'] = true;
-                $payload['kipos']['image_activation_target_active'] = $this->groupIsActive($rows);
                 $payload['kipos']['image_activation_pending_since'] = (string) (
                     $payload['kipos']['image_activation_pending_since'] ?? now()->toIso8601String()
                 );
+                $payload['kipos']['nightly_imported_at'] = (string) (
+                    $payload['kipos']['nightly_imported_at']
+                    ?? $payload['kipos']['image_activation_pending_since']
+                );
+                $payload['kipos']['image_activation_target_active'] = false;
                 $imageActivationPending = true;
             }
 
@@ -3304,29 +3308,6 @@ class KiposSyncService
             $client = $client->withoutVerifying();
         }
 
-        try {
-            $response = $client->get($url);
-        } catch (\Throwable $exception) {
-            return [
-                'ok' => false,
-                'url' => $url,
-                'reason' => 'request_failed',
-                'message' => $exception->getMessage(),
-            ];
-        }
-
-        if (! $response->successful() || trim($response->body()) === '') {
-            return [
-                'ok' => false,
-                'url' => $url,
-                'status' => $response->status(),
-                'reason' => ! $response->successful() ? 'http_status' : 'empty_body',
-                'message' => ! $response->successful()
-                    ? 'Remote image request returned HTTP '.$response->status().'.'
-                    : 'Remote image response body is empty.',
-            ];
-        }
-
         $tempPath = tempnam(sys_get_temp_dir(), 'kipos_');
         if ($tempPath === false) {
             return [
@@ -3337,7 +3318,33 @@ class KiposSyncService
             ];
         }
 
-        file_put_contents($tempPath, $response->body());
+        try {
+            $response = $client
+                ->withOptions(['sink' => $tempPath])
+                ->get($url);
+        } catch (\Throwable $exception) {
+            @unlink($tempPath);
+
+            return [
+                'ok' => false,
+                'url' => $url,
+                'reason' => 'request_failed',
+                'message' => $exception->getMessage(),
+            ];
+        }
+
+        if (! $response->successful()) {
+            @unlink($tempPath);
+
+            return [
+                'ok' => false,
+                'url' => $url,
+                'status' => $response->status(),
+                'reason' => 'http_status',
+                'message' => 'Remote image request returned HTTP '.$response->status().'.',
+            ];
+        }
+
         if (! is_file($tempPath) || filesize($tempPath) <= 0) {
             @unlink($tempPath);
 
@@ -3350,17 +3357,21 @@ class KiposSyncService
             ];
         }
 
-        $mimeType = $this->detectImageMimeType($tempPath, (string) $response->header('Content-Type', ''));
+        $status = $response->status();
+        $contentType = (string) $response->header('Content-Type', '');
+        unset($response);
+
+        $mimeType = $this->detectImageMimeType($tempPath, $contentType);
         if ($mimeType === null || ! in_array($mimeType, $this->acceptedProductImageMimeTypes(), true)) {
             @unlink($tempPath);
 
             return [
                 'ok' => false,
                 'url' => $url,
-                'status' => $response->status(),
+                'status' => $status,
                 'reason' => 'invalid_mime',
                 'message' => 'Remote response is not a supported image.',
-                'mime_type' => $mimeType ?: $this->normalizeMimeType((string) $response->header('Content-Type', '')),
+                'mime_type' => $mimeType ?: $this->normalizeMimeType($contentType),
             ];
         }
 
@@ -3396,14 +3407,18 @@ class KiposSyncService
 
     private function detectImageMimeType(string $path, string $contentTypeHeader): ?string
     {
-        $candidates = [
-            $this->normalizeMimeType($contentTypeHeader),
-            $this->normalizeMimeType((string) (mime_content_type($path) ?: '')),
-        ];
-
+        $candidates = [];
         $imageSize = @getimagesize($path);
         if (is_array($imageSize) && isset($imageSize['mime'])) {
             $candidates[] = $this->normalizeMimeType((string) $imageSize['mime']);
+        }
+
+        $candidates[] = $this->normalizeMimeType($contentTypeHeader);
+
+        if ($candidates === [] || ! collect($candidates)->contains(
+            fn (string $mimeType): bool => $mimeType !== '' && str_starts_with($mimeType, 'image/')
+        )) {
+            $candidates[] = $this->normalizeMimeType((string) (mime_content_type($path) ?: ''));
         }
 
         foreach ($candidates as $mimeType) {

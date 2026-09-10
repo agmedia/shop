@@ -213,6 +213,7 @@ class KiposSyncImagesFeatureTest extends TestCase
         $admin = User::factory()->create();
         $product = $this->createProduct($admin, 'M7034');
         $remoteImage = UploadedFile::fake()->image('remote.jpg', 40, 40);
+        $remoteImageContents = file_get_contents($remoteImage->getPathname());
 
         $this->enableKiposImageSync();
 
@@ -242,9 +243,9 @@ class KiposSyncImagesFeatureTest extends TestCase
             ], 200),
             '*getOdjelSlike/M7034*' => Http::response([], 404),
             '*getOdjelSlike&webshop=1' => Http::response([], 200),
-            'http://example.test/kipos/*' => Http::response(file_get_contents($remoteImage->getPathname()), 200, [
-                'Content-Type' => 'image/jpeg',
-            ]),
+            'http://example.test/kipos/*' => Http::sequence()
+                ->push($remoteImageContents, 200, ['Content-Type' => 'image/jpeg'])
+                ->push($remoteImageContents, 200, ['Content-Type' => 'image/jpeg']),
         ]);
 
         $result = app(KiposSyncService::class)->syncProductImages($product, true, 'hr');
@@ -269,6 +270,7 @@ class KiposSyncImagesFeatureTest extends TestCase
         $admin = User::factory()->create();
         $product = $this->createProduct($admin, 'M7035');
         $remoteImage = UploadedFile::fake()->image('remote.jpg', 40, 40);
+        $remoteImageContents = file_get_contents($remoteImage->getPathname());
 
         $this->enableKiposImageSync();
 
@@ -299,9 +301,9 @@ class KiposSyncImagesFeatureTest extends TestCase
                 ],
             ], 200),
             '*getOdjelSlike/M7035*' => Http::response([], 404),
-            'http://example.test/kipos/*' => Http::response(file_get_contents($remoteImage->getPathname()), 200, [
-                'Content-Type' => 'image/jpeg',
-            ]),
+            'http://example.test/kipos/*' => Http::sequence()
+                ->push($remoteImageContents, 200, ['Content-Type' => 'image/jpeg'])
+                ->push($remoteImageContents, 200, ['Content-Type' => 'image/jpeg']),
         ]);
 
         $run = app(KiposSyncService::class)->run('update_images', $admin->id);

@@ -868,6 +868,11 @@ class KiposSyncManagerFeatureTest extends TestCase
     private function fakeKiposImages(array $codes): void
     {
         $remoteImage = UploadedFile::fake()->image('remote.png', 40, 40);
+        $remoteImageContents = file_get_contents($remoteImage->getPathname());
+        $imageResponses = Http::sequence();
+        foreach ($codes as $_code) {
+            $imageResponses->push($remoteImageContents, 200, ['Content-Type' => 'image/png']);
+        }
 
         Http::fake([
             '*getOdjelSlike*' => Http::response(collect($codes)
@@ -880,9 +885,7 @@ class KiposSyncManagerFeatureTest extends TestCase
                 ])
                 ->values()
                 ->all(), 200),
-            '*slike/*' => Http::response(file_get_contents($remoteImage->getPathname()), 200, [
-                'Content-Type' => 'image/png',
-            ]),
+            '*slike/*' => $imageResponses,
         ]);
     }
 }

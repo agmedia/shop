@@ -140,9 +140,10 @@ class KiposNightlyCatalogSyncFeatureTest extends TestCase
         $this->assertSame(0, (int) data_get($run->stats, 'images.still_pending'));
 
         $imported = Product::query()->where('code', 'W8000')->firstOrFail();
-        $this->assertTrue($imported->is_active);
+        $this->assertFalse($imported->is_active);
         $this->assertNotNull($imported->getFirstMedia('product_main'));
         $this->assertFalse((bool) data_get($imported->payload, 'kipos.image_activation_pending', false));
+        $this->assertNotNull(data_get($imported->payload, 'kipos.nightly_imported_at'));
     }
 
     public function test_nightly_sync_keeps_new_products_without_remote_images_hidden_and_retries_without_specific_lookups(): void
@@ -188,7 +189,7 @@ class KiposNightlyCatalogSyncFeatureTest extends TestCase
         $this->assertSame('success', $secondRun->status, (string) $secondRun->error_message);
         $this->assertSame(0, (int) data_get($secondRun->stats, 'created'));
         $this->assertSame(1, (int) data_get($secondRun->stats, 'images.updated_products'));
-        $this->assertTrue((bool) $imported?->is_active);
+        $this->assertFalse((bool) $imported?->is_active);
         $this->assertNotNull($imported?->getFirstMedia('product_main'));
         $this->assertFalse((bool) data_get($imported?->payload, 'kipos.image_activation_pending', false));
     }
@@ -231,7 +232,7 @@ class KiposNightlyCatalogSyncFeatureTest extends TestCase
         $this->assertSame(1, (int) data_get($run->stats, 'images.still_pending'));
     }
 
-    public function test_image_gate_respects_missing_stock_and_activates_only_after_stock_returns(): void
+    public function test_nightly_imported_product_stays_inactive_after_image_and_stock_return(): void
     {
         Storage::fake('public');
         config([
@@ -271,15 +272,15 @@ class KiposNightlyCatalogSyncFeatureTest extends TestCase
         $this->assertNotNull($waitingForStock->getFirstMedia('product_main'));
         $this->assertFalse((bool) data_get($waitingForStock->payload, 'kipos.image_activation_pending', false));
         $this->assertTrue((bool) data_get($waitingForStock->payload, 'kipos.stock_feed_missing'));
-        $this->assertTrue((bool) data_get($waitingForStock->payload, 'kipos.stock_feed_restore_active'));
+        $this->assertFalse((bool) data_get($waitingForStock->payload, 'kipos.stock_feed_restore_active'));
 
         $secondRun = app(KiposSyncService::class)->run('nightly_catalog_sync', $admin->id);
-        $active = $waitingForStock->fresh();
+        $inactive = $waitingForStock->fresh();
 
         $this->assertSame('success', $secondRun->status, (string) $secondRun->error_message);
-        $this->assertTrue((bool) $active?->is_active);
-        $this->assertSame(4, (int) $active?->stock_qty);
-        $this->assertFalse((bool) data_get($active?->payload, 'kipos.stock_feed_missing', false));
+        $this->assertFalse((bool) $inactive?->is_active);
+        $this->assertSame(4, (int) $inactive?->stock_qty);
+        $this->assertFalse((bool) data_get($inactive?->payload, 'kipos.stock_feed_missing', false));
         $this->assertSame(0, (int) data_get($secondRun->stats, 'images.pending_products'));
     }
 
