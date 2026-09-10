@@ -14,6 +14,8 @@ class ProductColorVariantService
 {
     private const MAX_VARIANTS = 24;
 
+    private const MAX_VARIANT_CANDIDATES = 96;
+
     /**
      * @return Collection<int, array{
      *     product_id:int,
@@ -85,7 +87,7 @@ class ProductColorVariantService
     }
 
     /**
-     * @param  array{type:string,column?:string,value:string}  $group
+     * @param  array{type:string,column?:string,payload_path?:string,value:string,base_name:string,description:string}  $group
      * @return Collection<int, Product>
      */
     private function variantProducts(array $group, string $locale, string $fallbackLocale): Collection
@@ -97,7 +99,7 @@ class ProductColorVariantService
             ->visibleOnStorefront($hideOutOfStock)
             ->with([
                 'translations' => fn ($q) => $q
-                    ->select(['id', 'product_id', 'locale', 'slug', 'name'])
+                    ->select(['id', 'product_id', 'locale', 'slug', 'name', 'description'])
                     ->whereIn('locale', [$locale, $fallbackLocale]),
                 'optionValues' => fn ($q) => $q
                     ->select(['id', 'product_id', 'option_value_id', 'parent_option_value_id', 'is_active', 'sort_order'])
@@ -118,10 +120,17 @@ class ProductColorVariantService
                     ->whereIn('locale', [$locale, $fallbackLocale]),
             ])
             ->orderBy('id')
-            ->limit(self::MAX_VARIANTS);
+            ->limit(self::MAX_VARIANT_CANDIDATES);
 
         if (($group['type'] ?? '') === 'payload') {
-            $query->where((string) $group['column'], (string) $group['value']);
+            $query->where(function ($candidateQuery) use ($group, $locale, $fallbackLocale): void {
+                $candidateQuery->where((string) $group['column'], (string) $group['value']);
+                $this->orWhereMatchesTranslationSignature($candidateQuery, $group, $locale, $fallbackLocale);
+            });
+        } elseif ($group['description'] !== '') {
+            $query->where(function ($candidateQuery) use ($group, $locale, $fallbackLocale): void {
+                $this->whereMatchesTranslationSignature($candidateQuery, $group, $locale, $fallbackLocale);
+            });
         } else {
             $query->whereHas('translations', function ($translationQuery) use ($group, $locale, $fallbackLocale): void {
                 $translationQuery
@@ -130,14 +139,21 @@ class ProductColorVariantService
             });
         }
 
-        return $query->get();
+        return $query->get()
+            ->filter(fn (Product $candidate): bool => $this->matchesVariantGroup($candidate, $group, $locale, $fallbackLocale))
+            ->take(self::MAX_VARIANTS)
+            ->values();
     }
 
     /**
-     * @return array{type:string,column?:string,value:string}|null
+     * @return array{type:string,column?:string,payload_path?:string,value:string,base_name:string,description:string}|null
      */
     private function variantGroup(Product $product, string $locale, string $fallbackLocale): ?array
     {
+        $translation = $this->productTranslation($product, $locale, $fallbackLocale);
+        $name = trim((string) ($translation?->name ?? ''));
+        $description = $this->plainVariantText((string) ($translation?->description ?? ''));
+        $baseName = $this->variantBaseName($name);
         $payloadPaths = [
             'color_variant_group' => 'payload->color_variant_group',
             'variant_group' => 'payload->variant_group',
@@ -155,17 +171,98 @@ class ProductColorVariantService
                 return [
                     'type' => 'payload',
                     'column' => $column,
+                    'payload_path' => $path,
                     'value' => $value,
+                    'base_name' => $baseName,
+                    'description' => $description,
                 ];
             }
         }
 
-        $translation = $this->productTranslation($product, $locale, $fallbackLocale);
-        $name = trim((string) ($translation?->name ?? ''));
-
         return $name !== ''
-            ? ['type' => 'translation_name', 'value' => $name]
+            ? [
+                'type' => 'translation_name',
+                'value' => $name,
+                'base_name' => $baseName,
+                'description' => $description,
+            ]
             : null;
+    }
+
+    /**
+     * @param  array{base_name:string,description:string}  $group
+     */
+    private function whereMatchesTranslationSignature(mixed $query, array $group, string $locale, string $fallbackLocale): void
+    {
+        $query->whereHas('translations', function ($translationQuery) use ($group, $locale, $fallbackLocale): void {
+            $translationQuery
+                ->whereIn('locale', [$locale, $fallbackLocale])
+                ->where('description', 'like', '%'.$group['description'].'%');
+        });
+    }
+
+    /**
+     * @param  array{base_name:string,description:string}  $group
+     */
+    private function orWhereMatchesTranslationSignature(mixed $query, array $group, string $locale, string $fallbackLocale): void
+    {
+        if ($group['base_name'] === '' || $group['description'] === '') {
+            return;
+        }
+
+        $query->orWhere(function ($signatureQuery) use ($group, $locale, $fallbackLocale): void {
+            $this->whereMatchesTranslationSignature($signatureQuery, $group, $locale, $fallbackLocale);
+        });
+    }
+
+    /**
+     * @param  array{type:string,payload_path?:string,value:string,base_name:string,description:string}  $group
+     */
+    private function matchesVariantGroup(Product $candidate, array $group, string $locale, string $fallbackLocale): bool
+    {
+        if (($group['type'] ?? '') === 'payload') {
+            $candidateValue = trim((string) data_get($candidate->payload, (string) ($group['payload_path'] ?? ''), ''));
+            if ($candidateValue !== '' && $candidateValue === (string) $group['value']) {
+                return true;
+            }
+        }
+
+        $translation = $this->productTranslation($candidate, $locale, $fallbackLocale);
+        $name = trim((string) ($translation?->name ?? ''));
+        $description = $this->plainVariantText((string) ($translation?->description ?? ''));
+
+        if ($group['description'] === '') {
+            return $name === (string) $group['value'];
+        }
+
+        return $this->normalizeVariantText($this->variantBaseName($name)) === $this->normalizeVariantText($group['base_name'])
+            && $this->normalizeVariantText($description) === $this->normalizeVariantText($group['description']);
+    }
+
+    private function variantBaseName(string $name): string
+    {
+        $parts = preg_split('/\s+[-–—]\s+/u', trim($name)) ?: [];
+        $baseName = trim((string) ($parts[0] ?? $name));
+
+        return trim((string) preg_replace('/^[a-z]*\d[a-z0-9._-]*\s+/iu', '', $baseName));
+    }
+
+    private function normalizeVariantText(string $value): string
+    {
+        $value = Str::lower(Str::ascii($this->plainVariantText($value)));
+        $tokens = preg_split('/[^a-z0-9]+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return implode(' ', array_map(
+            static fn (string $token): string => strlen($token) > 3
+                ? (preg_replace('/[aeo]$/', '', $token) ?: $token)
+                : $token,
+            $tokens
+        ));
+    }
+
+    private function plainVariantText(string $value): string
+    {
+        return trim(html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     }
 
     private function colorValueForProduct(Product $product, string $locale, string $fallbackLocale): ?OptionValue
@@ -217,7 +314,7 @@ class ProductColorVariantService
     {
         $product->loadMissing([
             'translations' => fn ($q) => $q
-                ->select(['id', 'product_id', 'locale', 'slug', 'name'])
+                ->select(['id', 'product_id', 'locale', 'slug', 'name', 'description'])
                 ->whereIn('locale', [$locale, $fallbackLocale]),
         ]);
 

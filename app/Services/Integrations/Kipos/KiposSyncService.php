@@ -33,6 +33,10 @@ class KiposSyncService
 
     private const STOCK_FEED_PRESENT_KEY = '_KIPOS_STOCK_PRESENT';
 
+    private bool $filterOnlyColorOptionResolved = false;
+
+    private ?Option $filterOnlyColorOption = null;
+
     private ?int $runInitiatedBy = null;
 
     public function __construct(
@@ -73,6 +77,7 @@ class KiposSyncService
                 'title' => 'Catalog Sync',
                 'description' => 'Granular Kipos product sync so you can update only the fields you want.',
                 'actions' => [
+                    ['key' => 'nightly_catalog_sync', 'label' => 'Nightly Catalog Sync', 'description' => 'Import missing webshop products, add new size rows, sort sizes, and refresh prices and warehouse quantities without overwriting curated content.'],
                     ['key' => 'import_products', 'label' => 'Import Products', 'description' => 'Create missing products only for entered Kipos product codes.'],
                     ['key' => 'update_content', 'label' => 'Update Content', 'description' => 'Update names, descriptions, active state, and structural variant mapping without touching prices or quantities.'],
                     ['key' => 'update_prices', 'label' => 'Update Prices', 'description' => 'Bulk refresh product and size prices from the complete Kipos extended item feed.'],
@@ -111,6 +116,7 @@ class KiposSyncService
             'kipos_sync_action_price_field' => 'AKCIJSKA_CIJENA',
             'kipos_sync_stock_warehouse_ids' => '200',
             'kipos_sync_quantity_overrides' => '',
+            'kipos_sync_color_overrides' => '{"W7042":"tamno-plava"}',
             'kipos_order_prefix' => 'KHR',
             'kipos_order_valuta' => '978',
             'kipos_order_customer_cms_id' => '1',
@@ -303,6 +309,7 @@ class KiposSyncService
     private function handlerMap(): array
     {
         return [
+            'nightly_catalog_sync' => 'handleNightlyCatalogSync',
             'import_products' => 'handleImportProducts',
             'update_content' => 'handleUpdateContent',
             'update_prices' => 'handleUpdatePrices',
@@ -453,6 +460,40 @@ class KiposSyncService
         }
 
         return $result;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function handleNightlyCatalogSync(): array
+    {
+        $catalog = $this->syncProducts(
+            createMissing: true,
+            updateExisting: true,
+            applyPricing: true,
+            applyQuantities: false,
+            sourceRows: $this->nightlyCatalogRows(),
+            preserveExistingContent: true
+        );
+        $quantities = $this->handleUpdateQuantities();
+
+        return [
+            'summary' => sprintf(
+                'Nightly catalog: %d products created, %d existing products checked, %d size rows synced, %d colors inferred; quantities refreshed for %d products and %d variant rows.',
+                (int) ($catalog['created'] ?? 0),
+                (int) ($catalog['updated'] ?? 0),
+                (int) ($catalog['option_rows_synced'] ?? 0),
+                (int) ($catalog['inferred_color_values'] ?? 0),
+                (int) ($quantities['updated_products'] ?? 0),
+                (int) ($quantities['updated_variants'] ?? 0)
+            ),
+            'created' => (int) ($catalog['created'] ?? 0),
+            'updated' => (int) ($catalog['updated'] ?? 0),
+            'option_rows_synced' => (int) ($catalog['option_rows_synced'] ?? 0),
+            'inferred_color_values' => (int) ($catalog['inferred_color_values'] ?? 0),
+            'catalog' => $catalog,
+            'quantities' => $quantities,
+        ];
     }
 
     /**
@@ -1107,7 +1148,8 @@ class KiposSyncService
         bool $applyPricing,
         bool $applyQuantities,
         ?array $productCodeFilter = null,
-        ?array $sourceRows = null
+        ?array $sourceRows = null,
+        bool $preserveExistingContent = false
     ): array {
         $sourceRows ??= $this->mergedProductRows();
         $productCodeFilter = $productCodeFilter !== null
@@ -1138,6 +1180,7 @@ class KiposSyncService
         $updated = 0;
         $skipped = 0;
         $variantRowsSynced = 0;
+        $inferredColorValues = 0;
 
         foreach ($groups as $groupCode => $rows) {
             $existing = $products->get($groupCode);
@@ -1172,10 +1215,13 @@ class KiposSyncService
             $fill = [
                 'code' => $groupCode,
                 'sku' => $this->groupUsesSizeOptions($rows) ? $groupCode : $this->itemCode($rows[0] ?? []),
-                'is_active' => $this->groupIsActive($rows),
                 'payload' => $payload,
                 'updated_by' => $this->currentUserId(),
             ];
+
+            if ($isNew || ! $preserveExistingContent) {
+                $fill['is_active'] = $this->groupIsActive($rows);
+            }
 
             if ($isNew || $applyPricing) {
                 $fill['base_price'] = $this->groupBasePrice($rows);
@@ -1188,21 +1234,22 @@ class KiposSyncService
             $product->fill($fill);
             $product->save();
 
-            ProductTranslation::query()->updateOrCreate(
-                [
-                    'product_id' => $product->id,
-                    'locale' => $locale,
-                ],
-                [
+            $translation = ProductTranslation::query()->firstOrNew([
+                'product_id' => $product->id,
+                'locale' => $locale,
+            ]);
+
+            if (! $translation->exists || ! $preserveExistingContent) {
+                $translation->fill([
                     'name' => $this->groupName($rows),
                     'slug' => Str::slug($this->groupName($rows).'-'.$groupCode),
                     'excerpt' => $this->groupExcerpt($rows),
                     'description' => $this->groupDescription($rows),
                     'payload' => ['kipos' => ['department_code' => $groupCode]],
-                ]
-            );
+                ])->save();
+            }
 
-            if ($categoryId) {
+            if ($categoryId && ($isNew || ! $preserveExistingContent)) {
                 DB::table('category_product')->updateOrInsert(
                     [
                         'category_id' => $categoryId,
@@ -1215,6 +1262,10 @@ class KiposSyncService
                         'updated_at' => now(),
                     ]
                 );
+            }
+
+            if ($preserveExistingContent) {
+                $inferredColorValues += (int) $this->inferFilterOnlyColorValue($product, $locale);
             }
 
             if ($sizeOption) {
@@ -1236,11 +1287,12 @@ class KiposSyncService
         }
 
         return [
-            'summary' => sprintf('Products: %d created, %d updated, %d skipped, %d option rows synced.', $created, $updated, $skipped, $variantRowsSynced),
+            'summary' => sprintf('Products: %d created, %d updated, %d skipped, %d option rows synced, %d colors inferred.', $created, $updated, $skipped, $variantRowsSynced, $inferredColorValues),
             'created' => $created,
             'updated' => $updated,
             'skipped' => $skipped,
             'option_rows_synced' => $variantRowsSynced,
+            'inferred_color_values' => $inferredColorValues,
             'source_groups' => count($groups),
             'requested_codes' => $productCodeFilter ?? [],
             'matched_requested_codes' => count($matchedRequestedCodes),
@@ -1267,6 +1319,8 @@ class KiposSyncService
         if (! $this->groupUsesSizeOptions($rows)) {
             ProductOptionValue::query()
                 ->where('product_id', $product->id)
+                ->where('mode', '!=', 'filter')
+                ->whereHas('optionValue', fn ($query) => $query->where('option_id', $option->id))
                 ->update([
                     'is_active' => false,
                     'updated_by' => $this->currentUserId(),
@@ -1291,11 +1345,14 @@ class KiposSyncService
 
         $existingRows = ProductOptionValue::query()
             ->where('product_id', $product->id)
+            ->where('mode', '!=', 'filter')
+            ->whereHas('optionValue', fn ($query) => $query->where('option_id', $option->id))
             ->get()
             ->keyBy('combination_hash');
 
         $synced = 0;
         $activeHashes = [];
+        $rows = $this->sortRowsBySize($rows);
 
         foreach (array_values($rows) as $index => $row) {
             $sizeCode = $this->sizeCode($row);
@@ -1303,23 +1360,26 @@ class KiposSyncService
                 continue;
             }
 
-            $optionValue = OptionValue::query()->firstOrCreate(
-                [
+            $optionValue = OptionValue::query()
+                ->where('option_id', $option->id)
+                ->whereRaw('UPPER(code) = ?', [$sizeCode])
+                ->first();
+
+            if (! $optionValue) {
+                $optionValue = OptionValue::query()->create([
                     'option_id' => $option->id,
                     'code' => $sizeCode,
-                ],
-                [
                     'is_active' => true,
-                    'sort_order' => $index,
+                    'sort_order' => $this->sizeSortOrder($sizeCode),
                     'payload' => ['kipos' => ['size_code' => $sizeCode]],
                     'created_by' => $this->currentUserId(),
                     'updated_by' => $this->currentUserId(),
-                ]
-            );
+                ]);
+            }
 
             $optionValue->forceFill([
                 'is_active' => true,
-                'sort_order' => $index,
+                'sort_order' => $this->sizeSortOrder($sizeCode),
                 'updated_by' => $this->currentUserId(),
             ])->save();
 
@@ -1373,12 +1433,15 @@ class KiposSyncService
 
             $optionRow->fill($fill);
             $optionRow->save();
+            $existingRows->put($hash, $optionRow);
             $synced++;
         }
 
         if ($activeHashes !== []) {
             ProductOptionValue::query()
                 ->where('product_id', $product->id)
+                ->where('mode', '!=', 'filter')
+                ->whereHas('optionValue', fn ($query) => $query->where('option_id', $option->id))
                 ->whereNotIn('combination_hash', $activeHashes)
                 ->update([
                     'is_active' => false,
@@ -1388,6 +1451,278 @@ class KiposSyncService
         }
 
         return $synced;
+    }
+
+    private function inferFilterOnlyColorValue(Product $product, string $locale): bool
+    {
+        $colorOption = $this->filterOnlyColorOption();
+        if (! $colorOption) {
+            return false;
+        }
+
+        $hasColorValue = ProductOptionValue::query()
+            ->where('product_id', $product->id)
+            ->where(function ($query) use ($colorOption): void {
+                $query
+                    ->whereHas('optionValue', fn ($valueQuery) => $valueQuery->where('option_id', $colorOption->id))
+                    ->orWhereHas('parentOptionValue', fn ($valueQuery) => $valueQuery->where('option_id', $colorOption->id));
+            })
+            ->exists();
+
+        if ($hasColorValue) {
+            return false;
+        }
+
+        $colorReference = $this->colorOverrideMap()[strtoupper(trim((string) $product->code))] ?? '';
+        $inferenceSource = 'configured_override';
+
+        if ($colorReference === '') {
+            $translation = ProductTranslation::query()
+                ->where('product_id', $product->id)
+                ->orderByRaw('CASE WHEN locale = ? THEN 0 ELSE 1 END', [$locale])
+                ->first();
+            $colorReference = $this->productColorSuffix((string) ($translation?->name ?? ''));
+            $inferenceSource = 'product_name';
+        }
+
+        if ($colorReference === '') {
+            return false;
+        }
+
+        $normalizedReference = $this->normalizeColorPhrase($colorReference);
+        $colorValue = $colorOption->values->first(function (OptionValue $value) use ($normalizedReference): bool {
+            $candidates = collect([$value->code])
+                ->merge($value->translations->pluck('name'))
+                ->map(fn ($candidate): string => $this->normalizeColorPhrase((string) $candidate));
+
+            return $candidates->contains($normalizedReference);
+        });
+
+        if (! $colorValue) {
+            return false;
+        }
+
+        $pivotExists = DB::table('catalog_option_product')
+            ->where('product_id', $product->id)
+            ->where('option_id', $colorOption->id)
+            ->exists();
+
+        if (! $pivotExists) {
+            $sortOrder = (int) DB::table('catalog_option_product')
+                ->where('product_id', $product->id)
+                ->max('sort_order');
+
+            DB::table('catalog_option_product')->insert([
+                'option_id' => $colorOption->id,
+                'product_id' => $product->id,
+                'is_required' => false,
+                'sort_order' => $sortOrder + 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        ProductOptionValue::query()->updateOrCreate(
+            [
+                'product_id' => $product->id,
+                'combination_hash' => hash('sha256', 'filter:'.$colorOption->id.':'.$colorValue->id),
+            ],
+            [
+                'option_value_id' => $colorValue->id,
+                'parent_option_value_id' => null,
+                'mode' => 'filter',
+                'sku' => null,
+                'stock_qty' => 0,
+                'price_override' => null,
+                'sort_order' => 0,
+                'is_active' => true,
+                'payload' => ['kipos' => [
+                    'inferred_color' => $colorReference,
+                    'inference_source' => $inferenceSource,
+                ]],
+                'created_by' => $this->currentUserId(),
+                'updated_by' => $this->currentUserId(),
+            ]
+        );
+
+        return true;
+    }
+
+    private function filterOnlyColorOption(): ?Option
+    {
+        if ($this->filterOnlyColorOptionResolved) {
+            return $this->filterOnlyColorOption;
+        }
+
+        $this->filterOnlyColorOptionResolved = true;
+        $this->filterOnlyColorOption = Option::query()
+            ->with(['translations', 'values.translations'])
+            ->where('is_active', true)
+            ->get()
+            ->first(function (Option $option): bool {
+                if ($option->showsOnProductPage()) {
+                    return false;
+                }
+
+                $names = collect([$option->code])
+                    ->merge($option->translations->pluck('name'))
+                    ->map(fn ($name): string => Str::lower(Str::ascii(trim((string) $name))));
+
+                return $names->contains(fn (string $name): bool => Str::startsWith($name, ['color', 'colour', 'boja']));
+            });
+
+        return $this->filterOnlyColorOption;
+    }
+
+    private function productColorSuffix(string $name): string
+    {
+        $parts = preg_split('/\s+[-–—]\s+/u', trim($name)) ?: [];
+
+        return count($parts) > 1 ? trim((string) end($parts)) : '';
+    }
+
+    private function normalizeColorPhrase(string $value): string
+    {
+        $value = Str::lower(Str::ascii(trim($value)));
+        $tokens = preg_split('/[^a-z0-9]+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return implode(' ', array_map(
+            static fn (string $token): string => strlen($token) > 3
+                ? (preg_replace('/[aeo]$/', '', $token) ?: $token)
+                : $token,
+            $tokens
+        ));
+    }
+
+    /** @return array<string, string> */
+    private function colorOverrideMap(): array
+    {
+        $raw = trim((string) ($this->syncSettings()['kipos_sync_color_overrides'] ?? ''));
+        if ($raw === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) {
+            return collect($decoded)
+                ->mapWithKeys(fn ($color, $code): array => [
+                    strtoupper(trim((string) $code)) => trim((string) $color),
+                ])
+                ->filter()
+                ->all();
+        }
+
+        $overrides = [];
+        foreach (preg_split('/\R/', $raw) ?: [] as $line) {
+            [$code, $color] = array_pad(explode(':', $line, 2), 2, '');
+            $code = strtoupper(trim($code));
+            $color = trim($color);
+            if ($code !== '' && $color !== '') {
+                $overrides[$code] = $color;
+            }
+        }
+
+        return $overrides;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function sortRowsBySize(array $rows): array
+    {
+        $rowsBySize = [];
+        foreach ($rows as $row) {
+            $size = $this->sizeCode($row);
+            if ($size === '') {
+                continue;
+            }
+
+            $current = $rowsBySize[$size] ?? null;
+            $shouldReplace = ! is_array($current)
+                || $this->sizeRowScore($row) > $this->sizeRowScore($current)
+                || ($this->sizeRowScore($row) === $this->sizeRowScore($current)
+                    && strnatcasecmp($this->itemCode($row), $this->itemCode($current)) < 0);
+
+            if ($shouldReplace) {
+                $rowsBySize[$size] = $row;
+            }
+        }
+
+        $rows = array_values($rowsBySize);
+        usort($rows, function (array $left, array $right): int {
+            $comparison = $this->sizeSortKey($this->sizeCode($left)) <=> $this->sizeSortKey($this->sizeCode($right));
+
+            return $comparison !== 0 ? $comparison : strnatcasecmp($this->itemCode($left), $this->itemCode($right));
+        });
+
+        return $rows;
+    }
+
+    private function sizeRowScore(array $row): int
+    {
+        $itemCode = $this->itemCode($row);
+        $departmentCode = $this->departmentCode($row);
+        $sizeCode = $this->sizeCode($row);
+        $score = 0;
+
+        if ($itemCode === $departmentCode.'.'.$sizeCode) {
+            $score += 100;
+        }
+        if ($this->rowIsActive($row)) {
+            $score += 20;
+        }
+        if ($this->rowPrice($row) > 0) {
+            $score += 10;
+        }
+        if ($this->rowQuantity($row) > 0) {
+            $score += 5;
+        }
+
+        return $score;
+    }
+
+    /** @return array{int,int,string} */
+    private function sizeSortKey(string $size): array
+    {
+        $size = strtoupper(trim($size));
+        $named = [
+            'XXS' => 0,
+            'XS' => 1,
+            'S' => 2,
+            'M' => 3,
+            'L' => 4,
+            'XL' => 5,
+            'XXL' => 6,
+            '2XL' => 6,
+            'XXXL' => 7,
+            '3XL' => 7,
+        ];
+
+        if (isset($named[$size])) {
+            return [0, $named[$size], $size];
+        }
+
+        if (preg_match('/^(\d+)XL$/', $size, $match) === 1) {
+            return [0, 4 + (int) $match[1], $size];
+        }
+
+        if (in_array($size, ['ONE', 'UNI', 'UNISIZE', 'UNIVERZALNA'], true)) {
+            return [1, 0, $size];
+        }
+
+        if (is_numeric(str_replace(',', '.', $size))) {
+            return [2, (int) round((float) str_replace(',', '.', $size) * 100), $size];
+        }
+
+        return [3, 0, $size];
+    }
+
+    private function sizeSortOrder(string $size): int
+    {
+        [$group, $rank] = $this->sizeSortKey($size);
+
+        return ($group * 10000) + $rank;
     }
 
     /**
@@ -1945,6 +2280,45 @@ class KiposSyncService
         foreach ($extendedRows as $row) {
             $itemCode = $this->itemCode($row);
             if ($itemCode === '') {
+                continue;
+            }
+
+            $merged[$itemCode] = array_merge($merged[$itemCode] ?? [], $row);
+        }
+
+        return array_values($merged);
+    }
+
+    /**
+     * Merge extended fields only for product groups present in the webshop item feed.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function nightlyCatalogRows(): array
+    {
+        $baseRows = $this->kipos->getRows('sif_roba/getitems');
+        if ($baseRows === []) {
+            throw new RuntimeException('Kipos nightly catalog sync stopped because the webshop product feed is empty.');
+        }
+
+        $allowedGroups = [];
+        $merged = [];
+
+        foreach ($baseRows as $row) {
+            $groupCode = $this->departmentCode($row);
+            $itemCode = $this->itemCode($row);
+            if ($groupCode === '' || $itemCode === '') {
+                continue;
+            }
+
+            $allowedGroups[$groupCode] = true;
+            $merged[$itemCode] = $row;
+        }
+
+        foreach ($this->kipos->getRows('sif_roba/getitemsextended') as $row) {
+            $groupCode = $this->departmentCode($row);
+            $itemCode = $this->itemCode($row);
+            if ($itemCode === '' || ! isset($allowedGroups[$groupCode])) {
                 continue;
             }
 

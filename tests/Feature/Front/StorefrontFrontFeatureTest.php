@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Front;
 
-use App\Mail\NewsletterCouponMail;
 use App\Http\Controllers\Front\CatalogController;
+use App\Mail\NewsletterCouponMail;
 use App\Models\Catalog\Action\CatalogAction;
 use App\Models\Catalog\Attribute\Attribute;
 use App\Models\Catalog\Category\Category;
@@ -182,7 +182,8 @@ class StorefrontFrontFeatureTest extends TestCase
                 \Mockery::on(static fn (string $body): bool => str_contains($body, 'R-1001')
                     && str_contains($body, 'T-shirt size M')),
                 \Mockery::on(static function (callable $callback): bool {
-                    $mail = new class {
+                    $mail = new class
+                    {
                         public array $calls = [];
 
                         public function to(string $email): self
@@ -1576,6 +1577,41 @@ class StorefrontFrontFeatureTest extends TestCase
             ->assertSee('red-swatch.png', false)
             ->assertSee('aria-current="true"', false)
             ->assertDontSee('data-size-label="Red"', false);
+    }
+
+    public function test_product_detail_links_matching_color_variants_when_only_one_has_a_variant_group(): void
+    {
+        $this->useEnglishStorefrontLocale();
+        [$category] = $this->seedCategory();
+        [$whiteProduct, $whiteSlug] = $this->seedProduct($category->id);
+        [$navyProduct, $navySlug] = $this->seedProduct($category->id);
+
+        $whiteProduct->update(['payload' => ['source' => ['mpn' => 'WOMEN-BIKINI']]]);
+        $whiteProduct->translations()->update([
+            'name' => 'Women Bikini Briefs - White',
+            'description' => 'Soft cotton bikini briefs.',
+        ]);
+        $navyProduct->translations()->update([
+            'name' => 'W7042 WOMEN BIKINI BRIEFS',
+            'description' => 'Soft cotton bikini briefs.',
+        ]);
+
+        $this->attachProductSizeOptions($whiteProduct, ['M']);
+        $this->attachProductSizeOptions($navyProduct, ['M']);
+
+        $colorOption = $this->createProductOption('Color', false);
+        $this->attachOptionValueToProduct($whiteProduct, $colorOption, 'White', 1);
+        $this->attachOptionValueToProduct($navyProduct, $colorOption, 'Navy Blue', 2);
+
+        $this->get('/product/'.$whiteSlug)
+            ->assertOk()
+            ->assertSee('data-product-color-variants', false)
+            ->assertSee('/product/'.$navySlug, false);
+
+        $this->get('/product/'.$navySlug)
+            ->assertOk()
+            ->assertSee('data-product-color-variants', false)
+            ->assertSee('/product/'.$whiteSlug, false);
     }
 
     public function test_filter_only_option_does_not_require_selection_on_add_to_cart(): void

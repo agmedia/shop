@@ -287,6 +287,55 @@ class ProductOptionValuesFeatureTest extends TestCase
         ]);
     }
 
+    public function test_adding_a_color_group_preserves_existing_size_stock_rows(): void
+    {
+        app(SystemSettingsService::class)->put('catalog_use_options', true);
+
+        $user = $this->makeAdminUser();
+        $product = $this->createProduct($user);
+        $size = $this->createOption($user, 'size', 'Size', 'size');
+        $color = $this->createOption($user, 'color', 'Color', 'color');
+        $color->forceFill([
+            'payload' => [Option::PAYLOAD_SHOW_ON_PRODUCT_PAGE => false],
+        ])->save();
+        $small = $this->createOptionValue($user, $size, 's', 'S', 's');
+
+        $product->options()->attach($size->id, [
+            'is_required' => true,
+            'sort_order' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ProductOptionValue::query()->create([
+            'product_id' => $product->id,
+            'option_value_id' => $small->id,
+            'parent_option_value_id' => null,
+            'mode' => 'single',
+            'sku' => 'P-OPT-1-S',
+            'stock_qty' => 17,
+            'price_override' => 89,
+            'sort_order' => 0,
+            'is_active' => true,
+            'combination_hash' => hash('sha256', 's:'.$small->id),
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(OptionValuesManager::class, ['productId' => $product->id])
+            ->set('selectedOptionIds', [$size->id, $color->id])
+            ->call('saveOptionGroups')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('catalog_product_option_values', [
+            'product_id' => $product->id,
+            'option_value_id' => $small->id,
+            'sku' => 'P-OPT-1-S',
+            'stock_qty' => 17,
+            'is_active' => true,
+        ]);
+        $this->assertTrue($product->fresh()->options()->whereKey($color->id)->exists());
+    }
+
     private function makeAdminUser(): User
     {
         $user = User::factory()->create();

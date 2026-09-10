@@ -37,6 +37,8 @@ return [
 
     'kipos' => [
         'cron_token' => env('KIPOS_CRON_TOKEN'),
+        'nightly_catalog_sync_time' => env('KIPOS_NIGHTLY_CATALOG_SYNC_TIME', '02:20'),
+        'nightly_catalog_sync_timezone' => env('KIPOS_NIGHTLY_CATALOG_SYNC_TIMEZONE', 'Europe/Zagreb'),
     ],
 
 ];

@@ -1,26 +1,61 @@
 <?php
 
-use App\Services\Import\OpenCartCatalogImportService;
+use App\Models\Settings\Local\Region;
+use App\Models\User;
+use App\Services\Front\AddressDirectoryService;
 use App\Services\Import\DesktopProductImageImportService;
 use App\Services\Import\KozoProductContentSyncService;
+use App\Services\Import\OpenCartCatalogImportService;
 use App\Services\Import\OpenCartPathProductImageImportService;
 use App\Services\Import\OpenCartSizeOptionImportService;
-use App\Models\User;
-use App\Models\Settings\Local\Region;
-use App\Services\Front\AddressDirectoryService;
+use App\Services\Integrations\Kipos\KiposSyncService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Artisan::command('kipos:sync-nightly', function (KiposSyncService $sync): int {
+    if (! $sync->connectorEnabled()) {
+        $this->info('Kipos nightly catalog sync skipped because the connector is disabled.');
+
+        return self::SUCCESS;
+    }
+
+    if ($sync->hasActiveRuns()) {
+        $this->info('Kipos nightly catalog sync skipped because another Kipos sync is active.');
+
+        return self::SUCCESS;
+    }
+
+    try {
+        $run = $sync->run('nightly_catalog_sync');
+        $this->info((string) $run->summary);
+
+        return $run->status === 'success' ? self::SUCCESS : self::FAILURE;
+    } catch (\Throwable $exception) {
+        report($exception);
+        $this->error($exception->getMessage());
+
+        return self::FAILURE;
+    }
+})->purpose('Import new Kipos webshop products, reconcile options, and refresh prices and quantities');
+
+Schedule::command('kipos:sync-nightly')
+    ->dailyAt((string) config('services.kipos.nightly_catalog_sync_time', '02:20'))
+    ->timezone((string) config('services.kipos.nightly_catalog_sync_timezone', 'Europe/Zagreb'))
+    ->withoutOverlapping(180)
+    ->onOneServer();
+
 Artisan::command('wholesale:token {user : User ID or email} {name=wholesale-client} {--abilities=wholesale.read,products.read,manufacturers.read,categories.read,products.prices.read,products.quantities.read} {--expires=}', function (): int {
     if (! app(\App\Services\Catalog\CatalogFeatureService::class)->useApi()) {
         $this->error('Wholesale API is disabled in Catalog Features.');
+
         return self::FAILURE;
     }
 
@@ -35,10 +70,12 @@ Artisan::command('wholesale:token {user : User ID or email} {name=wholesale-clie
 
     if (! $user) {
         $this->error('User not found.');
+
         return self::FAILURE;
     }
     if (! (bool) ($user->api_access_enabled ?? false)) {
         $this->error('User API access is disabled. Enable it in Settings > API first.');
+
         return self::FAILURE;
     }
 
@@ -50,6 +87,7 @@ Artisan::command('wholesale:token {user : User ID or email} {name=wholesale-clie
 
     if ($abilities === []) {
         $this->error('At least one ability is required.');
+
         return self::FAILURE;
     }
 
@@ -59,6 +97,7 @@ Artisan::command('wholesale:token {user : User ID or email} {name=wholesale-clie
             $expiresAt = CarbonImmutable::parse($expiresRaw);
         } catch (\Throwable) {
             $this->error('Invalid --expires value. Use a parseable datetime, e.g. "2026-12-31 23:59:59".');
+
             return self::FAILURE;
         }
     }
@@ -81,21 +120,24 @@ Artisan::command('wholesale:token {user : User ID or email} {name=wholesale-clie
 
 Artisan::command('local:import-regions-opencart {file : Path to OpenCart zones CSV} {--truncate : Truncate regions table before import}', function (): int {
     $file = (string) $this->argument('file');
-    if (!is_file($file)) {
+    if (! is_file($file)) {
         $this->error('CSV file not found: '.$file);
+
         return self::FAILURE;
     }
 
     $handle = fopen($file, 'rb');
-    if (!$handle) {
+    if (! $handle) {
         $this->error('Unable to open CSV file.');
+
         return self::FAILURE;
     }
 
     $header = fgetcsv($handle, 0, ',', '"', '\\');
-    if (!is_array($header)) {
+    if (! is_array($header)) {
         fclose($handle);
         $this->error('CSV header missing or invalid.');
+
         return self::FAILURE;
     }
 
@@ -104,9 +146,10 @@ Artisan::command('local:import-regions-opencart {file : Path to OpenCart zones C
     $index = array_flip($header);
 
     foreach ($required as $column) {
-        if (!array_key_exists($column, $index)) {
+        if (! array_key_exists($column, $index)) {
             fclose($handle);
             $this->error('Missing required column: '.$column);
+
             return self::FAILURE;
         }
     }
@@ -119,6 +162,7 @@ Artisan::command('local:import-regions-opencart {file : Path to OpenCart zones C
             $value
         );
         $value = preg_replace('/\s+/', ' ', $value) ?? $value;
+
         return trim($value);
     };
 
@@ -211,7 +255,7 @@ Artisan::command('local:import-regions-opencart {file : Path to OpenCart zones C
     $now = Carbon::now();
 
     while (($row = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
-        if (!is_array($row) || $row === []) {
+        if (! is_array($row) || $row === []) {
             continue;
         }
 
@@ -231,6 +275,7 @@ Artisan::command('local:import-regions-opencart {file : Path to OpenCart zones C
         $countryCode = $countryMap[$normalizedCountry] ?? ($aliases[$normalizedCountry] ?? '');
         if ($countryCode === '') {
             $unknownCountries[$countryName] = true;
+
             continue;
         }
 
@@ -257,6 +302,7 @@ Artisan::command('local:import-regions-opencart {file : Path to OpenCart zones C
 
     if ($records === []) {
         $this->error('No importable region rows found.');
+
         return self::FAILURE;
     }
 
@@ -483,10 +529,10 @@ Artisan::command('local:sync-kozo-proizvodi-content
     $this->line('Duplicate source SKUs: '.(string) $result['duplicate_source_skus']);
     $this->line('Attribute values: '.json_encode($result['attribute_values'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     $this->line('Remaining unresolved ? tokens: '.(string) $result['remaining_question_mark_count']);
-    if (!empty($result['remaining_question_mark_tokens'])) {
+    if (! empty($result['remaining_question_mark_tokens'])) {
         $this->warn('Unresolved tokens sample: '.implode(', ', array_slice((array) $result['remaining_question_mark_tokens'], 0, 12)));
     }
-    if (!$result['dry_run']) {
+    if (! $result['dry_run']) {
         $this->line('Translations updated: '.(string) $result['translations_updated']);
         $this->line('Products updated: '.(string) $result['products_updated']);
         $this->line('Attribute records created: '.(string) $result['attribute_records_created']);

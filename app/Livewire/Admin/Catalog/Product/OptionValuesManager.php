@@ -431,7 +431,7 @@ class OptionValuesManager extends Component
             ->findOrFail($this->productId);
 
         $previousIds = $product->options->pluck('id')->map(fn ($id) => (int) $id)->all();
-        $changed = $previousIds !== $this->selectedOptionIds;
+        $removedIds = array_values(array_diff($previousIds, $this->selectedOptionIds));
 
         $syncPayload = [];
         foreach ($this->selectedOptionIds as $index => $optionId) {
@@ -441,12 +441,17 @@ class OptionValuesManager extends Component
             ];
         }
 
-        DB::transaction(function () use ($product, $syncPayload, $changed): void {
+        DB::transaction(function () use ($product, $syncPayload, $removedIds): void {
             $product->options()->sync($syncPayload);
 
-            if ($changed) {
+            if ($removedIds !== []) {
                 ProductOptionValue::query()
                     ->where('product_id', $this->productId)
+                    ->where(function ($query) use ($removedIds): void {
+                        $query
+                            ->whereHas('optionValue', fn ($valueQuery) => $valueQuery->whereIn('option_id', $removedIds))
+                            ->orWhereHas('parentOptionValue', fn ($valueQuery) => $valueQuery->whereIn('option_id', $removedIds));
+                    })
                     ->delete();
             }
         });
@@ -458,8 +463,8 @@ class OptionValuesManager extends Component
         $this->dispatch(
             'notify',
             type: 'success',
-            message: $changed
-                ? 'Option groups saved. Existing option-value rows were reset.'
+            message: $removedIds !== []
+                ? 'Option groups saved. Values belonging to removed groups were deleted.'
                 : 'Option groups saved.'
         );
     }

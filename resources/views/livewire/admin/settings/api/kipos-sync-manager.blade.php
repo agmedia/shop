@@ -272,6 +272,13 @@
                     @error('syncForm.kipos_sync_quantity_overrides') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                 </div>
 
+                <div>
+                    <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Color Overrides') }}</label>
+                    <textarea rows="4" wire:model="syncForm.kipos_sync_color_overrides" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder='{"W7042":"tamno-plava"}'></textarea>
+                    <p class="mt-1 text-xs text-slate-500">{{ __('Optional JSON or one `PRODUCT: color-code` rule per line. Used only when a product has no existing color value; otherwise the nightly sync can infer a matching color from the product name.') }}</p>
+                    @error('syncForm.kipos_sync_color_overrides') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                </div>
+
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{{ __('ERP Order Send Settings') }}</p>
 
