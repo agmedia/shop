@@ -34,6 +34,7 @@ Artisan::command('kipos:sync-nightly', function (KiposSyncService $sync): int {
     }
 
     try {
+        $this->info('Kipos nightly catalog sync started. Keep this terminal open; the first run can take several minutes.');
         $run = $sync->run('nightly_catalog_sync');
         $this->info((string) $run->summary);
 

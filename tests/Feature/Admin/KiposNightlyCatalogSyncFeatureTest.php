@@ -90,6 +90,8 @@ class KiposNightlyCatalogSyncFeatureTest extends TestCase
 
         $run = app(KiposSyncService::class)->run('nightly_catalog_sync', $admin->id);
 
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'getitemsextended'));
+
         $this->assertSame('success', $run->status, (string) $run->error_message);
         $this->assertDatabaseHas('products', ['code' => 'W8000']);
         $this->assertDatabaseMissing('products', ['code' => 'W9999']);

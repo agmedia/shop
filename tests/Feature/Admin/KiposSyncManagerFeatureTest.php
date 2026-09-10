@@ -10,6 +10,7 @@ use App\Models\Integrations\KiposSyncRun;
 use App\Models\Sales\Order\Order;
 use App\Models\Settings\Local\OrderStatus;
 use App\Models\User;
+use App\Services\Integrations\Kipos\KiposSyncService;
 use App\Services\Settings\SystemSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -460,6 +461,9 @@ class KiposSyncManagerFeatureTest extends TestCase
             'started_at' => now()->subMinutes(46),
             'initiated_by' => $admin->id,
         ]);
+        $staleRun->timestamps = false;
+        $staleRun->forceFill(['updated_at' => now()->subMinutes(46)])->saveQuietly();
+        $staleRun->timestamps = true;
 
         Livewire::actingAs($admin)
             ->test(KiposSyncManager::class)
@@ -482,6 +486,107 @@ class KiposSyncManagerFeatureTest extends TestCase
         Queue::assertPushed(RunKiposSyncActionJob::class, 1);
     }
 
+    public function test_stale_queued_run_is_failed_before_retry_is_queued(): void
+    {
+        Queue::fake();
+
+        $admin = $this->makeUserWithRole('superadmin');
+
+        $staleRun = KiposSyncRun::query()->create([
+            'action_key' => 'import_images',
+            'action_label' => 'Import Images',
+            'status' => 'queued',
+            'summary' => 'Queued from admin. Waiting for background worker.',
+            'initiated_by' => $admin->id,
+        ]);
+        $staleRun->timestamps = false;
+        $staleRun->forceFill([
+            'created_at' => now()->subMinutes(31),
+            'updated_at' => now()->subMinutes(31),
+        ])->saveQuietly();
+        $staleRun->timestamps = true;
+
+        Livewire::actingAs($admin)
+            ->test(KiposSyncManager::class)
+            ->call('runAction', 'import_images')
+            ->assertHasNoErrors()
+            ->assertDispatched('notify');
+
+        $staleRun->refresh();
+        $replacementRun = KiposSyncRun::query()->where('action_key', 'import_images')->latest('id')->first();
+
+        $this->assertSame('failed', $staleRun->status);
+        $this->assertSame(
+            'Queued run expired before a background worker started it.',
+            $staleRun->summary
+        );
+        $this->assertNotNull($staleRun->finished_at);
+        $this->assertNotNull($replacementRun);
+        $this->assertNotSame($staleRun->id, $replacementRun?->id);
+        $this->assertSame('queued', $replacementRun?->status);
+        Queue::assertPushedOn(config('queue.kipos_queue', 'kipos'), RunKiposSyncActionJob::class);
+        Queue::assertPushed(RunKiposSyncActionJob::class, 1);
+    }
+
+    public function test_stale_queued_run_does_not_block_other_kipos_work(): void
+    {
+        $staleRun = KiposSyncRun::query()->create([
+            'action_key' => 'update_actions',
+            'action_label' => 'Update Actions',
+            'status' => 'queued',
+            'summary' => 'Queued from admin. Waiting for background worker.',
+        ]);
+        $staleRun->timestamps = false;
+        $staleRun->forceFill([
+            'created_at' => now()->subMinutes(31),
+            'updated_at' => now()->subMinutes(31),
+        ])->saveQuietly();
+        $staleRun->timestamps = true;
+
+        $sync = app(\App\Services\Integrations\Kipos\KiposSyncService::class);
+
+        $this->assertFalse($sync->hasActiveRuns());
+        $claimedRun = $sync->executeQueuedRun($staleRun);
+
+        $staleRun->refresh();
+        $this->assertSame('failed', $staleRun->status);
+        $this->assertNotNull($staleRun->finished_at);
+        $this->assertSame('failed', $claimedRun->status);
+    }
+
+    public function test_recent_queued_run_is_not_expired(): void
+    {
+        $queuedRun = KiposSyncRun::query()->create([
+            'action_key' => 'update_actions',
+            'action_label' => 'Update Actions',
+            'status' => 'queued',
+            'summary' => 'Queued from admin. Waiting for background worker.',
+        ]);
+        $queuedRun->timestamps = false;
+        $queuedRun->forceFill([
+            'created_at' => now()->subMinutes(29),
+            'updated_at' => now()->subMinutes(29),
+        ])->saveQuietly();
+        $queuedRun->timestamps = true;
+
+        $this->assertTrue(app(\App\Services\Integrations\Kipos\KiposSyncService::class)->hasActiveRuns());
+        $this->assertSame('queued', $queuedRun->fresh()?->status);
+    }
+
+    public function test_started_run_with_recent_activity_is_not_expired(): void
+    {
+        $run = KiposSyncRun::query()->create([
+            'action_key' => 'update_images',
+            'action_label' => 'Update Images',
+            'status' => 'started',
+            'summary' => 'Execution started.',
+            'started_at' => now()->subMinutes(46),
+        ]);
+
+        $this->assertTrue(app(KiposSyncService::class)->hasActiveRuns());
+        $this->assertSame('started', $run->fresh()?->status);
+    }
+
     public function test_stale_started_quantity_update_is_failed_before_retry_runs(): void
     {
         Queue::fake();
@@ -500,6 +605,9 @@ class KiposSyncManagerFeatureTest extends TestCase
             'started_at' => now()->subMinutes(6),
             'initiated_by' => $admin->id,
         ]);
+        $staleRun->timestamps = false;
+        $staleRun->forceFill(['updated_at' => now()->subMinutes(6)])->saveQuietly();
+        $staleRun->timestamps = true;
 
         Livewire::actingAs($admin)
             ->test(KiposSyncManager::class)
@@ -551,6 +659,9 @@ class KiposSyncManagerFeatureTest extends TestCase
             'started_at' => now()->subMinutes(46),
             'initiated_by' => $admin->id,
         ]);
+        $staleRun->timestamps = false;
+        $staleRun->forceFill(['updated_at' => now()->subMinutes(46)])->saveQuietly();
+        $staleRun->timestamps = true;
 
         Livewire::actingAs($admin)
             ->test(KiposSyncManager::class)
@@ -563,6 +674,39 @@ class KiposSyncManagerFeatureTest extends TestCase
             'Execution marked as failed because the previous run became stale.',
             $staleRun->summary
         );
+    }
+
+    public function test_image_batch_cannot_restart_a_queued_run_failed_during_setup(): void
+    {
+        $admin = $this->makeUserWithRole('superadmin');
+        $this->enableKiposImageSync();
+
+        $run = KiposSyncRun::query()->create([
+            'action_key' => 'update_images',
+            'action_label' => 'Update Images',
+            'status' => 'queued',
+            'summary' => 'Queued from admin. Waiting for background worker.',
+            'initiated_by' => $admin->id,
+        ]);
+
+        Http::fake(function ($request) use ($run) {
+            if (str_contains($request->url(), 'getOdjelSlike')) {
+                KiposSyncRun::query()->whereKey($run->id)->update([
+                    'status' => 'failed',
+                    'summary' => 'Queued run expired before a background worker started it.',
+                    'finished_at' => now(),
+                ]);
+            }
+
+            return Http::response([], 200);
+        });
+
+        $result = app(KiposSyncService::class)->startImageBatchRun('update_images', $admin->id, 10, $run);
+
+        $this->assertSame('failed', $result->status);
+        $this->assertSame('failed', $run->fresh()?->status);
+        $this->assertSame(1, KiposSyncRun::query()->where('action_key', 'update_images')->count());
+        $this->assertFalse((bool) data_get($run->fresh()?->stats, 'browser_batch'));
     }
 
     private function makeUserWithRole(string $role): User

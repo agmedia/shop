@@ -30,6 +30,8 @@ class KiposSyncService
 
     private const IMMEDIATE_ACTION_STALE_STARTED_RUN_AFTER_MINUTES = 5;
 
+    private const STALE_QUEUED_RUN_AFTER_MINUTES = 30;
+
     private const IMAGE_BATCH_CACHE_TTL_MINUTES = 360;
 
     private const STOCK_FEED_PRESENT_KEY = '_KIPOS_STOCK_PRESENT';
@@ -229,7 +231,7 @@ class KiposSyncService
 
     public function activeRun(string $actionKey): ?KiposSyncRun
     {
-        $this->markStaleStartedRunsAsFailed($actionKey);
+        $this->markStaleActiveRunsAsFailed($actionKey);
 
         return KiposSyncRun::query()
             ->where('action_key', $actionKey)
@@ -240,7 +242,7 @@ class KiposSyncService
 
     public function hasActiveRuns(): bool
     {
-        $this->markStaleStartedRunsAsFailed();
+        $this->markStaleActiveRunsAsFailed();
 
         return KiposSyncRun::query()
             ->whereIn('status', ['queued', 'started'])
@@ -289,19 +291,30 @@ class KiposSyncService
     {
         $this->resolveAction($run->action_key);
 
-        if (in_array($run->status, ['success', 'failed'], true)) {
+        $claimedRun = $this->claimQueuedRun($run);
+        if (! $claimedRun) {
             return $run->fresh(['initiator']) ?? $run;
         }
 
-        $run->fill([
-            'status' => 'started',
-            'summary' => 'Execution started.',
-            'started_at' => $run->started_at ?: now(),
-            'finished_at' => null,
-            'error_message' => null,
-        ])->save();
+        return $this->performRun($claimedRun);
+    }
 
-        return $this->performRun($run);
+    private function claimQueuedRun(KiposSyncRun $run): ?KiposSyncRun
+    {
+        $now = now();
+        $claimed = KiposSyncRun::query()
+            ->whereKey($run->id)
+            ->where('status', 'queued')
+            ->update([
+                'status' => 'started',
+                'summary' => 'Execution started.',
+                'started_at' => $now,
+                'finished_at' => null,
+                'error_message' => null,
+                'updated_at' => $now,
+            ]);
+
+        return $claimed === 1 ? $run->fresh(['initiator']) : null;
     }
 
     /**
@@ -395,9 +408,21 @@ class KiposSyncService
         return $run->fresh(['initiator']) ?? $run;
     }
 
-    private function markStaleStartedRunsAsFailed(?string $actionKey = null): void
+    private function markStaleActiveRunsAsFailed(?string $actionKey = null): void
     {
         $now = now();
+
+        KiposSyncRun::query()
+            ->when($actionKey !== null, fn ($query) => $query->where('action_key', $actionKey))
+            ->where('status', 'queued')
+            ->where('created_at', '<=', $now->copy()->subMinutes(self::STALE_QUEUED_RUN_AFTER_MINUTES))
+            ->update([
+                'status' => 'failed',
+                'summary' => 'Queued run expired before a background worker started it.',
+                'error_message' => 'The Kipos queue worker did not start this run within 30 minutes. A fresh retry is allowed.',
+                'finished_at' => $now,
+                'updated_at' => $now,
+            ]);
 
         KiposSyncRun::query()
             ->when($actionKey !== null, fn ($query) => $query->where('action_key', $actionKey))
@@ -407,12 +432,11 @@ class KiposSyncService
                 $threshold = $now->copy()->subMinutes($this->staleStartedRunAfterMinutes($run->action_key));
                 $startedAt = $run->started_at;
                 $updatedAt = $run->updated_at;
+                $lastActivityAt = $startedAt && $updatedAt
+                    ? ($startedAt->gt($updatedAt) ? $startedAt : $updatedAt)
+                    : ($startedAt ?? $updatedAt);
 
-                if ($startedAt && $startedAt->gt($threshold)) {
-                    return;
-                }
-
-                if (! $startedAt && $updatedAt && $updatedAt->gt($threshold)) {
+                if ($lastActivityAt && $lastActivityAt->gt($threshold)) {
                     return;
                 }
 
@@ -950,8 +974,12 @@ class KiposSyncService
             $run = $this->activeRun($actionKey);
         }
 
-        if ($run instanceof KiposSyncRun && $run->status === 'started') {
-            return $run->fresh(['initiator']) ?? $run;
+        if ($run instanceof KiposSyncRun) {
+            $run = $run->fresh(['initiator']) ?? $run;
+
+            if ($run->status !== 'queued') {
+                return $run;
+            }
         }
 
         $this->kipos->assertEnabled();
@@ -980,13 +1008,22 @@ class KiposSyncService
         $unmatchedProducts = count(array_diff(array_keys($grouped), $productCodes));
         $totalProducts = count($productIds);
 
-        $run ??= KiposSyncRun::query()->create([
-            'action_key' => $actionKey,
-            'action_label' => $action['label'],
-            'status' => 'started',
-            'started_at' => now(),
-            'initiated_by' => $initiatedBy,
-        ]);
+        if ($run instanceof KiposSyncRun) {
+            $claimedRun = $this->claimQueuedRun($run);
+            if (! $claimedRun) {
+                return $run->fresh(['initiator']) ?? $run;
+            }
+
+            $run = $claimedRun;
+        } else {
+            $run = KiposSyncRun::query()->create([
+                'action_key' => $actionKey,
+                'action_label' => $action['label'],
+                'status' => 'started',
+                'started_at' => now(),
+                'initiated_by' => $initiatedBy,
+            ]);
+        }
 
         Cache::put($this->imageBatchCacheKey($run->id, 'product_ids'), $productIds, now()->addMinutes(self::IMAGE_BATCH_CACHE_TTL_MINUTES));
         Cache::put($this->imageBatchCacheKey($run->id, 'grouped_rows'), $grouped, now()->addMinutes(self::IMAGE_BATCH_CACHE_TTL_MINUTES));
@@ -2480,43 +2517,15 @@ class KiposSyncService
         return array_values($merged);
     }
 
-    /**
-     * Merge extended fields only for product groups present in the webshop item feed.
-     *
-     * @return list<array<string, mixed>>
-     */
+    /** @return list<array<string, mixed>> */
     private function nightlyCatalogRows(): array
     {
-        $baseRows = $this->kipos->getRows('sif_roba/getitems');
-        if ($baseRows === []) {
+        $rows = $this->kipos->getRows('sif_roba/getitems');
+        if ($rows === []) {
             throw new RuntimeException('Kipos nightly catalog sync stopped because the webshop product feed is empty.');
         }
 
-        $allowedGroups = [];
-        $merged = [];
-
-        foreach ($baseRows as $row) {
-            $groupCode = $this->departmentCode($row);
-            $itemCode = $this->itemCode($row);
-            if ($groupCode === '' || $itemCode === '') {
-                continue;
-            }
-
-            $allowedGroups[$groupCode] = true;
-            $merged[$itemCode] = $row;
-        }
-
-        foreach ($this->kipos->getRows('sif_roba/getitemsextended') as $row) {
-            $groupCode = $this->departmentCode($row);
-            $itemCode = $this->itemCode($row);
-            if ($itemCode === '' || ! isset($allowedGroups[$groupCode])) {
-                continue;
-            }
-
-            $merged[$itemCode] = array_merge($merged[$itemCode] ?? [], $row);
-        }
-
-        return array_values($merged);
+        return $rows;
     }
 
     /**
