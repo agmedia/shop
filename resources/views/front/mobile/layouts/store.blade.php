@@ -6,6 +6,7 @@
     @include('front.partials.seo-meta')
     @include('front.partials.schema-markup')
     @include('front.partials.analytics')
+    @include('front.partials.klaviyo')
 
     <link rel="preload" href="{{ asset('front-theme/styles/bootstrap.css') }}?v={{ filemtime(public_path('front-theme/styles/bootstrap.css')) }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="{{ asset('front-theme/styles/bootstrap.css') }}?v={{ filemtime(public_path('front-theme/styles/bootstrap.css')) }}"></noscript>

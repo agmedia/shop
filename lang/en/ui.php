@@ -103,6 +103,8 @@ return [
                 'placeholder' => 'Enter your email address',
                 'button' => 'Sign me up',
                 'consent' => 'I accept terms of use and data processing for newsletter.',
+                'consent_terms' => 'terms of use',
+                'consent_privacy' => 'data processing for newsletter',
                 'status' => [
                     'subscribed' => 'Thank you! You have been successfully signed up for the newsletter.',
                     'saved_with_sync_issue' => 'Signup was saved, but sync with the newsletter service is currently unavailable.',

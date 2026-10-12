@@ -320,6 +320,12 @@
                         <input type="text" wire:model="form.store_newsletter_klaviyo_list_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
                         @error('form.store_newsletter_klaviyo_list_id') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Klaviyo Public API Key / Site ID') }}</label>
+                        <input type="text" wire:model="form.store_newsletter_klaviyo_site_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                        <p class="mt-2 text-xs text-slate-500">{{ __('Used for onsite tracking after marketing cookie consent. The private API key also needs Events write access to sync orders.') }}</p>
+                        @error('form.store_newsletter_klaviyo_site_id') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                    </div>
                 </div>
             @endif
 

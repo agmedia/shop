@@ -38,6 +38,7 @@ class SystemSettingsService
     public function get(string $key, mixed $default = null): mixed
     {
         $all = $this->all();
+
         return array_key_exists($key, $all) ? $all[$key] : $default;
     }
 
@@ -55,7 +56,7 @@ class SystemSettingsService
     }
 
     /**
-     * @param array<string, mixed> $entries
+     * @param  array<string, mixed>  $entries
      */
     public function putMany(array $entries): void
     {
@@ -76,9 +77,14 @@ class SystemSettingsService
 
     public function flush(): void
     {
-        $this->settingsCache = null;
+        $this->refresh();
 
         Cache::forget(self::CACHE_KEY);
+    }
+
+    public function refresh(): void
+    {
+        $this->settingsCache = null;
     }
 
     private function encodeValue(mixed $value): string

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Content\ContentBlock;
 use App\Models\Content\ContentBlockSlot;
 use App\Models\Content\ContentBlockTranslation;
+use App\Models\Sales\Order\Order;
 use App\Models\Settings\Local\Currency;
 use App\Models\Settings\Local\GeoZone;
 use App\Models\Settings\Local\GeoZoneCountry;
@@ -14,6 +15,7 @@ use App\Models\Settings\Local\PaymentMethod;
 use App\Models\Settings\Local\ShippingMethod;
 use App\Models\Settings\Local\TaxRate;
 use App\Observers\Content\ContentCacheObserver;
+use App\Observers\Sales\OrderObserver;
 use App\Observers\Settings\LocalSettingObserver;
 use App\Services\Catalog\CatalogFeatureService;
 use App\Services\Content\ContentBlockResolver;
@@ -270,6 +272,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         PaymentMethod::observe(LocalSettingObserver::class);
+        Order::observe(OrderObserver::class);
         ShippingMethod::observe(LocalSettingObserver::class);
         GeoZone::observe(LocalSettingObserver::class);
         GeoZoneCountry::observe(LocalSettingObserver::class);

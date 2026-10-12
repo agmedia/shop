@@ -32,7 +32,8 @@ class CheckoutService
         float $subtotal,
         ?string $countryCode = null,
         ?string $regionCode = null,
-        ?string $postalCode = null
+        ?string $postalCode = null,
+        ?string $shippingMethodCode = null
     ): Collection
     {
         $zoneIds = $this->resolveGeoZoneIdsForAddress($countryCode, $regionCode, $postalCode);
@@ -44,6 +45,7 @@ class CheckoutService
             ->get()
             ->filter(fn (PaymentMethod $method) => $this->methodMatchesGeoZones($method->geo_zone_id, $zoneIds))
             ->filter(fn (PaymentMethod $method) => $this->subtotalFits($subtotal, $method->min_subtotal, $method->max_subtotal))
+            ->filter(fn (PaymentMethod $method) => $this->paymentMatchesShippingMethod($method, $shippingMethodCode))
             ->values();
 
         return $this->withLocalizedMethodNames($methods, 'payment_methods');
@@ -115,7 +117,8 @@ class CheckoutService
             $subtotalAfterDiscount,
             $billingCountryCode,
             $billingRegionCode,
-            $billingPostalCode
+            $billingPostalCode,
+            $shippingMethod?->code
         )
             ->firstWhere('code', (string) ($payload['payment_method_code'] ?? ''));
 
@@ -378,6 +381,18 @@ class CheckoutService
         return true;
     }
 
+    private function paymentMatchesShippingMethod(PaymentMethod $paymentMethod, ?string $shippingMethodCode): bool
+    {
+        if (strtolower(trim((string) $shippingMethodCode)) !== 'pickup') {
+            return true;
+        }
+
+        $prepaidMethods = ['bank', 'bank_transfer', 'wspay', 'ws_pay', 'corvus', 'corvuspay', 'corvus_pay'];
+
+        return in_array(strtolower(trim((string) $paymentMethod->code)), $prepaidMethods, true)
+            || in_array(strtolower(trim((string) $paymentMethod->provider)), $prepaidMethods, true);
+    }
+
     private function resolveShippingTotal(ShippingMethod $shippingMethod, float $subtotal): float
     {
         $price = (float) $shippingMethod->price;
@@ -438,14 +453,16 @@ class CheckoutService
             $subtotalAfterDiscount,
             $billingCountryCode,
             $billingRegionCode,
-            $billingPostalCode
+            $billingPostalCode,
+            $shippingMethod?->code
         )->firstWhere('code', (string) $paymentMethodCode);
         if (! $paymentMethod) {
             $paymentMethod = $this->availablePaymentMethods(
                 $subtotalAfterDiscount,
                 $billingCountryCode,
                 $billingRegionCode,
-                $billingPostalCode
+                $billingPostalCode,
+                $shippingMethod?->code
             )->first();
         }
 

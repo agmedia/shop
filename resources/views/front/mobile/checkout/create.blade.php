@@ -7,8 +7,8 @@
 @section('content')
     @php
         $showShippingAddress = old('ship_to_different_address') === '1' || old('use_billing_for_shipping') === '0';
-        $selectedShippingCode = (string) old('shipping_method_code', (string) ($checkoutTotals['shipping_method_code'] ?? $shippingMethods->first()?->code ?? ''));
-        $selectedPaymentCode = (string) old('payment_method_code', (string) ($checkoutTotals['payment_method_code'] ?? $paymentMethods->first()?->code ?? ''));
+        $selectedShippingCode = (string) ($checkoutTotals['shipping_method_code'] ?? $shippingMethods->first()?->code ?? '');
+        $selectedPaymentCode = (string) ($checkoutTotals['payment_method_code'] ?? $paymentMethods->first()?->code ?? '');
         $selectedBoxNowLockerId = (string) old('shipping_boxnow_locker_id', '');
         $selectedBoxNowLockerName = (string) old('shipping_boxnow_locker_name', '');
         $selectedBoxNowAddressLine1 = (string) old('shipping_boxnow_address_line_1', '');
@@ -317,6 +317,7 @@
             const summaryPaymentFeeRow = form?.querySelector('[data-summary-payment-fee-row]');
             let refreshTimer = null;
             let optionsAbortController = null;
+            let optionsRevision = 0;
             let boxNowScriptLoaded = false;
 
             if (!toggle || !shippingFields || !useBillingInput) {
@@ -559,7 +560,9 @@
                 if (optionsAbortController) {
                     optionsAbortController.abort();
                 }
-                optionsAbortController = new AbortController();
+                const requestRevision = optionsRevision;
+                const requestAbortController = new AbortController();
+                optionsAbortController = requestAbortController;
 
                 const shipDifferent = !!toggle.checked;
                 const params = new URLSearchParams({
@@ -581,7 +584,7 @@
                             Accept: 'application/json',
                             'X-Requested-With': 'XMLHttpRequest',
                         },
-                        signal: optionsAbortController.signal,
+                        signal: requestAbortController.signal,
                     });
 
                     if (!response.ok) {
@@ -589,6 +592,9 @@
                     }
 
                     const payload = await response.json();
+                    if (requestRevision !== optionsRevision || requestAbortController.signal.aborted) {
+                        return;
+                    }
                     const totals = payload.totals || {};
                     renderShippingOptions(payload.shipping_methods || [], String(totals.shipping_method_code || ''));
                     renderPaymentOptions(payload.payment_methods || [], String(totals.payment_method_code || ''));
@@ -600,6 +606,8 @@
             };
 
             const scheduleOptionsRefresh = function () {
+                optionsRevision++;
+                optionsAbortController?.abort();
                 if (refreshTimer) {
                     clearTimeout(refreshTimer);
                 }

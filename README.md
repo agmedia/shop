@@ -86,6 +86,47 @@ Super-admin users are intentionally not listed in this table.
 php artisan wholesale:token user@example.com client-name
 ```
 
+## Klaviyo orders and welcome flow
+
+In **Store Settings → Newsletter**, select Klaviyo and configure the private API key
+and list ID. The private key needs `events:write` in addition to the existing
+newsletter subscription permissions. The public Site ID defaults to `TYXFZd`
+from the supplied Bali tracking snippet and can be changed or cleared in settings.
+
+Web orders send a server-side **Placed Order** event on the default queue after
+the order transaction commits. Bank transfer and cash orders send on placement;
+WSPay, CorvusPay and KEKS Pay orders wait for confirmed payment. Cancelled orders,
+unpaid gateway attempts and invalid email addresses are skipped. A running queue
+worker is required; restart long-running workers when deploying this change.
+Failures retry up to five times and remain available in the failed jobs list.
+Events match profiles by email and do not subscribe buyers to marketing.
+
+The onsite script loads after marketing cookie consent in both frontend layouts.
+It uses the public Site ID only. Footer newsletter consent links point to the
+terms and newsletter privacy pages.
+
+After deployment, place one valid order and verify the **API** metric named
+**Placed Order** in Klaviyo. Set the welcome flow split/filter to that metric,
+for example “Placed Order at least once over all time” for existing buyers and
+“zero times over all time” for non-buyers. The Shopify metric is separate.
+
+To include existing web orders, preview then queue the historical sync:
+
+```bash
+php artisan klaviyo:sync-orders --dry-run
+php artisan klaviyo:sync-orders
+# Optional inclusive order-date range:
+php artisan klaviyo:sync-orders --from=2026-01-01 --to=2026-10-12
+```
+
+The sync preserves original order dates and uses the same stable event IDs as
+live events, so rerunning it does not duplicate Klaviyo order events. Review
+post-purchase flows before importing recent historical orders, since imported
+events may qualify for those flows. No historical events are sent automatically.
+
+References: [Klaviyo custom ecommerce integration](https://developers.klaviyo.com/en/docs/guide_to_integrating_a_platform_without_a_pre_built_klaviyo_integration),
+[Create Event and required scope](https://developers.klaviyo.com/en/reference/create_event).
+
 ## Useful Commands
 
 ```bash

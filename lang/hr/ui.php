@@ -103,6 +103,8 @@ return [
                 'placeholder' => 'Upišite email adresu',
                 'button' => 'Prijavi me',
                 'consent' => 'Prihvaćam uvjete korištenja i obradu podataka za newsletter.',
+                'consent_terms' => 'uvjete korištenja',
+                'consent_privacy' => 'obradu podataka za newsletter',
                 'status' => [
                     'subscribed' => 'Hvala! Uspješno ste prijavljeni na newsletter.',
                     'saved_with_sync_issue' => 'Prijava je spremljena, ali sinkronizacija s newsletter servisom trenutno nije uspjela.',

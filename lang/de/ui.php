@@ -14,6 +14,8 @@ return array_replace_recursive(
                     'placeholder' => 'Geben Sie Ihre E-Mail-Adresse ein',
                     'button' => 'ANMELDEN',
                     'consent' => 'Ich akzeptiere die Nutzungsbedingungen und die Verarbeitung meiner Daten für den Newsletter.',
+                    'consent_terms' => 'Nutzungsbedingungen',
+                    'consent_privacy' => 'Verarbeitung meiner Daten für den Newsletter',
                 ],
                 'benefits' => [
                     'shipping' => 'Kostenloser Versand ab 49,99 €',

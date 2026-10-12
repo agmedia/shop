@@ -64,19 +64,22 @@ class CheckoutController extends Controller
             $shippingState,
             $shippingPostal
         ))->first()?->code;
+        $selectedShippingCode = (string) $request->old('shipping_method_code', $defaultShippingCode);
+        $selectedShippingCode = (string) ($shippingMethods->firstWhere('code', $selectedShippingCode)?->code ?? $defaultShippingCode);
         $defaultPaymentCode = (string) ($paymentMethods = $this->checkout->availablePaymentMethods(
             (float) ($summary['subtotal_after_discount'] ?? $summary['subtotal']),
             $billingCountry,
             $billingState,
-            $billingPostal
+            $billingPostal,
+            $selectedShippingCode
         ))->first()?->code;
         $checkoutTotals = $this->checkout->estimateCheckoutTotals(
             (float) ($summary['subtotal'] ?? 0),
             (float) ($summary['discount_total'] ?? 0),
             (float) ($summary['subtotal_after_discount'] ?? $summary['subtotal'] ?? 0),
             (float) ($summary['tax_total'] ?? 0),
-            $defaultShippingCode,
-            $defaultPaymentCode,
+            $selectedShippingCode,
+            (string) $request->old('payment_method_code', $defaultPaymentCode),
             $shippingCountry,
             $shippingState,
             $shippingPostal,
@@ -318,9 +321,6 @@ class CheckoutController extends Controller
             ->availableShippingMethods($subtotal, $shippingCountry, $shippingState, $shippingPostal)
             ->values();
 
-        $paymentMethods = $this->checkout
-            ->availablePaymentMethods($subtotal, $billingCountry, $billingState, $billingPostal)
-            ->values();
         $selectedShippingCode = (string) $request->query('shipping_method_code', '');
         $selectedPaymentCode = (string) $request->query('payment_method_code', '');
         $totals = $this->checkout->estimateCheckoutTotals(
@@ -337,6 +337,9 @@ class CheckoutController extends Controller
             $billingState,
             $billingPostal
         );
+        $paymentMethods = $this->checkout
+            ->availablePaymentMethods($subtotal, $billingCountry, $billingState, $billingPostal, $totals['shipping_method_code'])
+            ->values();
 
         return response()->json([
             'shipping_methods' => $shippingMethods->map(fn ($method) => [

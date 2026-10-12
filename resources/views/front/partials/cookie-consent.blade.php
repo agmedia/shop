@@ -50,6 +50,9 @@
             if (typeof window.updateMetaPixelConsentFromCookie === 'function') {
                 window.updateMetaPixelConsentFromCookie(marketingGranted);
             }
+            if (typeof window.updateKlaviyoConsentFromCookie === 'function') {
+                window.updateKlaviyoConsentFromCookie(marketingGranted);
+            }
         };
 
         const cookieConsentConfig = {

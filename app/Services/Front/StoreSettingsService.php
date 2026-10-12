@@ -187,6 +187,7 @@ class StoreSettingsService
             'mailchimp_list_id' => (string) $this->settings->get('store_newsletter_mailchimp_list_id', ''),
             'klaviyo_api_key' => (string) $this->settings->get('store_newsletter_klaviyo_api_key', ''),
             'klaviyo_list_id' => (string) $this->settings->get('store_newsletter_klaviyo_list_id', ''),
+            'klaviyo_site_id' => trim((string) $this->settings->get('store_newsletter_klaviyo_site_id', 'TYXFZd')),
             'club_label' => trim((string) $this->settings->get('store_newsletter_club_label', '')),
             'title' => trim((string) $this->settings->get('store_newsletter_title', '')),
             'subtitle' => trim((string) $this->settings->get('store_newsletter_subtitle', '')),
