@@ -93,6 +93,10 @@ and list ID. The private key needs `events:write` in addition to the existing
 newsletter subscription permissions. The public Site ID defaults to `TYXFZd`
 from the supplied Bali tracking snippet and can be changed or cleared in settings.
 
+When Klaviyo is selected, the webshop skips its own BALI10 newsletter coupon
+email so the Klaviyo welcome flow handles that message. Newsletter subscriptions
+still sync to Klaviyo, and order and contact emails keep their existing settings.
+
 Web orders send a server-side **Placed Order** event on the default queue after
 the order transaction commits. Bank transfer and cash orders send on placement;
 WSPay, CorvusPay and KEKS Pay orders wait for confirmed payment. Cancelled orders,

@@ -933,6 +933,39 @@ class StorefrontFrontFeatureTest extends TestCase
         });
     }
 
+    public function test_newsletter_form_syncs_klaviyo_without_sending_local_coupon_email(): void
+    {
+        Mail::fake();
+
+        app(SystemSettingsService::class)->putMany([
+            'store_newsletter_provider' => 'klaviyo',
+            'store_newsletter_klaviyo_api_key' => 'test-private-key',
+            'store_newsletter_klaviyo_list_id' => 'newsletter-list',
+            'store_email_enabled' => true,
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://a.klaviyo.com/api/profile-subscription-bulk-create-jobs/' => Http::response([], 202),
+        ]);
+
+        $this->postJson('/newsletter/subscribe', [
+            'newsletter_email' => 'newsletter@example.test',
+            'newsletter_accept_terms' => '1',
+        ])
+            ->assertOk()
+            ->assertJson([
+                'message' => (string) __('ui.front.desktop.newsletter.status.subscribed'),
+                'type' => 'success',
+            ]);
+
+        Http::assertSent(static fn ($request): bool => $request->url() === 'https://a.klaviyo.com/api/profile-subscription-bulk-create-jobs/'
+            && $request['data']['attributes']['profiles']['data'][0]['attributes']['email'] === 'newsletter@example.test'
+            && $request['data']['relationships']['list']['data']['id'] === 'newsletter-list');
+        Http::assertSentCount(1);
+        Mail::assertNothingSent();
+    }
+
     public function test_newsletter_form_syncs_mailchimp_without_local_database_storage(): void
     {
         $this->createNewsletterSignupsTable();

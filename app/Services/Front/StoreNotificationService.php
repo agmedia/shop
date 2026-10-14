@@ -6,18 +6,18 @@ use App\Mail\NewsletterCouponMail;
 use App\Models\Content\Support\ContactMessage;
 use App\Models\Sales\Order\Order;
 use App\Models\Sales\Order\OrderItem;
+use App\Models\User\NewsletterSignup;
 use App\Services\Payments\BankTransferUpiService;
 use Illuminate\Support\Facades\App;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class StoreNotificationService
 {
     public function __construct(
         private readonly StoreSettingsService $storeSettings
-    ) {
-    }
+    ) {}
 
     public function sendContactNotification(ContactMessage $message): void
     {
@@ -85,6 +85,11 @@ class StoreNotificationService
 
     public function sendNewsletterCoupon(string $email, string $locale = '', string $couponCode = 'BALI10'): void
     {
+        $newsletterSettings = $this->storeSettings->newsletter();
+        if (Str::lower(trim((string) ($newsletterSettings['provider'] ?? ''))) === NewsletterSignup::PROVIDER_KLAVIYO) {
+            return;
+        }
+
         $email = trim($email);
         if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return;
