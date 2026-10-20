@@ -110,8 +110,24 @@
         <div class="mb-5"></div>
     </main>
 
-    @include('front.partials.withdrawal-link')
-@include('front.partials.analytics-ecommerce')
+    @php
+        $helpColumn = collect($storeSettings['footer']['link_columns'] ?? [])->values()->get(1, []);
+        $helpTitle = trim((string) ($helpColumn['title'] ?? '')) ?: __('ui.front.desktop.footer.help');
+        $helpLinks = collect($helpColumn['links'] ?? [])
+            ->filter(fn ($link) => is_array($link) && trim((string) ($link['label'] ?? '')) !== '' && trim((string) ($link['url'] ?? '')) !== '');
+    @endphp
+    <footer class="card card-style footer-bar-clear" aria-label="{{ $helpTitle }}">
+        <div class="content">
+            <h3>{{ $helpTitle }}</h3>
+            <ul class="list-unstyled mb-0">
+                @foreach ($helpLinks as $link)
+                    <li><a href="{{ $link['url'] }}" class="color-theme">{{ $link['label'] }}</a></li>
+                @endforeach
+                @include('front.partials.withdrawal-link', ['withdrawalLinkClass' => 'color-theme'])
+            </ul>
+        </div>
+    </footer>
+    @include('front.partials.analytics-ecommerce')
 
     <div id="menu-main" class="menu menu-box-left rounded-0" data-menu-width="cover">
         @include('front.mobile.menu-main')

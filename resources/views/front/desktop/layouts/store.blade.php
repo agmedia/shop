@@ -632,7 +632,6 @@
     @yield('content')
 </main>
 
-@include('front.partials.withdrawal-link')
 @include('front.partials.analytics-ecommerce')
 
 <footer class="{{ request()->routeIs('home') ? 'mt-0' : 'mt-5' }} bg-white">
@@ -787,6 +786,9 @@
                         @foreach ($column['links'] as $link)
                             <li><a href="{{ $link['url'] }}" class="transition hover:text-slate-900">{{ $link['label'] }}</a></li>
                         @endforeach
+                        @if ($loop->index === 1)
+                            @include('front.partials.withdrawal-link')
+                        @endif
                     </ul>
                 </details>
             @endforeach
@@ -821,6 +823,9 @@
                         @foreach ($column['links'] as $link)
                             <li><a href="{{ $link['url'] }}" class="transition hover:text-slate-900">{{ $link['label'] }}</a></li>
                         @endforeach
+                        @if ($loop->index === 1)
+                            @include('front.partials.withdrawal-link')
+                        @endif
                     </ul>
                 </div>
             @endforeach

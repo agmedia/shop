@@ -5,7 +5,6 @@
 @section('page_title', __('return_request.heading'))
 
 @section('content')
-    @include('front.partials.withdrawal-link')
     @php
         $captchaSiteKey = trim((string) ($storeSettings['captcha']['recaptcha_v3_site_key'] ?? ''));
         $captchaEnabled = (bool) ($storeSettings['captcha']['recaptcha_v3_enabled'] ?? false) && $captchaSiteKey !== '';
