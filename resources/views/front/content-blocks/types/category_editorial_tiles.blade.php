@@ -18,19 +18,7 @@
 
     $cards = $slides->map(function ($media, int $index) use ($preferWebp, $resolveLocalizedMediaValue, $block) {
         $props = (array) ($media->custom_properties ?? []);
-        $imageUrl1200 = \App\Support\Media\MediaUrl::conversionOrNull($media, 'hero_1200w', $preferWebp);
-        $imageUrl960 = \App\Support\Media\MediaUrl::conversionOrNull($media, 'hero_960w', $preferWebp);
-        $imageUrl800 = \App\Support\Media\MediaUrl::conversionOrNull($media, 'hero_800w', $preferWebp);
-        $imageUrl720 = \App\Support\Media\MediaUrl::conversionOrNull($media, 'hero_720w', $preferWebp);
-        $imageUrl540 = \App\Support\Media\MediaUrl::conversionOrNull($media, 'hero_540w', $preferWebp);
-        $imageUrl = $imageUrl1200 ?? $imageUrl960 ?? $imageUrl800 ?? $imageUrl720 ?? $imageUrl540 ?? $media->getUrl();
-        $imageSrcset = collect([
-            $imageUrl540 ? $imageUrl540.' 540w' : null,
-            $imageUrl720 ? $imageUrl720.' 720w' : null,
-            $imageUrl800 ? $imageUrl800.' 800w' : null,
-            $imageUrl960 ? $imageUrl960.' 960w' : null,
-            $imageUrl1200 ? $imageUrl1200.' 1200w' : null,
-        ])->filter()->unique()->implode(', ');
+        $image = \App\Support\Media\ResponsiveMediaImage::resolve($media, $preferWebp);
         $cardTitle = $resolveLocalizedMediaValue($props, 'block_title');
         $cardUrl = $resolveLocalizedMediaValue($props, 'link_url');
         $cardAlt = $resolveLocalizedMediaValue($props, 'alt');
@@ -40,10 +28,10 @@
             'title' => $cardTitle,
             'url' => $cardUrl,
             'alt' => $cardAlt,
-            'image_url' => $imageUrl,
-            'image_srcset' => $imageSrcset,
-            'width' => max(1, (int) ($media->width ?? 1200)),
-            'height' => max(1, (int) ($media->height ?? 900)),
+            'image_url' => $image['src'],
+            'image_srcset' => $image['srcset'],
+            'width' => $image['width'],
+            'height' => $image['height'],
             'is_primary' => $index === 0,
         ];
     });
@@ -74,7 +62,7 @@
                             <img
                                 src="{{ $card['image_url'] }}"
                                 @if ($card['image_srcset'] !== '') srcset="{{ $card['image_srcset'] }}" @endif
-                                sizes="{{ $card['is_primary'] ? '(max-width: 1023px) 100vw, 52vw' : '(max-width: 1023px) 100vw, 42vw' }}"
+                                sizes="{{ $card['is_primary'] ? '(max-width: 1023px) 100vw, 52vw' : '(max-width: 1023px) 100vw, 50vw' }}"
                                 alt="{{ $card['alt'] }}"
                                 class="absolute inset-0 h-full w-full object-cover transition duration-500 {{ $card['url'] !== '' ? 'group-hover:scale-[1.02]' : '' }}"
                                 width="{{ $card['width'] }}"

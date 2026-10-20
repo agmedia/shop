@@ -8,62 +8,38 @@
 @endphp
 
 @if ($analyticsEnabled && $ga4Id !== '')
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{ $ga4Id }}"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
+        window.gtag = function () { window.dataLayer.push(arguments); };
+        window.cookieAnalyticsAllowed = false;
+        window.canTrackAnalytics = () => window.cookieAnalyticsAllowed === true;
+        gtag('consent', 'default', {
+            analytics_storage: 'denied', ad_storage: 'denied',
+            ad_user_data: 'denied', ad_personalization: 'denied'
+        });
         window.updateGoogleConsentFromCookie = function (analyticsGranted, marketingGranted) {
+            window.cookieAnalyticsAllowed = analyticsGranted === true;
             gtag('consent', 'update', {
                 analytics_storage: analyticsGranted ? 'granted' : 'denied',
                 ad_storage: marketingGranted ? 'granted' : 'denied',
                 ad_user_data: marketingGranted ? 'granted' : 'denied',
-                ad_personalization: marketingGranted ? 'granted' : 'denied',
+                ad_personalization: marketingGranted ? 'granted' : 'denied'
             });
+            if (!analyticsGranted || window.__googleAnalyticsLoaded) return;
+            window.__googleAnalyticsLoaded = true;
+            gtag('js', new Date());
+            gtag('config', @json($ga4Id));
+            var script = document.createElement('script');
+            script.async = true;
+            script.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(@json($ga4Id));
+            document.head.appendChild(script);
         };
-        @if ($cookieConsentEnabled)
-            gtag('consent', 'default', {
-                analytics_storage: 'denied',
-                ad_storage: 'denied',
-                ad_user_data: 'denied',
-                ad_personalization: 'denied',
-            });
-        @else
-            gtag('consent', 'default', {
-                analytics_storage: 'granted',
-                ad_storage: 'granted',
-                ad_user_data: 'granted',
-                ad_personalization: 'granted',
-            });
-            window.cookieAnalyticsAllowed = true;
-            window.canTrackAnalytics = () => true;
-        @endif
-        gtag('config', '{{ $ga4Id }}');
     </script>
 @endif
 
 @if ($metaPixelId !== '')
     <script>
-        window.cookieMarketingAllowed = window.cookieMarketingAllowed === true;
-
-        @if ($cookieConsentEnabled)
-            (function () {
-                var match = document.cookie.match('(^|;)\\s*cc_cookie\\s*=\\s*([^;]+)');
-                if (!match) {
-                    return;
-                }
-
-                try {
-                    var consent = JSON.parse(decodeURIComponent(match.pop()));
-                    window.cookieMarketingAllowed = Array.isArray(consent.categories)
-                        && consent.categories.indexOf('marketing') !== -1;
-                } catch (error) {
-                    window.cookieMarketingAllowed = false;
-                }
-            })();
-        @else
-            window.cookieMarketingAllowed = true;
-        @endif
+        window.cookieMarketingAllowed = false;
 
         window.loadMetaPixel = window.loadMetaPixel || function () {
             if (window.__metaPixelLoaded === true) {
@@ -215,11 +191,6 @@
             window.loadMetaPixel();
         }
     </script>
-    @unless ($cookieConsentEnabled)
-        <noscript>
-            <img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id={{ $metaPixelId }}&amp;ev=PageView&amp;noscript=1">
-        </noscript>
-    @endunless
 @endif
 
 @if (($analyticsEnabled && $ga4Id !== '') || $metaPixelId !== '')

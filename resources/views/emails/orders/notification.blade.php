@@ -70,6 +70,10 @@
                     {{ $variant === 'admin' ? __('mail.orders.intro_admin') : __('mail.orders.intro_customer') }}
                 </p>
 
+                @if ($variant !== 'admin' && ($order_locale ?? app()->getLocale()) === 'de')
+                    <p>{{ __('compliance.receipt_only') }}</p>
+                @endif
+
                 <table class="meta" width="100%" cellspacing="0" cellpadding="0">
                     <tr><td class="label">{{ __('mail.orders.customer') }}</td><td>{{ $customer_name }}</td></tr>
                     <tr><td class="label">{{ __('mail.orders.email') }}</td><td><a href="mailto:{{ $customer_email }}" style="color:#0f172a !important; text-decoration:none !important;">{{ $customer_email }}</a></td></tr>

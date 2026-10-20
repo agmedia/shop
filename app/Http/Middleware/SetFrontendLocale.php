@@ -15,6 +15,11 @@ class SetFrontendLocale
     {
         [$availableCodes, $availableLanguages, $defaultLocale] = $this->resolveLanguages();
 
+        $requestedLocale = $this->normalizeLocale((string) $request->query('lang', ''));
+        if (in_array($requestedLocale, $availableCodes, true)) {
+            $request->session()->put('front_locale', $requestedLocale);
+        }
+
         $sessionLocale = $this->normalizeLocale((string) $request->session()->get('front_locale', ''));
         $locale = in_array($sessionLocale, $availableCodes, true) ? $sessionLocale : $defaultLocale;
 

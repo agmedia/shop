@@ -22,8 +22,7 @@ class CheckoutService
 {
     public function __construct(
         private readonly CartService $cart
-    ) {
-    }
+    ) {}
 
     /**
      * @return Collection<int, PaymentMethod>
@@ -34,8 +33,7 @@ class CheckoutService
         ?string $regionCode = null,
         ?string $postalCode = null,
         ?string $shippingMethodCode = null
-    ): Collection
-    {
+    ): Collection {
         $zoneIds = $this->resolveGeoZoneIdsForAddress($countryCode, $regionCode, $postalCode);
 
         $methods = PaymentMethod::query()
@@ -59,8 +57,7 @@ class CheckoutService
         ?string $countryCode = null,
         ?string $regionCode = null,
         ?string $postalCode = null
-    ): Collection
-    {
+    ): Collection {
         $zoneIds = $this->resolveGeoZoneIdsForAddress($countryCode, $regionCode, $postalCode);
 
         $methods = ShippingMethod::query()
@@ -76,12 +73,13 @@ class CheckoutService
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     public function placeOrder(array $payload, ?User $user = null): Order
     {
-        $lines = $this->cart->lines();
-        $summary = $this->cart->summary();
+        $destinationCountry = (string) ($payload['shipping_country_code'] ?? $payload['billing_country_code'] ?? 'HR');
+        $lines = $this->cart->lines(countryCode: $destinationCountry);
+        $summary = $this->cart->summary(countryCode: $destinationCountry);
 
         if ($lines->isEmpty()) {
             throw ValidationException::withMessages([
@@ -145,7 +143,21 @@ class CheckoutService
 
         $shippingTotal = $this->resolveShippingTotal($shippingMethod, $subtotalAfterDiscount);
         $paymentFeeTotal = $this->resolvePaymentFeeTotal($paymentMethod, $subtotalAfterDiscount);
+        $grossShippingTotal = $shippingTotal;
+        $grossPaymentFeeTotal = $paymentFeeTotal;
+        if (in_array(strtoupper((string) $shippingCountryCode), ['DE', 'AT'], true)) {
+            $feeRate = $this->feeTaxRate($subtotalAfterDiscount, $taxTotal, $shippingCountryCode, $lines);
+            $netShipping = round($shippingTotal / (1 + $feeRate), 2);
+            $netPaymentFee = round($paymentFeeTotal / (1 + $feeRate), 2);
+            $taxTotal = round($taxTotal + ($shippingTotal - $netShipping) + ($paymentFeeTotal - $netPaymentFee), 2);
+            $shippingTotal = $netShipping;
+            $paymentFeeTotal = $netPaymentFee;
+        }
         $grandTotal = round($subtotalAfterDiscount + $shippingTotal + $paymentFeeTotal + $taxTotal, 2);
+
+        if (isset($payload['quoted_total']) && abs((float) $payload['quoted_total'] - $grandTotal) > 0.01) {
+            throw ValidationException::withMessages(['cart' => __('compliance.price_changed')]);
+        }
 
         /** @var Currency|null $currency */
         $currency = Currency::query()
@@ -170,6 +182,8 @@ class CheckoutService
             $defaultTaxRate,
             $shippingMethod,
             $shippingTotal,
+            $grossShippingTotal,
+            $grossPaymentFeeTotal,
             $paymentMethod,
             $paymentFeeTotal,
             $grandTotal,
@@ -234,6 +248,7 @@ class CheckoutService
                 'customer_note' => (string) ($payload['customer_note'] ?? ''),
                 'payload' => [
                     'placed_from' => 'frontend_checkout',
+                    'pricing' => ['shipping_gross' => $grossShippingTotal, 'payment_fee_gross' => $grossPaymentFeeTotal],
                     'coupon_code' => (string) ($summary['coupon_code'] ?? ''),
                     'shipping' => [
                         'boxnow' => $this->isBoxNowCode((string) $shippingMethod->code)
@@ -418,6 +433,38 @@ class CheckoutService
     }
 
     /**
+     * @param  Collection<int, array<string, mixed>>|null  $lines
+     */
+    private function feeTaxRate(float $subtotalAfterDiscount, float $taxTotal, ?string $countryCode, ?Collection $lines = null): float
+    {
+        if ($subtotalAfterDiscount > 0) {
+            return $taxTotal / $subtotalAfterDiscount;
+        }
+
+        // A full product discount does not make separately charged delivery tax-free.
+        // Keep the destination rates even when the discounted product tax is zero.
+        $lines ??= $this->cart->lines(countryCode: $countryCode);
+        $weightTotal = 0.0;
+        $weightedRateTotal = 0.0;
+        foreach ($lines as $line) {
+            $weight = max(0.0, (float) ($line['base_unit_price'] ?? 0)) * (int) ($line['quantity'] ?? 0);
+            $weightTotal += $weight;
+            $weightedRateTotal += $weight * max(0.0, (float) ($line['tax_rate'] ?? 0)) / 100;
+        }
+
+        if ($weightTotal > 0) {
+            return $weightedRateTotal / $weightTotal;
+        }
+
+        // Zero-priced products still carry a tax class; use their quantities as weights.
+        $quantityTotal = (int) $lines->sum('quantity');
+
+        return $quantityTotal > 0
+            ? (float) $lines->sum(fn (array $line): float => max(0.0, (float) ($line['tax_rate'] ?? 0)) / 100 * (int) ($line['quantity'] ?? 0)) / $quantityTotal
+            : 0.0;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function estimateCheckoutTotals(
@@ -468,6 +515,14 @@ class CheckoutService
 
         $shippingTotal = $shippingMethod ? $this->resolveShippingTotal($shippingMethod, $subtotalAfterDiscount) : 0.0;
         $paymentFeeTotal = $paymentMethod ? $this->resolvePaymentFeeTotal($paymentMethod, $subtotalAfterDiscount) : 0.0;
+        if (in_array(strtoupper((string) $shippingCountryCode), ['DE', 'AT'], true)) {
+            $feeRate = $this->feeTaxRate($subtotalAfterDiscount, $taxTotal, $shippingCountryCode);
+            $netShipping = round($shippingTotal / (1 + $feeRate), 2);
+            $netPaymentFee = round($paymentFeeTotal / (1 + $feeRate), 2);
+            $taxTotal = round($taxTotal + ($shippingTotal - $netShipping) + ($paymentFeeTotal - $netPaymentFee), 2);
+            $shippingTotal = $netShipping;
+            $paymentFeeTotal = $netPaymentFee;
+        }
         $grandTotal = round($subtotalAfterDiscount + $shippingTotal + $paymentFeeTotal + $taxTotal, 2);
 
         return [
@@ -549,7 +604,6 @@ class CheckoutService
     }
 
     /**
-     * @param  int|string|null  $methodGeoZoneId
      * @param  array<int, int>  $zoneIds
      */
     private function methodMatchesGeoZones(int|string|null $methodGeoZoneId, array $zoneIds): bool
@@ -559,6 +613,7 @@ class CheckoutService
         }
 
         $zoneId = (int) $methodGeoZoneId;
+
         return in_array($zoneId, $zoneIds, true);
     }
 

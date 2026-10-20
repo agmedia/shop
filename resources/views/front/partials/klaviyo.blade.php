@@ -31,7 +31,7 @@
                 document.head.appendChild(script);
             };
 
-            window.updateKlaviyoConsentFromCookie(!consentEnabled || window.cookieMarketingAllowed === true);
+            window.updateKlaviyoConsentFromCookie(consentEnabled && window.cookieMarketingAllowed === true);
         })();
     </script>
 @endif

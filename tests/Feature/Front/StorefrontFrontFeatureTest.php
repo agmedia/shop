@@ -863,7 +863,8 @@ class StorefrontFrontFeatureTest extends TestCase
             ->assertOk()
             ->assertSee('data-recaptcha-site-key="test-site-key"', false)
             ->assertSee('data-recaptcha-action="newsletter_footer"', false)
-            ->assertSee('https://www.google.com/recaptcha/api.js?render=test-site-key', false);
+            ->assertSee('const loadNewsletterCaptcha = function', false)
+            ->assertDontSee('<script src="https://www.google.com/recaptcha/api.js', false);
     }
 
     public function test_newsletter_form_validates_enabled_recaptcha(): void

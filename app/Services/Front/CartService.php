@@ -3,8 +3,8 @@
 namespace App\Services\Front;
 
 use App\Models\Catalog\Action\CatalogAction;
-use App\Models\Catalog\Product\ProductOptionValue;
 use App\Models\Catalog\Product\Product;
+use App\Models\Catalog\Product\ProductOptionValue;
 use App\Services\Catalog\ActionResolverService;
 use App\Services\Pricing\TaxPricingService;
 use Illuminate\Support\Collection;
@@ -13,13 +13,13 @@ use Illuminate\Support\Facades\Session;
 class CartService
 {
     private const SESSION_KEY = 'front.cart.items';
+
     private const COUPON_SESSION_KEY = 'front.cart.coupon_code';
 
     public function __construct(
         private readonly ActionResolverService $actionResolver,
         private readonly TaxPricingService $taxPricing
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, array{product_id:int,product_option_value_id:int|null,quantity:int}>
@@ -64,7 +64,7 @@ class CartService
     /**
      * @return Collection<int, array<string, mixed>>
      */
-    public function lines(?string $locale = null, ?string $couponCode = null): Collection
+    public function lines(?string $locale = null, ?string $couponCode = null, ?string $countryCode = null): Collection
     {
         $items = $this->raw();
 
@@ -145,13 +145,14 @@ class CartService
             $unitDiscount = round(max(0, $baseUnitPrice - $unitPrice), 2);
             $lineDiscountTotal = round($unitDiscount * $qty, 2);
             $lineTotal = round($unitPrice * $qty, 2);
-            $unitTaxAmount = $this->taxPricing->taxFromNet($unitPrice, $product);
-            $baseUnitTaxAmount = $this->taxPricing->taxFromNet($baseUnitPrice, $product);
+            $destinationRate = $this->taxPricing->rateForDestination($product, $countryCode);
+            $unitTaxAmount = $this->taxPricing->taxFromNet($unitPrice, $product, $destinationRate);
+            $baseUnitTaxAmount = $this->taxPricing->taxFromNet($baseUnitPrice, $product, $destinationRate);
             $lineTaxTotal = round($unitTaxAmount * $qty, 2);
             $displayUnitPrice = round($unitPrice + $unitTaxAmount, 2);
             $displayBaseUnitPrice = round($baseUnitPrice + $baseUnitTaxAmount, 2);
             $displayLineTotal = round($lineTotal + $lineTaxTotal, 2);
-            $taxRateValue = (float) ($this->taxPricing->resolveRateForProduct($product)?->rate ?? 0);
+            $taxRateValue = (float) ($destinationRate?->rate ?? 0);
             $translation = $product->translations->firstWhere('locale', $locale)
                 ?? $product->translations->firstWhere('locale', $fallbackLocale);
             $optionMeta = $this->optionMeta($optionRow, $locale, $fallbackLocale);
@@ -197,10 +198,10 @@ class CartService
      *  coupon_code:string
      * }
      */
-    public function summary(?string $locale = null, ?string $couponCode = null): array
+    public function summary(?string $locale = null, ?string $couponCode = null, ?string $countryCode = null): array
     {
         $couponCode = $couponCode === null ? $this->couponCode() : strtoupper(trim($couponCode));
-        $lines = $this->lines($locale, $couponCode);
+        $lines = $this->lines($locale, $couponCode, $countryCode);
         $subtotal = round((float) $lines->sum(static fn (array $line): float => (float) ($line['base_unit_price'] ?? 0) * (int) ($line['quantity'] ?? 0)), 2);
         $lineDiscountTotal = round((float) $lines->sum('line_discount_total'), 2);
         $subtotalAfterLineDiscount = round(max(0.0, $subtotal - $lineDiscountTotal), 2);
@@ -357,7 +358,7 @@ class CartService
     }
 
     /**
-     * @param array<int, array{product_id:int,product_option_value_id:int|null,quantity:int}> $lines
+     * @param  array<int, array{product_id:int,product_option_value_id:int|null,quantity:int}>  $lines
      */
     public function replaceRaw(array $lines, ?string $couponCode = null): void
     {
@@ -426,7 +427,7 @@ class CartService
     }
 
     /**
-     * @param Collection<int, array<string, mixed>> $lines
+     * @param  Collection<int, array<string, mixed>>  $lines
      * @return array{action:CatalogAction|null, amount:float, tax_discount:float}
      */
     private function resolveCartDiscount(Collection $lines, float $subtotalAfterLineDiscount, string $couponCode): array
@@ -490,7 +491,7 @@ class CartService
     }
 
     /**
-     * @param Collection<int, array<string, mixed>> $lines
+     * @param  Collection<int, array<string, mixed>>  $lines
      * @return Collection<int, array<string, mixed>>
      */
     private function eligibleCartDiscountLines(CatalogAction $action, Collection $lines): Collection
@@ -619,5 +620,4 @@ class CartService
             'label' => $parentLabel !== '' ? $parentLabel : null,
         ];
     }
-
 }

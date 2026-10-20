@@ -39,16 +39,17 @@
         })->values()->all();
     @endphp
 
-    @if ($errors->has('accept_terms'))
-        <div class="card card-style border border-red-dark">
+    @if ($errors->any())
+        <div class="card card-style border border-red-dark" role="alert">
             <div class="content py-2">
-                <p class="mb-0 color-red-dark font-13 font-700" data-checkout-top-error>{{ $errors->first('accept_terms') }}</p>
+                <ul class="color-red-dark">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
             </div>
         </div>
     @endif
 
     <form method="POST" action="{{ route('checkout.store') }}" data-address-autofill data-address-source="{{ $placesAssetUrl }}" data-checkout-options-url="{{ route('checkout.options') }}" data-region-options='@json($regionOptionsByCountry, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)' data-ga4-checkout-form data-ga4-currency="EUR" data-ga4-value="{{ number_format((float) ($checkoutTotals['grand_total'] ?? $summary['grand_total'] ?? 0), 2, '.', '') }}" data-ga4-items='@json($ga4Items, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)'>
         @csrf
+        <input type="hidden" name="quoted_total" value="{{ number_format((float) ($checkoutTotals['grand_total'] ?? $summary['grand_total']), 2, '.', '') }}" data-quoted-total>
 
         <div class="card card-style">
             <div class="content">
@@ -82,7 +83,7 @@
                                 <p class="font-11 opacity-60 mb-1">{{ $line['option_label'] }}</p>
                             @endif
                             <p class="font-11 opacity-60 mb-1">{{ __('ui.checkout.labels.qty') }} {{ $line['quantity'] }}</p>
-                            <h4 class="font-700 mb-0">{{ \App\Support\Currency::format((float) ($line['display_line_total'] ?? $line['line_total'])) }}</h4>
+                            <h4 class="font-700 mb-0"><span data-checkout-line-total="{{ $line['key'] }}">{{ \App\Support\Currency::format((float) ($line['display_line_total'] ?? $line['line_total'])) }}</span></h4>
                         </div>
                     </div>
                     @if (!$loop->last)<div class="divider"></div>@endif
@@ -280,6 +281,7 @@
                 <label class="font-12 d-block mb-3"><input type="checkbox" name="accept_terms" value="1" required @checked((bool) old('accept_terms'))> {{ __('ui.checkout.options.accept_terms') }}</label>
                 <label class="font-12 d-block mb-3"><input type="checkbox" name="newsletter_opt_in" value="1" @checked((bool) old('newsletter_opt_in', false))> {{ __('ui.checkout.options.newsletter_opt_in') }}</label>
 
+                @include('front.partials.legal-guarantee')
                 <button type="submit" class="btn btn-margins btn-full gradient-blue font-13 btn-l font-600 rounded-sm">{{ __('ui.checkout.actions.place_order') }}</button>
             </div>
         </div>
@@ -595,10 +597,13 @@
                     if (requestRevision !== optionsRevision || requestAbortController.signal.aborted) {
                         return;
                     }
+                    window.dispatchEvent(new CustomEvent('shop:checkout-lines', { detail: payload.lines || [] }));
                     const totals = payload.totals || {};
                     renderShippingOptions(payload.shipping_methods || [], String(totals.shipping_method_code || ''));
                     renderPaymentOptions(payload.payment_methods || [], String(totals.payment_method_code || ''));
                     renderCheckoutTotals(totals);
+                    const quote = document.querySelector('[data-quoted-total]');
+                    if (quote) quote.value = Number(totals.grand_total || 0).toFixed(2);
                     initBoxNowWidget();
                 } catch (error) {
                     // Keep current options on request errors.
@@ -663,4 +668,16 @@
             @endif
         });
     </script>
+@endpush
+
+@push('scripts')
+<script>
+    window.addEventListener('shop:checkout-lines', function (event) {
+        (event.detail || []).forEach(function (line) {
+            document.querySelectorAll('[data-checkout-line-total]').forEach(function (node) {
+                if (node.dataset.checkoutLineTotal === line.key) node.textContent = line.total_formatted;
+            });
+        });
+    });
+</script>
 @endpush

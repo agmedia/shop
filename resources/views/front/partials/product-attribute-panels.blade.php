@@ -230,7 +230,14 @@
                         @endif
                     </div>
                 </details>
+                @if ($panel['group_code'] === 'sastav')
+                    @include('front.partials.manufacturer-information')
+                @endif
             @endforeach
         </div>
     </div>
+@endif
+
+@if (!$attributePanels->contains('group_code', 'sastav'))
+    @include('front.partials.manufacturer-information')
 @endif

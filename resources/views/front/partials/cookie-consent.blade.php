@@ -25,7 +25,7 @@
         type="button"
         id="cookie-consent-floating-button"
         class="fixed bottom-4 left-4 z-[9999] inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg transition hover:scale-105 hover:shadow-xl"
-        aria-label="Cookie postavke"
+        aria-label="{{ $cookiePreferencesTitle }}"
     >
         <img src="{{ asset('front-theme/images/cookie-svg.svg') }}" alt="" class="h-6 w-6" width="24" height="24" loading="lazy" />
     </button>
@@ -53,6 +53,7 @@
             if (typeof window.updateKlaviyoConsentFromCookie === 'function') {
                 window.updateKlaviyoConsentFromCookie(marketingGranted);
             }
+            window.dispatchEvent(new Event('shop:tracking-consent'));
         };
 
         const cookieConsentConfig = {
@@ -76,11 +77,13 @@
                 },
                 analytics: {
                     enabled: false,
-                    readOnly: false
+                    readOnly: false,
+                    autoClear: { cookies: [{ name: /^_ga/ }, { name: '_gid' }, { name: /^_gat/ }] }
                 },
                 marketing: {
                     enabled: false,
-                    readOnly: false
+                    readOnly: false,
+                    autoClear: { cookies: [{ name: '_fbp' }, { name: '_fbc' }, { name: '__kla_id' }] }
                 }
             },
             onFirstConsent: () => syncGoogleConsent(),
@@ -95,7 +98,7 @@
                             description: @json($cookieDescription),
                             acceptAllBtn: @json($cookieAcceptLabel),
                             acceptNecessaryBtn: @json($cookiePreferencesAcceptNecessary),
-                            showPreferencesBtn: 'Postavke'
+                            showPreferencesBtn: @json($cookiePreferencesTitle)
                         },
                         preferencesModal: {
                             title: @json($cookiePreferencesTitle),

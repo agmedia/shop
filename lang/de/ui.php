@@ -230,7 +230,7 @@ return array_replace_recursive(
             ],
             'summary_title' => 'Bestellübersicht',
             'actions' => [
-                'place_order' => 'Bestellen',
+                'place_order' => 'Zahlungspflichtig bestellen',
             ],
             'shipping_methods' => [
                 'standard' => 'Versand mit DPD Kroatien – Kostenloser Versand für Bestellungen über 50 €',

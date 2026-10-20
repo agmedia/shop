@@ -16,13 +16,13 @@ use App\Services\Payments\BankTransferUpiService;
 use App\Services\Payments\CorvusPayFormService;
 use App\Services\Payments\KeksPayService;
 use App\Services\Payments\WSPayFormService;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Http\JsonResponse;
 use App\Support\Currency;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CheckoutController extends Controller
@@ -33,8 +33,7 @@ class CheckoutController extends Controller
         private readonly CartService $cart,
         private readonly CheckoutService $checkout,
         private readonly StoreNotificationService $notifications
-    ) {
-    }
+    ) {}
 
     public function create(Request $request): View|RedirectResponse
     {
@@ -55,6 +54,13 @@ class CheckoutController extends Controller
         $billingCountry = (string) ($billing?->country_code ?: $shippingCountry);
         $billingState = (string) ($billing?->state ?: '');
         $billingPostal = (string) ($billing?->postal_code ?: '');
+
+        $billingCountry = (string) $request->old('billing_country_code', $billingCountry);
+        $differentAddress = $request->old('ship_to_different_address') === '1' || $request->old('use_billing_for_shipping') === '0';
+        $shippingCountry = $differentAddress
+            ? (string) $request->old('shipping_country_code', $shippingCountry)
+            : $billingCountry;
+        $summary = $this->cart->summary(countryCode: $shippingCountry);
 
         $addressDirectory = app(AddressDirectoryService::class);
         $regionOptionsByCountry = $addressDirectory->regionsByCountry((string) app()->getLocale());
@@ -89,7 +95,7 @@ class CheckoutController extends Controller
         );
 
         return view($this->frontendView($request, 'checkout.create'), [
-            'lines' => $this->cart->lines(),
+            'lines' => $this->cart->lines(countryCode: $shippingCountry),
             'summary' => $summary,
             'shippingMethods' => $shippingMethods,
             'paymentMethods' => $paymentMethods,
@@ -190,6 +196,7 @@ class CheckoutController extends Controller
             'register_password' => ['exclude_unless:register_account,1', 'required', 'string', 'min:8', 'confirmed'],
             'register_password_confirmation' => ['exclude_unless:register_account,1', 'required', 'string'],
             'accept_terms' => ['accepted'],
+            'quoted_total' => ['nullable', 'numeric', 'min:0'],
         ], [
             'required' => __('ui.checkout.validation.required'),
             'customer_email.required' => __('ui.checkout.validation.customer_email_required'),
@@ -299,9 +306,6 @@ class CheckoutController extends Controller
 
     public function options(Request $request): JsonResponse
     {
-        $summary = $this->cart->summary();
-        $subtotal = (float) ($summary['subtotal_after_discount'] ?? $summary['subtotal'] ?? 0);
-
         $billingCountry = strtoupper((string) $request->query('billing_country_code', 'HR'));
         $billingState = (string) $request->query('billing_state', '');
         $billingPostal = (string) $request->query('billing_postal_code', '');
@@ -311,11 +315,14 @@ class CheckoutController extends Controller
         $shippingState = (string) $request->query('shipping_state', '');
         $shippingPostal = (string) $request->query('shipping_postal_code', '');
 
-        if (!$shipToDifferent) {
+        if (! $shipToDifferent) {
             $shippingCountry = $billingCountry;
             $shippingState = $billingState;
             $shippingPostal = $billingPostal;
         }
+
+        $summary = $this->cart->summary(countryCode: $shippingCountry);
+        $subtotal = (float) ($summary['subtotal_after_discount'] ?? $summary['subtotal'] ?? 0);
 
         $shippingMethods = $this->checkout
             ->availableShippingMethods($subtotal, $shippingCountry, $shippingState, $shippingPostal)
@@ -342,6 +349,7 @@ class CheckoutController extends Controller
             ->values();
 
         return response()->json([
+            'lines' => $this->cart->lines(countryCode: $shippingCountry)->map(fn ($line) => ['key' => $line['key'], 'total_formatted' => Currency::format($line['display_line_total'])])->values()->all(),
             'shipping_methods' => $shippingMethods->map(fn ($method) => [
                 'code' => (string) $method->code,
                 'name' => (string) ($method->display_name ?: $method->name),
@@ -596,7 +604,7 @@ class CheckoutController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $validated
+     * @param  array<string, mixed>  $validated
      */
     private function syncCustomerData(Request $request, array $validated): void
     {

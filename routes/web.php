@@ -40,6 +40,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Spatie\Activitylog\Models\Activity;
 
+Route::get('feeds/klaviyo-katalog-{country}.json', \App\Http\Controllers\Front\KlaviyoCatalogController::class)
+    ->where('country', 'de|at')
+    ->name('feeds.klaviyo');
+
 Route::get('cron/kipos/update-quantities', [KiposCronController::class, 'updateQuantities'])
     ->name('cron.kipos.update-quantities');
 Route::get('cron/kipos/update-order-statuses', [KiposCronController::class, 'updateOrderStatuses'])
@@ -93,6 +97,9 @@ Route::middleware(['front.locale', 'front.device'])
 
         Route::get('contact', [ContactController::class, 'create'])->name('contact.create');
         Route::post('contact', [ContactController::class, 'store'])->name('contact.store');
+        Route::post('vertrag-widerrufen/preview', [\App\Http\Controllers\Front\ContractWithdrawalController::class, 'preview'])->middleware('throttle:30,1')->name('withdrawal.preview');
+        Route::post('vertrag-widerrufen', [\App\Http\Controllers\Front\ContractWithdrawalController::class, 'store'])->middleware('throttle:30,1')->name('withdrawal.store');
+
         Route::get('{returnRequestSlug}', [ReturnRequestController::class, 'create'])
             ->where('returnRequestSlug', 'forma-za-povrat-i-reklamacije|returns-and-claims|rucksendungen-und-reklamationen')
             ->name('returns.create');

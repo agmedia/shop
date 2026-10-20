@@ -543,3 +543,7 @@ Artisan::command('local:sync-kozo-proizvodi-content
 
     return self::SUCCESS;
 })->purpose('Sync product names, descriptions, and grouped attributes from kozo.proizvodi into the local shop catalog by SKU');
+
+Schedule::command('klaviyo:refresh-catalogs')
+    ->cron('0 */3 * * *')
+    ->withoutOverlapping(120);

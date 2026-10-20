@@ -88,10 +88,11 @@
         </section>
     @endguest
 
-    <div class="mb-4 hidden border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700" data-checkout-top-error></div>
+    <div class="mb-4 hidden border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700" data-checkout-top-error role="alert" aria-live="assertive"></div>
 
     <form method="POST" action="{{ route('checkout.store') }}" class="grid items-start gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(460px,1fr)]" data-address-autofill data-address-source="{{ $placesAssetUrl }}" data-checkout-form data-checkout-options-url="{{ route('checkout.options') }}" data-region-options='@json($regionOptionsByCountry, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)' data-ga4-checkout-form data-ga4-currency="EUR" data-ga4-value="{{ number_format((float) ($checkoutTotals['grand_total'] ?? $summary['grand_total'] ?? 0), 2, '.', '') }}" data-ga4-items='@json($ga4Items, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)' data-success-fallback="{{ route('checkout.success.latest') }}" novalidate>
         @csrf
+        <input type="hidden" name="quoted_total" value="{{ number_format((float) ($checkoutTotals['grand_total'] ?? $summary['grand_total']), 2, '.', '') }}" data-quoted-total>
 
         <div class="space-y-6">
             <section class="border border-slate-200 bg-white p-6" data-address-scope="billing">
@@ -384,7 +385,7 @@
                             @endif
                             <div class="mt-1 flex items-center justify-between text-sm">
                                 <span class="text-slate-600">{{ __('ui.checkout.labels.qty') }} {{ $line['quantity'] }}</span>
-                                <span class="font-semibold text-slate-900">{{ \App\Support\Currency::format((float) ($line['display_line_total'] ?? $line['line_total'])) }}</span>
+                                <span class="font-semibold text-slate-900"><span data-checkout-line-total="{{ $line['key'] }}">{{ \App\Support\Currency::format((float) ($line['display_line_total'] ?? $line['line_total'])) }}</span></span>
                             </div>
                         </div>
                     </div>
@@ -424,6 +425,7 @@
                 </div>
             </div>
 
+            @include('front.partials.legal-guarantee')
             <button type="submit" class="mt-5 w-full border border-slate-900 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700">{{ __('ui.checkout.actions.place_order') }}</button>
         </aside>
     </form>
@@ -782,10 +784,13 @@
                     if (requestRevision !== optionsRevision || requestAbortController.signal.aborted) {
                         return;
                     }
+                    window.dispatchEvent(new CustomEvent('shop:checkout-lines', { detail: payload.lines || [] }));
                     const totals = payload.totals || {};
                     renderShippingOptions(payload.shipping_methods || [], String(totals.shipping_method_code || ''));
                     renderPaymentOptions(payload.payment_methods || [], String(totals.payment_method_code || ''));
                     renderCheckoutTotals(totals);
+                    const quote = document.querySelector('[data-quoted-total]');
+                    if (quote) quote.value = Number(totals.grand_total || 0).toFixed(2);
                     initBoxNowWidget();
                 } catch (error) {
                     // Keep existing options on network/request errors.
@@ -1002,8 +1007,9 @@
                                 if (firstErrorField === null) {
                                     firstErrorField = field;
                                 }
-                                if (field === 'accept_terms') {
+                                if (field === 'accept_terms' || field === 'cart') {
                                     showTopError(firstMessage);
+                                    if (field === 'cart') scheduleOptionsRefresh();
                                 }
                             }
                         });
@@ -1055,4 +1061,16 @@
             });
         });
     </script>
+@endpush
+
+@push('scripts')
+<script>
+    window.addEventListener('shop:checkout-lines', function (event) {
+        (event.detail || []).forEach(function (line) {
+            document.querySelectorAll('[data-checkout-line-total]').forEach(function (node) {
+                if (node.dataset.checkoutLineTotal === line.key) node.textContent = line.total_formatted;
+            });
+        });
+    });
+</script>
 @endpush

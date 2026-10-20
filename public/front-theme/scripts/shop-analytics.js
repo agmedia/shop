@@ -2,6 +2,12 @@
     'use strict';
 
     var storagePrefix = 'shop-ga4-once:';
+    var pendingPageEvents = new Map();
+    window.addEventListener('shop:tracking-consent', function () {
+        var events = new Map(pendingPageEvents);
+        pendingPageEvents.clear();
+        events.forEach(function (event, key) { trackOnce(key, event.name, event.payload); });
+    });
 
     var toNumber = function (value, fallback) {
         var parsed = Number.parseFloat(String(value == null ? '' : value).replace(',', '.'));
@@ -18,7 +24,7 @@
     };
 
     var canTrackGa4 = function () {
-        return typeof window.canTrackAnalytics !== 'function' || window.canTrackAnalytics() === true;
+        return typeof window.canTrackAnalytics === 'function' && window.canTrackAnalytics() === true;
     };
 
     var trackGa4 = function (eventName, payload) {
@@ -69,6 +75,9 @@
             return;
         }
 
+        if ((!canTrackGa4() || window.cookieMarketingAllowed !== true) && ['view_item', 'view_cart', 'view_item_list', 'begin_checkout', 'purchase'].indexOf(eventName) !== -1) {
+            pendingPageEvents.set(key, { name: eventName, payload: payload });
+        }
         try {
             trackWithStorage(storagePrefix + 'ga4:' + key, eventName, payload, trackGa4);
             trackWithStorage(storagePrefix + 'meta:' + key, eventName, payload, trackMeta);

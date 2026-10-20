@@ -64,7 +64,7 @@ class KiposOrderService
             }
         }
 
-        $paymentFeeTotal = round((float) $order->payment_fee_total, 2);
+        $paymentFeeTotal = round((float) data_get($order->payload, 'pricing.payment_fee_gross', $order->payment_fee_total), 2);
         if ($paymentFeeTotal > 0) {
             $paymentFeeCode = trim((string) ($settings['kipos_order_payment_fee_item_code'] ?? ''));
             if ($paymentFeeCode !== '') {
@@ -256,6 +256,11 @@ class KiposOrderService
 
     private function resolveShippingLineAmount(Order $order, float $fallbackAmount): float
     {
+        $recordedGross = data_get($order->payload, 'pricing.shipping_gross');
+        if (is_numeric($recordedGross)) {
+            return round(max(0.0, (float) $recordedGross), 2);
+        }
+
         $shippingMethodCode = trim((string) ($order->shipping_method_code ?? ''));
         if ($shippingMethodCode === '') {
             return $fallbackAmount;

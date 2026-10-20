@@ -4,6 +4,7 @@
 @section('main_class', 'mx-auto w-full max-w-5xl px-6 pt-0 pb-8')
 
 @section('content')
+    @include('front.partials.withdrawal-link')
     @php
         $captchaSiteKey = trim((string) ($storeSettings['captcha']['recaptcha_v3_site_key'] ?? ''));
         $captchaEnabled = (bool) ($storeSettings['captcha']['recaptcha_v3_enabled'] ?? false) && $captchaSiteKey !== '';

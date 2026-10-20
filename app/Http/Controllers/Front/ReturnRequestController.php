@@ -24,6 +24,10 @@ class ReturnRequestController extends Controller
 
     public function create(Request $request): View
     {
+        if ($request->boolean('withdrawal')) {
+            return app(ContractWithdrawalController::class)->create($request);
+        }
+
         return view($this->frontendView($request, 'returns.create'));
     }
 

@@ -22,6 +22,13 @@ class OrderObserver implements ShouldHandleEventsAfterCommit
 
     public function updated(Order $order): void
     {
+        if ($order->wasChanged('status_id') && $order->source === 'web') {
+            $status = \App\Models\Settings\Local\OrderStatus::query()->find($order->status_id);
+            if ($status && (data_get($status->settings, 'is_shipped') === true || in_array(strtolower($status->code), ['sent', 'shipped', 'dispatched'], true))) {
+                \App\Jobs\SendOrderDispatchConfirmation::dispatch((int) $order->id)->onConnection('database');
+            }
+        }
+
         if ($order->wasChanged('paid_at') && $order->paid_at !== null) {
             $this->dispatchPlacedOrder($order);
         }

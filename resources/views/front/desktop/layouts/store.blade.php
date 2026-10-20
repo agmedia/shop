@@ -39,6 +39,7 @@
     $storeBrandLogoUrl = trim((string) ($storeSettings['branding']['logo_url'] ?? ''));
 @endphp
 <body class="font-risingsun min-h-screen overflow-x-hidden bg-white text-slate-900 antialiased">
+@include('front.partials.accessibility')
 @if ((bool) ($storeSettings['announcement']['enabled'] ?? true))
     @php
         $announcementText = (string) ($storeSettings['announcement']['text'] ?? __('ui.front.desktop.promo_bar'));
@@ -581,7 +582,7 @@
             @endforeach
             <input
                 type="search"
-                name="q"
+                name="q" aria-label="{{ __('compliance.search') }}"
                 value="{{ (string) request()->query('q', '') }}"
                 placeholder="{{ __('ui.shop.filters.search_placeholder') }}"
                 class="h-[42px] w-full border border-slate-300 bg-white px-3 text-base text-slate-900 outline-none ring-0 focus:border-slate-500 focus:ring-1 focus:ring-slate-300/60 sm:text-sm"
@@ -626,11 +627,12 @@
     </aside>
 </div>
 
-<main class="@yield('main_class', 'mx-auto w-full max-w-7xl px-6 py-8')">
+<main id="main-content" tabindex="-1" class="@yield('main_class', 'mx-auto w-full max-w-7xl px-6 py-8')">
     @include('front.desktop.partials.flash')
     @yield('content')
 </main>
 
+@include('front.partials.withdrawal-link')
 @include('front.partials.analytics-ecommerce')
 
 <footer class="{{ request()->routeIs('home') ? 'mt-0' : 'mt-5' }} bg-white">
@@ -678,7 +680,7 @@
                     <div class="space-y-1.5">
                         <input
                             type="email"
-                            name="newsletter_email"
+                            name="newsletter_email" aria-label="{{ __('return_request.form.email') }}"
                             value="{{ (string) old('newsletter_email', '') }}"
                             placeholder="{{ __('ui.front.desktop.newsletter.placeholder') }}"
                             class="h-11 w-full border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none ring-0 transition placeholder:text-slate-400 focus:border-[#aeb9c8] focus:shadow-[0_0_0_3px_rgba(24,33,45,0.06)] focus:outline-none focus:ring-0"
@@ -995,20 +997,22 @@
             }
         }
 
-        @if (!empty($newsletterCaptchaEnabled))
-            let newsletterCaptchaReady = Promise.resolve();
-            const newsletterCaptchaScript = document.createElement('script');
-            newsletterCaptchaScript.src = 'https://www.google.com/recaptcha/api.js?render={{ $newsletterCaptchaSiteKey }}';
-            newsletterCaptchaScript.async = true;
-            newsletterCaptchaScript.defer = true;
+        let newsletterCaptchaReady;
+        const loadNewsletterCaptcha = function () {
+            if (newsletterCaptchaReady) return newsletterCaptchaReady;
             newsletterCaptchaReady = new Promise(function (resolve) {
-                newsletterCaptchaScript.onload = resolve;
-                newsletterCaptchaScript.onerror = resolve;
+                if (window.grecaptcha) { resolve(); return; }
+                const siteKey = document.querySelector('[data-newsletter-form]')?.dataset.recaptchaSiteKey;
+                if (!siteKey) { resolve(); return; }
+                const script = document.createElement('script');
+                script.src = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(siteKey);
+                script.async = true;
+                script.onload = resolve;
+                script.onerror = resolve;
+                document.head.appendChild(script);
             });
-            document.head.appendChild(newsletterCaptchaScript);
-        @else
-            const newsletterCaptchaReady = Promise.resolve();
-        @endif
+            return newsletterCaptchaReady;
+        };
 
         const newsletterForm = document.querySelector('[data-newsletter-form]');
         if (newsletterForm) {
@@ -1148,7 +1152,7 @@
                     return Promise.resolve();
                 }
 
-                return newsletterCaptchaReady.then(function () {
+                return loadNewsletterCaptcha().then(function () {
                     if (!window.grecaptcha || typeof window.grecaptcha.ready !== 'function') {
                         tokenInput.value = '';
                         return;

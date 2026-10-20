@@ -10,8 +10,7 @@ class TaxPricingService
 {
     public function __construct(
         private readonly SystemSettingsService $settings
-    ) {
-    }
+    ) {}
 
     public function resolveRateForProduct(?Product $product = null): ?TaxRate
     {
@@ -39,6 +38,33 @@ class TaxPricingService
             ->orderBy('sort_order')
             ->orderBy('id')
             ->first();
+    }
+
+    public function rateForDestination(?Product $product, ?string $countryCode): ?TaxRate
+    {
+        $source = $this->resolveRateForProduct($product);
+        $country = strtoupper(trim((string) $countryCode));
+        if (! in_array($country, ['DE', 'AT'], true)) {
+            return $source;
+        }
+        if (! $source || (string) $source->rate_type !== 'percent') {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'billing_country_code' => 'Destination VAT requires a configured percentage tax class.',
+            ]);
+        }
+        $value = data_get($source->settings, 'destination_rates.'.$country);
+        if ($value === null) {
+            $value = config('storefront_compliance.destination_vat.'.$country.'.'.(string) (float) $source->rate);
+        }
+        if ($value === null) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'billing_country_code' => 'The destination VAT rate for this product tax class has not been configured.',
+            ]);
+        }
+        $destination = clone $source;
+        $destination->rate = (float) $value;
+
+        return $destination;
     }
 
     public function grossFromNet(float $netAmount, ?Product $product = null, ?TaxRate $taxRate = null): float

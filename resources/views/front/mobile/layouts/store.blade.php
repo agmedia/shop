@@ -52,6 +52,7 @@
     </style>
 </head>
 <body class="theme-light font-risingsun" data-highlight="highlight-red">
+@include('front.partials.accessibility')
 @php
     $mobileBrandName = trim((string) (($storeSettings['branding']['store_name'] ?? null) ?: config('app.name', 'AG Shop')));
     $mobileBrandLogoUrl = trim((string) ($storeSettings['branding']['logo_url'] ?? ''));
@@ -103,13 +104,14 @@
     </div>
     <div class="page-title-clear"></div>
 
-    <div class="page-content footer-bar-clear">
+    <main id="main-content" tabindex="-1" class="page-content footer-bar-clear">
         @include('front.mobile.partials.flash')
         @yield('content')
         <div class="mb-5"></div>
-    </div>
+    </main>
 
-    @include('front.partials.analytics-ecommerce')
+    @include('front.partials.withdrawal-link')
+@include('front.partials.analytics-ecommerce')
 
     <div id="menu-main" class="menu menu-box-left rounded-0" data-menu-width="cover">
         @include('front.mobile.menu-main')
