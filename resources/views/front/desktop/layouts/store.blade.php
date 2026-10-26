@@ -326,6 +326,11 @@
         color: #334155;
     }
 
+    [data-desktop-nav-panel][data-open="true"] {
+        visibility: visible;
+        opacity: 1;
+    }
+
     @media (max-width: 1023px) {
         [data-header-search-panel].is-open {
             max-height: 5.25rem;
@@ -547,7 +552,7 @@
                     </span>
                 </a>
 
-                <button type="button" class="flex h-full w-12 items-center justify-center border-r border-slate-200 bg-white text-slate-900 transition hover:bg-slate-50 sm:w-14 lg:w-16" aria-label="{{ __('ui.front.desktop.open_navigation') }}" data-mobile-menu-open>
+                <button type="button" class="flex h-full w-12 items-center justify-center border-r border-slate-200 bg-white text-slate-900 transition hover:bg-slate-50 sm:w-14 lg:w-16" aria-label="{{ __('ui.front.desktop.open_navigation') }}" aria-expanded="false" aria-controls="store-mobile-navigation" data-mobile-menu-open>
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M4 7h16M4 12h16M4 17h16"></path>
                     </svg>
@@ -608,9 +613,9 @@
     </div>
 </div>
 
-<div class="pointer-events-none fixed inset-0 lg:hidden" data-mobile-menu-root>
-    <button type="button" class="absolute inset-0 bg-black/45 opacity-0 transition-opacity duration-300" aria-label="{{ __('ui.front.desktop.close_navigation') }}" data-mobile-menu-close></button>
-    <aside class="absolute inset-y-0 left-0 flex w-full max-w-none -translate-x-full flex-col bg-white shadow-2xl transition-transform duration-300 ease-out" data-mobile-menu-panel>
+<div class="pointer-events-none fixed inset-0 lg:hidden" data-mobile-menu-root aria-hidden="true" inert>
+    <button type="button" class="absolute inset-0 bg-black/45 opacity-0 transition-opacity duration-300" aria-label="{{ __('ui.front.desktop.close_navigation') }}" tabindex="-1" data-mobile-menu-close></button>
+    <aside id="store-mobile-navigation" class="absolute inset-y-0 left-0 flex w-full max-w-none -translate-x-full flex-col bg-white shadow-2xl transition-transform duration-300 ease-out" role="dialog" aria-modal="true" aria-label="{{ $storeBrandName }}" tabindex="-1" data-mobile-menu-panel>
         <div class="flex items-center justify-between border-b border-slate-200 px-4 py-4">
             @if ($storeBrandLogoUrl !== '')
                 <img src="{{ $storeBrandLogoUrl }}" alt="{{ $storeBrandName }}" class="block h-10 w-auto max-w-[12rem] object-contain" data-store-brand-logo>

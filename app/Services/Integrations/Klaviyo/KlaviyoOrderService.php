@@ -8,6 +8,7 @@ use App\Services\Front\StoreSettingsService;
 use App\Services\Payments\CorvusPayFormService;
 use App\Services\Payments\KeksPayService;
 use App\Services\Payments\WSPayFormService;
+use App\Support\Consent\StorefrontConsent;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -32,7 +33,8 @@ class KlaviyoOrderService
 
     public function eligible(Order $order): bool
     {
-        if ($order->source !== 'web' || ! $order->placed_at
+        if (! StorefrontConsent::orderAllowsMarketing($order)
+            || $order->source !== 'web' || ! $order->placed_at
             || ! filter_var(trim((string) $order->customer_email), FILTER_VALIDATE_EMAIL)) {
             return false;
         }

@@ -7,6 +7,7 @@ use App\Models\Sales\Order\Order;
 use App\Models\Settings\Local\OrderStatus;
 use App\Services\Integrations\Klaviyo\KlaviyoOrderService;
 use App\Services\Settings\SystemSettingsService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -103,6 +104,22 @@ class SyncKlaviyoOrdersTest extends TestCase
         );
     }
 
+    public function test_historical_sync_skips_orders_without_explicit_saved_marketing_consent(): void
+    {
+        $this->configureIntegration();
+        $consented = $this->historicalOrder();
+        $this->historicalOrder(['payload' => []]);
+        $this->historicalOrder(['payload' => ['privacy' => ['marketing_consent' => false]]]);
+        $this->historicalOrder(['payload' => ['privacy' => ['marketing_consent' => 'true']]]);
+
+        $this->artisan('klaviyo:sync-orders')
+            ->expectsOutput('Queued: 1; skipped: 3.')
+            ->assertExitCode(Command::SUCCESS);
+
+        Queue::assertPushed(SendKlaviyoPlacedOrderJob::class, 1);
+        Queue::assertPushed(SendKlaviyoPlacedOrderJob::class, fn ($job): bool => $job->orderId === $consented->id);
+    }
+
     #[DataProvider('oneSidedDateRanges')]
     public function test_date_range_can_use_only_one_bound(array $options, array $expectedOrderIndexes): void
     {
@@ -196,6 +213,10 @@ class SyncKlaviyoOrdersTest extends TestCase
             'currency_code' => 'EUR',
             'grand_total' => 50,
             'placed_at' => '2026-07-01 10:00:00',
+            'payload' => ['privacy' => [
+                'marketing_consent' => true,
+                'marketing_consent_at' => CarbonImmutable::parse($attributes['placed_at'] ?? '2026-07-01 10:00:00')->toIso8601String(),
+            ]],
         ], $attributes)));
     }
 

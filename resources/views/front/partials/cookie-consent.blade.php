@@ -57,6 +57,8 @@
         };
 
         const cookieConsentConfig = {
+            revision: 0,
+            cookie: { name: 'cc_cookie', expiresAfterDays: 182 },
             disablePageInteraction: true,
             guiOptions: {
                 consentModal: {
@@ -83,7 +85,7 @@
                 marketing: {
                     enabled: false,
                     readOnly: false,
-                    autoClear: { cookies: [{ name: '_fbp' }, { name: '_fbc' }, { name: '__kla_id' }] }
+                    autoClear: { cookies: [{ name: '_fbp' }, { name: '_fbc' }, { name: '__kla_id' }, { name: '__kle_id' }] }
                 }
             },
             onFirstConsent: () => syncGoogleConsent(),

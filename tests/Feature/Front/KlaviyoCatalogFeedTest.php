@@ -61,6 +61,62 @@ class KlaviyoCatalogFeedTest extends TestCase
         }
     }
 
+    public function test_guest_can_read_croatian_catalog_with_local_prices_translation_and_matching_product_ids(): void
+    {
+        $product = $this->product();
+        $this->translateToCroatian($product);
+
+        $croatian = $this->getJson('/feeds/klaviyo-katalog-hr.json')
+            ->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', (string) $product->id)
+            ->assertJsonPath('0.title', 'Hrvatski proizvod '.$product->id)
+            ->assertJsonPath('0.link', 'https://bali.hr/product/hrvatski-proizvod-'.$product->id.'?lang=hr')
+            ->assertJsonPath('0.description', 'Opis & održavanje')
+            ->assertJsonPath('0.sku', $product->sku)
+            ->assertJsonPath('0.currency', 'EUR')
+            ->assertJsonPath('0.inventory_quantity', 10);
+        $this->assertEquals(125, $croatian->json('0.price'));
+        $this->assertStringStartsWith('https://bali.hr/', $croatian->json('0.image_link'));
+
+        $german = $this->getJson('/feeds/klaviyo-katalog-de.json')->assertOk()
+            ->assertJsonPath('0.id', $croatian->json('0.id'))
+            ->assertJsonPath('0.title', 'Testprodukt '.$product->id);
+        $this->assertEquals(119, $german->json('0.price'));
+    }
+
+    public function test_guest_following_croatian_catalog_link_switches_from_german_to_croatian(): void
+    {
+        Language::query()->updateOrCreate(['code' => 'hr'], [
+            'locale' => 'hr_HR', 'name' => 'Hrvatski', 'native_name' => 'Hrvatski',
+            'is_default' => false, 'is_active' => true,
+        ]);
+        $product = $this->product();
+        $this->translateToCroatian($product);
+        $feed = $this->withSession(['front_locale' => 'de'])
+            ->getJson('/feeds/klaviyo-katalog-hr.json')->assertOk();
+
+        $this->get($feed->json('0.link'))->assertOk()
+            ->assertSee('Hrvatski proizvod '.$product->id)
+            ->assertSee('lang="hr"', false)
+            ->assertSessionHas('front_locale', 'hr');
+    }
+
+    public function test_croatian_catalog_excludes_inactive_products_and_missing_croatian_translation_slug_or_image(): void
+    {
+        $included = $this->product();
+        $this->translateToCroatian($included);
+        $this->product();
+        $this->product(['is_active' => false], ['locale' => 'hr']);
+        $this->product(translation: ['locale' => 'hr', 'slug' => '']);
+        $this->product(translation: ['locale' => 'hr'], withImage: false);
+
+        $this->getJson('/feeds/klaviyo-katalog-hr.json')->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', (string) $included->id);
+    }
+
     public function test_guest_following_german_catalog_link_opens_german_product_with_a_croatian_session(): void
     {
         config(['app.locale' => 'hr', 'app.fallback_locale' => 'hr']);
@@ -115,25 +171,33 @@ class KlaviyoCatalogFeedTest extends TestCase
     {
         $this->travelTo(now()->startOfSecond());
         $product = $this->product();
-        $this->getJson('/feeds/klaviyo-katalog-de.json')->assertOk()
-            ->assertJsonPath('0.inventory_quantity', 10);
+        $this->translateToCroatian($product);
+        foreach (['de', 'hr'] as $country) {
+            $this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')->assertOk()
+                ->assertJsonPath('0.inventory_quantity', 10);
+        }
 
         $product->update(['base_price' => 250, 'stock_qty' => 3]);
         $this->travel(179)->minutes();
-        $cached = $this->getJson('/feeds/klaviyo-katalog-de.json')->assertOk()
-            ->assertJsonPath('0.inventory_quantity', 10);
-        $this->assertEquals(119, $cached->json('0.price'));
+        foreach (['de' => 119, 'hr' => 125] as $country => $price) {
+            $cached = $this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')->assertOk()
+                ->assertJsonPath('0.inventory_quantity', 10);
+            $this->assertEquals($price, $cached->json('0.price'));
+        }
 
         $this->travel(2)->minutes();
-        $refreshed = $this->getJson('/feeds/klaviyo-katalog-de.json')->assertOk()
-            ->assertJsonPath('0.inventory_quantity', 3);
-        $this->assertEquals(238, $refreshed->json('0.price'));
+        foreach (['de' => 238, 'hr' => 250] as $country => $price) {
+            $refreshed = $this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')->assertOk()
+                ->assertJsonPath('0.inventory_quantity', 3);
+            $this->assertEquals($price, $refreshed->json('0.price'));
+        }
     }
 
-    public function test_refresh_command_immediately_updates_both_country_feeds_before_cache_expiry(): void
+    public function test_refresh_command_immediately_updates_all_three_country_feeds_before_cache_expiry(): void
     {
         $product = $this->product();
-        foreach (['de', 'at'] as $country) {
+        $this->translateToCroatian($product);
+        foreach (['de', 'at', 'hr'] as $country) {
             $this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')->assertOk()
                 ->assertJsonPath('0.inventory_quantity', 10);
         }
@@ -141,7 +205,7 @@ class KlaviyoCatalogFeedTest extends TestCase
         $product->update(['base_price' => 250, 'stock_qty' => 6]);
         $this->artisan('klaviyo:refresh-catalogs')->assertSuccessful();
 
-        foreach (['de' => 238, 'at' => 240] as $country => $price) {
+        foreach (['de' => 238, 'at' => 240, 'hr' => 250] as $country => $price) {
             $response = $this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')->assertOk()
                 ->assertJsonPath('0.inventory_quantity', 6);
             $this->assertEquals($price, $response->json('0.price'));
@@ -167,10 +231,26 @@ class KlaviyoCatalogFeedTest extends TestCase
             ]);
         }
 
-        $items = collect($this->getJson('/feeds/klaviyo-katalog-de.json')->assertOk()->json())->keyBy('id');
-        $this->assertSame(7, $items[(string) $product->id]['inventory_quantity']);
-        $this->assertSame(0, $items[(string) $soldOut->id]['inventory_quantity']);
-        $this->assertSame(9, $items[(string) $withoutVariants->id]['inventory_quantity']);
+        foreach ([$product, $soldOut, $withoutVariants] as $translatedProduct) {
+            $this->translateToCroatian($translatedProduct);
+        }
+        foreach (['de', 'hr'] as $country) {
+            $items = collect($this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')->assertOk()->json())->keyBy('id');
+            $this->assertSame(7, $items[(string) $product->id]['inventory_quantity']);
+            $this->assertSame(0, $items[(string) $soldOut->id]['inventory_quantity']);
+            $this->assertSame(9, $items[(string) $withoutVariants->id]['inventory_quantity']);
+        }
+    }
+
+    private function translateToCroatian(Product $product): void
+    {
+        ProductTranslation::query()->create([
+            'product_id' => $product->id,
+            'locale' => 'hr',
+            'name' => 'Hrvatski proizvod '.$product->id,
+            'slug' => 'hrvatski-proizvod-'.$product->id,
+            'description' => '<p>Opis &amp; održavanje</p>',
+        ]);
     }
 
     private function product(array $attributes = [], array $translation = [], bool $withImage = true): Product

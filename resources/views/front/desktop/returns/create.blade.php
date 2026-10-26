@@ -81,9 +81,7 @@
     </section>
 
     @if ($captchaEnabled)
-        @push('scripts')
-            <script src="https://www.google.com/recaptcha/api.js?render={{ $captchaSiteKey }}"></script>
-        @endpush
+        @include('front.partials.recaptcha-loader')
     @endif
 
     @push('scripts')
@@ -165,16 +163,14 @@
                         const tokenInput = form.querySelector('[data-recaptcha-token]');
                         const siteKey = form.dataset.recaptchaSiteKey;
                         const action = form.dataset.recaptchaAction || 'return_request_form';
-                        if (!tokenInput || !window.grecaptcha || !siteKey) {
+                        if (!tokenInput || !siteKey) {
                             form.submit();
                             return;
                         }
 
-                        grecaptcha.ready(function () {
-                            grecaptcha.execute(siteKey, { action: action }).then(function (token) {
-                                tokenInput.value = token || '';
-                                form.submit();
-                            });
+                        window.getStoreRecaptchaToken(siteKey, action).then(function (token) {
+                            tokenInput.value = token || '';
+                            form.submit();
                         });
                     });
                 });

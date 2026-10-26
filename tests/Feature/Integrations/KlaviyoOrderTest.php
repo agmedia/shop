@@ -8,6 +8,7 @@ use App\Models\Settings\Local\OrderStatus;
 use App\Models\Settings\System\SystemSetting;
 use App\Services\Integrations\Klaviyo\KlaviyoOrderService;
 use App\Services\Settings\SystemSettingsService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -46,7 +47,10 @@ class KlaviyoOrderTest extends TestCase
             'discount_total' => 10,
             'shipping_total' => 5,
             'grand_total' => 95,
-            'payload' => ['coupon_code' => 'BALI10'],
+            'payload' => ['coupon_code' => 'BALI10', 'privacy' => [
+                'marketing_consent' => true,
+                'marketing_consent_at' => now()->startOfSecond()->toIso8601String(),
+            ]],
         ]);
         $this->createItem($order, ['sku' => 'BALI-M', 'name' => 'Bali haljina', 'unit_price' => 50, 'quantity' => 2, 'line_total' => 90]);
 
@@ -141,6 +145,36 @@ class KlaviyoOrderTest extends TestCase
         }
 
         Http::assertSentCount(4);
+    }
+
+    public function test_missing_denied_or_unproven_marketing_consent_never_dispatches_or_sends(): void
+    {
+        Bus::fake();
+        Http::fake();
+        $service = app(KlaviyoOrderService::class);
+
+        foreach ([
+            [],
+            ['privacy' => ['marketing_consent' => false, 'marketing_consent_at' => now()->toIso8601String()]],
+            ['privacy' => ['marketing_consent' => 'true', 'marketing_consent_at' => now()->toIso8601String()]],
+            ['privacy' => ['marketing_consent' => true]],
+            ['privacy' => ['marketing_consent' => true, 'marketing_consent_at' => 'invalid']],
+            ['privacy' => ['marketing_consent' => true, 'marketing_consent_at' => now()->addDay()->toIso8601String()]],
+            ['privacy' => ['marketing_consent' => true, 'marketing_consent_at' => now()->subDays(183)->toIso8601String()]],
+        ] as $index => $payload) {
+            $order = Order::query()->create($this->orderAttributes([
+                'order_number' => 'NO-CONSENT-'.$index,
+                'payment_method_code' => 'corvuspay',
+                'payload' => $payload,
+            ]));
+            $order->update(['paid_at' => now()]);
+            $this->assertFalse($service->eligible($order));
+            $service->track($order);
+            (new SendKlaviyoPlacedOrderJob((int) $order->id))->handle($service);
+        }
+
+        Bus::assertNothingDispatched();
+        Http::assertNothingSent();
     }
 
     public function test_invalid_imported_unplaced_cancelled_and_failed_orders_are_skipped(): void
@@ -328,6 +362,10 @@ class KlaviyoOrderTest extends TestCase
             'currency_code' => 'EUR',
             'grand_total' => 50,
             'placed_at' => now()->startOfSecond(),
+            'payload' => ['privacy' => [
+                'marketing_consent' => true,
+                'marketing_consent_at' => CarbonImmutable::parse($attributes['placed_at'] ?? now())->toIso8601String(),
+            ]],
             ...$attributes,
         ];
     }

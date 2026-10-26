@@ -152,7 +152,7 @@ class CatalogController extends Controller
             $selectedAttributeFilters[(string) $filter['query_key']] = $valueId > 0 ? $valueId : null;
         }
         $gridCols = $this->resolveGridCols($request, $this->defaultDesktopGridCols($request));
-        $this->queueGridColsCookie($gridCols);
+        $this->queueGridColsCookie($request, $gridCols);
 
         $query = Product::query()
             ->select([
@@ -336,7 +336,7 @@ class CatalogController extends Controller
             $request->query('price_max')
         );
         $gridCols = $this->resolveGridCols($request, $this->defaultDesktopGridCols($request));
-        $this->queueGridColsCookie($gridCols);
+        $this->queueGridColsCookie($request, $gridCols);
 
         $categoryQuery = Category::query()
             ->where('scope', Category::SCOPE_CATALOG)

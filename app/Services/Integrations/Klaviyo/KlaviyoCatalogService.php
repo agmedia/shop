@@ -11,6 +11,8 @@ use InvalidArgumentException;
 
 class KlaviyoCatalogService
 {
+    private const LOCALES_BY_COUNTRY = ['DE' => 'de', 'AT' => 'de', 'HR' => 'hr'];
+
     public function __construct(
         private readonly TaxPricingService $pricing,
         private readonly ActionResolverService $actions,
@@ -76,15 +78,18 @@ class KlaviyoCatalogService
 
     public function cachedItems(string $country): array
     {
+        $locale = self::LOCALES_BY_COUNTRY[$country]
+            ?? throw new InvalidArgumentException('Unsupported catalog destination.');
+
         return Cache::remember($this->cacheKey($country), now()->addHours($this->refreshHours()),
-            fn () => $this->items('de', $country, $this->baseUrl()));
+            fn () => $this->items($locale, $country, $this->baseUrl()));
     }
 
     public function refresh(): array
     {
         $counts = [];
-        foreach (['DE', 'AT'] as $country) {
-            $items = $this->items('de', $country, $this->baseUrl());
+        foreach (self::LOCALES_BY_COUNTRY as $country => $locale) {
+            $items = $this->items($locale, $country, $this->baseUrl());
             Cache::put($this->cacheKey($country), $items, now()->addHours($this->refreshHours()));
             $counts[$country] = count($items);
         }

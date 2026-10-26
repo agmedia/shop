@@ -10,13 +10,29 @@
         (function () {
             var loaded = false;
             var consentEnabled = @json((bool) ($storeSettings['cookies']['enabled'] ?? true));
+            var clearKlaviyoStorage = function () {
+                // Remove cached identifiers as well as cookies when consent is withdrawn.
+                var keys = ['klaviyoOnsite', '__kl_key', '$referrer', '$last_referrer', 'kl-post-identification-sync',
+                    'klaviyoPagesVisitCountV2', 'klaviyoFormSubmit', '_kx'];
+                ['localStorage', 'sessionStorage'].forEach(function (storageName) {
+                    try {
+                        keys.forEach(function (key) { window[storageName].removeItem(key); });
+                    } catch (error) { /* Storage can be unavailable in private browsing. */ }
+                });
+            };
 
             window.updateKlaviyoConsentFromCookie = function (marketingGranted) {
                 // Klaviyo's opt-out cookie also handles consent withdrawal after the SDK loads.
                 document.cookie = '__kla_off=' + (marketingGranted ? 'false' : 'true')
                     + '; Path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
 
-                if (!marketingGranted || loaded) {
+                if (!marketingGranted) {
+                    clearKlaviyoStorage();
+                    if (Array.isArray(window._klOnsite)) window._klOnsite.length = 0;
+                    if (Array.isArray(window._learnq)) window._learnq.length = 0;
+                    return;
+                }
+                if (loaded) {
                     return;
                 }
 

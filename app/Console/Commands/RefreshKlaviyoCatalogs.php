@@ -9,7 +9,7 @@ class RefreshKlaviyoCatalogs extends Command
 {
     protected $signature = 'klaviyo:refresh-catalogs';
 
-    protected $description = 'Refresh the public German and Austrian Klaviyo catalogs from the live shop database';
+    protected $description = 'Refresh the public Croatian, German and Austrian Klaviyo catalogs from the live shop database';
 
     public function handle(KlaviyoCatalogService $catalog): int
     {

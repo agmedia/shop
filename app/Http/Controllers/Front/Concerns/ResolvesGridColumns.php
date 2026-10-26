@@ -25,8 +25,14 @@ trait ResolvesGridColumns
         return $this->normalizeGridCols($default, $default);
     }
 
-    protected function queueGridColsCookie(int $cols): void
+    protected function queueGridColsCookie(Request $request, int $cols): void
     {
+        // Remember an explicit layout choice for 365 days; ordinary visits do not renew it.
+        $selection = $request->query('cols');
+        if (! is_scalar($selection) || ! in_array((string) $selection, ['1', '2', '3', '4', '5'], true)) {
+            return;
+        }
+
         $normalized = $this->normalizeGridCols($cols, 4);
         Cookie::queue(cookie(self::GRID_COLS_COOKIE, (string) $normalized, 60 * 24 * 365));
     }

@@ -41,7 +41,7 @@ use Illuminate\Support\Facades\Route;
 use Spatie\Activitylog\Models\Activity;
 
 Route::get('feeds/klaviyo-katalog-{country}.json', \App\Http\Controllers\Front\KlaviyoCatalogController::class)
-    ->where('country', 'de|at')
+    ->where('country', 'de|at|hr')
     ->name('feeds.klaviyo');
 
 Route::get('cron/kipos/update-quantities', [KiposCronController::class, 'updateQuantities'])

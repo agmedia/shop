@@ -1,5 +1,71 @@
 (() => {
+    const initDesktopNavigation = () => {
+        const groups = Array.from(document.querySelectorAll('[data-desktop-nav-group]'));
+        groups.forEach((group) => {
+            const toggle = group.querySelector('[data-desktop-nav-toggle]');
+            const panel = group.querySelector('[data-desktop-nav-panel]');
+            if (!toggle || !panel) return;
+
+            const setOpen = (open) => {
+                toggle.setAttribute('aria-expanded', String(open));
+                panel.setAttribute('aria-hidden', String(!open));
+                panel.dataset.open = String(open);
+                panel.inert = !open;
+            };
+            setOpen(false);
+            if (group.dataset.navInitialized === '1') return;
+            group.dataset.navInitialized = '1';
+
+            const open = () => {
+                groups.forEach((other) => {
+                    if (other === group) return;
+                    const otherToggle = other.querySelector('[data-desktop-nav-toggle]');
+                    const otherPanel = other.querySelector('[data-desktop-nav-panel]');
+                    otherToggle?.setAttribute('aria-expanded', 'false');
+                    if (otherPanel) {
+                        otherPanel.setAttribute('aria-hidden', 'true');
+                        otherPanel.dataset.open = 'false';
+                        otherPanel.inert = true;
+                    }
+                });
+                setOpen(true);
+            };
+
+            // Native buttons provide Enter/Space activation without overriding category links.
+            toggle.addEventListener('click', () => {
+                if (toggle.getAttribute('aria-expanded') === 'true') setOpen(false);
+                else open();
+            });
+            toggle.addEventListener('keydown', (event) => {
+                if (event.key !== 'ArrowDown') return;
+                event.preventDefault();
+                open();
+                panel.querySelector('a[href], button:not([disabled])')?.focus();
+            });
+            group.addEventListener('mouseenter', open);
+            group.addEventListener('mouseleave', () => {
+                if (!group.contains(document.activeElement)) setOpen(false);
+            });
+            group.addEventListener('focusout', (event) => {
+                if (!group.contains(event.relatedTarget)) setOpen(false);
+            });
+            document.addEventListener('pointerdown', (event) => {
+                if (!group.contains(event.target)) setOpen(false);
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key !== 'Escape' || toggle.getAttribute('aria-expanded') !== 'true') return;
+                const restoreFocus = group.contains(document.activeElement);
+                setOpen(false);
+                if (restoreFocus) {
+                    event.preventDefault();
+                    toggle.focus();
+                }
+            });
+        });
+    };
+
     const init = () => {
+        initDesktopNavigation();
         const root = document.querySelector('[data-mobile-menu-root]');
         if (!root) {
             document.body.classList.remove('overflow-hidden');
@@ -15,10 +81,14 @@
         const menuLinks = Array.from(root.querySelectorAll('a[href]'));
         const accordionStateKey = 'desktop-mobile-menu-accordion-state-v2';
         let isRestoringAccordionState = false;
+        let lastOpener = null;
 
         const forceClosedState = () => {
             root.classList.add('pointer-events-none');
             root.dataset.menuOpen = '0';
+            root.inert = true;
+            root.setAttribute('aria-hidden', 'true');
+            openButtons.forEach((button) => button.setAttribute('aria-expanded', 'false'));
             overlay?.classList.remove('opacity-100');
             overlay?.classList.add('opacity-0');
             panel?.classList.add('-translate-x-full');
@@ -209,16 +279,36 @@
             revealLinkPath(currentLink);
         };
 
-        const closeMenu = () => {
+        const closeMenu = (restoreFocus = true) => {
+            const wasOpen = root.dataset.menuOpen === '1';
             forceClosedState();
+            if (wasOpen && restoreFocus) lastOpener?.focus();
         };
+
+        const focusableMenuItems = () => Array.from(panel?.querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
+        ) ?? []).filter((element) => {
+            if (!element.getClientRects().length || element.closest('[inert]')) return false;
+            // Safari may report rectangles for links hidden by a closed details element.
+            for (let ancestor = element.parentElement; ancestor && ancestor !== panel; ancestor = ancestor.parentElement) {
+                if (ancestor.tagName !== 'DETAILS' || ancestor.open) continue;
+                const summary = Array.from(ancestor.children).find((child) => child.tagName === 'SUMMARY');
+                if (!summary?.contains(element)) return false;
+            }
+            return true;
+        });
 
         const openMenu = (event) => {
             if (event) {
                 event.preventDefault();
             }
+            if (root.dataset.menuOpen === '1') return;
+            lastOpener = event?.currentTarget ?? document.activeElement;
             root.classList.remove('pointer-events-none');
             root.dataset.menuOpen = '1';
+            root.inert = false;
+            root.setAttribute('aria-hidden', 'false');
+            openButtons.forEach((button) => button.setAttribute('aria-expanded', 'true'));
             syncMenuState();
             overlay?.classList.remove('opacity-0');
             overlay?.classList.add('opacity-100');
@@ -226,13 +316,39 @@
             panel?.classList.add('translate-x-0');
             document.body.classList.add('overflow-hidden');
             document.body.classList.add('desktop-mobile-menu-open');
+            (focusableMenuItems()[0] ?? panel)?.focus();
         };
 
         openButtons.forEach((button) => {
             button.addEventListener('click', openMenu);
             button.addEventListener('touchend', openMenu, { passive: false });
         });
-        closeButtons.forEach((button) => button.addEventListener('click', closeMenu));
+        closeButtons.forEach((button) => button.addEventListener('click', () => closeMenu()));
+        document.addEventListener('keydown', (event) => {
+            if (root.dataset.menuOpen !== '1') return;
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeMenu();
+                return;
+            }
+            if (event.key !== 'Tab') return;
+            const items = focusableMenuItems();
+            const first = items[0];
+            const last = items[items.length - 1];
+            if (!first) {
+                event.preventDefault();
+                panel?.focus();
+            } else if (event.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
+        window.addEventListener('resize', () => {
+            if (window.matchMedia('(min-width: 1024px)').matches) closeMenu(false);
+        });
         accordionSections.forEach((section) => {
             section.addEventListener('toggle', () => {
                 if (isRestoringAccordionState) {
@@ -264,7 +380,7 @@
         });
         menuLinks.forEach((link) => {
             link.addEventListener('click', () => {
-                closeMenu();
+                closeMenu(false);
             });
         });
 

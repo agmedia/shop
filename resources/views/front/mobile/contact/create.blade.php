@@ -66,8 +66,8 @@
                     <p class="font-11 color-red-dark mb-0 mt-1 {{ $errors->has('message') ? '' : 'hidden' }}" data-field-error="message">@error('message'){{ $message }}@enderror</p>
                 </div>
 
-                <label class="font-12 d-block mb-3">
-                    <input type="checkbox" name="accept_terms" value="1" @checked((bool) old('accept_terms'))> {{ __('contact.form.accept_terms') }}
+                <label for="contact-accept-terms" class="font-12 d-block mb-3">
+                    <input id="contact-accept-terms" type="checkbox" name="accept_terms" value="1" @checked((bool) old('accept_terms'))> {{ __('contact.form.accept_terms') }}
                 </label>
                 <p class="font-11 color-red-dark mb-2 mt-1 {{ $errors->has('accept_terms') ? '' : 'hidden' }}" data-field-error="accept_terms">@error('accept_terms'){{ $message }}@enderror</p>
 
@@ -91,9 +91,7 @@
     </div>
 
     @if ($captchaEnabled)
-        @push('scripts')
-            <script src="https://www.google.com/recaptcha/api.js?render={{ $captchaSiteKey }}"></script>
-        @endpush
+        @include('front.partials.recaptcha-loader')
     @endif
 
     @push('scripts')
@@ -181,16 +179,14 @@
                         const tokenInput = form.querySelector('[data-recaptcha-token]');
                         const siteKey = form.dataset.recaptchaSiteKey;
                         const action = form.dataset.recaptchaAction || 'contact_form';
-                        if (!tokenInput || !window.grecaptcha || !siteKey) {
+                        if (!tokenInput || !siteKey) {
                             form.submit();
                             return;
                         }
 
-                        grecaptcha.ready(function () {
-                            grecaptcha.execute(siteKey, { action: action }).then(function (token) {
-                                tokenInput.value = token || '';
-                                form.submit();
-                            });
+                        window.getStoreRecaptchaToken(siteKey, action).then(function (token) {
+                            tokenInput.value = token || '';
+                            form.submit();
                         });
                     });
                 });

@@ -160,7 +160,7 @@ Nakon `git pull origin kozo` na serveru pokrenuti:
 
 ```sh
 php artisan optimize:clear
-php artisan migrate --force
+php artisan migrate --force --path=database/migrations/2026_10_20_000000_create_contract_withdrawals_table.php
 php artisan storefront:configure-de-at
 php artisan klaviyo:refresh-catalogs
 php artisan view:cache
@@ -177,10 +177,11 @@ Nakon povlačenja izmjena javni linkovi su:
 
 - Njemačka: `https://www.bali.hr/feeds/klaviyo-katalog-de.json`
 - Austrija: `https://www.bali.hr/feeds/klaviyo-katalog-at.json`
+- Hrvatska (dodano 26. listopada): `https://www.bali.hr/feeds/klaviyo-katalog-hr.json`
 
-Katalog se automatski generira iz baze webshopa na serveru. Sadrži aktivne proizvode s njemačkim nazivom, važećim slugom i zapisom slike, aktualnu javnu akcijsku cijenu s odredišnim PDV-om, zalihe aktivnih varijanti, kategorije i javne poveznice. Product ID odgovara postojećem Klaviyo event ProductID. Poveznice na proizvod uključuju `lang=de` tako da rade i posjetitelju koji nema njemačku sesiju. Podaci kupaca nisu dio kataloga.
+Katalog se automatski generira iz baze webshopa na serveru. Sadrži aktivne proizvode s nazivom na jeziku tržišta, važećim slugom i zapisom slike, aktualnu javnu akcijsku cijenu s odredišnim PDV-om, zalihe aktivnih varijanti, kategorije i javne poveznice. Product ID odgovara postojećem Klaviyo event ProductID. DE/AT poveznice uključuju `lang=de`, a HR poveznice `lang=hr`, tako da rade i posjetitelju s prethodno odabranim drugim jezikom. Podaci kupaca nisu dio kataloga.
 
-Osvježavanje je postavljeno **svaka 3 sata** preko postojećeg Laravel raspoređivača (`0 */3 * * *`). Ako cache još ne postoji ili je stariji od tri sata, prvi zahtjev ga ponovno generira. Za redovito osvježavanje mora raditi postojeći cron koji poziva `php artisan schedule:run` svake minute. Nakon deploya može se odmah pokrenuti `php artisan klaviyo:refresh-catalogs`. Nova javna ruta ne traži ručni upload JSON datoteke i ne ovisi o lokalnim kopijama produkcijskih slika.
+Osvježavanje sva tri kataloga postavljeno je **svaka 3 sata** (`0 */3 * * *`). Ako cache još ne postoji ili je stariji od tri sata, prvi zahtjev ga ponovno generira. Produkcijski cron postavljen 20. listopada izravno poziva `php artisan klaviyo:refresh-catalogs` svaka tri sata. Alternativno je isti zadatak registriran u Laravel raspoređivaču; ne treba dodavati drugi cron ako izravni već radi. Nakon deploya ista naredba odmah osvježava HR, DE i AT. Javne rute ne traže ručni upload JSON datoteke i ne ovise o lokalnim kopijama produkcijskih slika.
 
 U Klaviyo se jednom upisuje odgovarajući link pod prilagođenim katalogom. Mapiranje: id, title, link, image_link, description, price, inventory_quantity, inventory_policy i categories. [Klaviyova dokumentacija](https://developers.klaviyo.com/en/docs/guide_to_syncing_a_custom_catalog_feed_to_klaviyo) opisuje učitavanje izvora. Naša obnova svaka tri sata ne mijenja interval kojim sam Klaviyo dohvaća izvor. Povezivanje u Klaviyo računu još nije izvršeno.
 
@@ -209,3 +210,35 @@ Primary references checked: [German electronic withdrawal provision](https://www
 77 focused PHP feature tests passed (601 assertions), covering guest/full/partial withdrawal, persisted mail tasks, receipt and dispatch emails, destination tax, gross shipping fee extraction, quoted-total protection, both device templates, catalog export, dynamic feed refresh every three hours, localized feed links, actual banner source widths, locales, existing orders and Klaviyo integration. Two JavaScript tests verify no tracking before consent, separate GA/Meta consent, purchase deduplication and revocation. The frontend build and Blade compilation pass.
 
 The broader pre-existing storefront suite has 53 passing tests and seven failing tests. The same seven failures are reproducible on the original HEAD snapshot (product route fixture, contact consent fixture, configured navigation copy, material card copy, missing-main-image fallback, option filters and hidden category filters). They were not introduced by this change. The baseline snapshot additionally had an environment-sensitive newsletter script URL assertion; the updated test now checks the intended lazy loading behavior.
+
+## Dodatne dorade i provjera privatnosti 26. listopada 2026.
+
+Ove izmjene treba povući na server prije potvrde da su dostupne uživo. Nema nove migracije ni promjene cjenika ili pravnih tekstova.
+
+```sh
+git pull --ff-only origin kozo
+php artisan optimize:clear
+php artisan klaviyo:refresh-catalogs
+php artisan view:cache
+php artisan queue:restart
+```
+
+- HR feed koristi hrvatski sadržaj, lokalne cijene i zalihe; postojeći DE/AT feedovi zadržavaju svoje rute i cache ključeve.
+- Googleov `ga-disable-MEASUREMENT_ID` postavlja se prije svake promjene privole. To sprječava i automatske engagement/pagehide događaje nakon povlačenja privole, a ne samo događaje koje šalje aplikacija. Izvor: [Google privacy settings](https://developers.google.com/tag-platform/security/guides/privacy#turn_off_google_analytics).
+- Klaviyo opt-out uklanja i poznate lokalno spremljene identifikatore i red čekanja. Serverski `Placed Order` događaji sada zahtijevaju izričitu marketinšku privolu spremljenu pri checkoutu. Provjeravaju se stvarni CMP kolačić, revizija 0, vremenske oznake i istek od 182 dana. Narudžbe bez privole i povijesne narudžbe bez dokaza neće se slati Klaviyu; to može promijeniti Klaviyo automatizacije koje koriste taj događaj. Redovne potvrde webshopa ne ovise o marketinškoj privoli.
+- `front_grid_cols` sprema se samo nakon valjanog korisničkog odabira broja stupaca. Obični posjeti više ne stvaraju ni produljuju taj kolačić. Trajanje nakon odabira ostaje 365 dana; stari odabir i dalje se čita.
+- Kontakt, obični povrat i auth obrasci učitavaju reCAPTCHA tek pri valjanom slanju, uz postojeću serversku provjeru i obradu greške. Otvaranje tih stranica samo po sebi više ne učitava reCAPTCHA.
+- Kontaktna polja imaju povezane oznake; izbornici i opcije proizvoda dobili su dodatne tipkovničke i fokusne prilagodbe. To nije potvrda cjelovitog BFSG/BaFG pregleda.
+
+### Potvrđene činjenice za odgovor o podacima i preostali koraci
+
+- Corvus integracija obrađuje broj narudžbe, odobrenje, jezik i potpis te sprema cijeli primljeni callback u `order_transactions.payload.raw`. Iznos i valuta narudžbe šalju se Corvusu; iz toga se ne smije zaključiti da ih provider vraća. Točan popis opcionalnih produkcijskih polja treba provjeriti iz strukture stvarnog odgovora bez iznošenja vrijednosti ili kod Corvusa. Nema vlastitih polja webshopa za unos punog broja kartice ili CVV-a.
+- Rokovi hosting access/error zapisa i njihove rotacije nisu potvrđeni kodom projekta. Aplikacija podržava više log kanala; zadani `single` nema automatski rok brisanja, dok opcionalni `daily` ovisi o runtime postavkama. Ne predstavljati zadani broj iz alternativnog kanala kao potvrđeni produkcijski rok. IP adrese u bazi obrazaca/sesija zasebna su obrada.
+- Na produkciji je potvrđen naziv `PH_HPXY_CHECK`, sesijski kolačić sigurnosne infrastrukture. [Plusova deklaracija](https://plus.hr/pravne-informacije/koristenje-kolacica) navodi zaštitu od brute-force napada; nije dodatak aplikacijskom kodu.
+- Potvrda otpreme pokreće se statusom slanja i trenutačno nema broj pošiljke ni tracking URL. Dostavni rokovi za DE/AT, prijevoznik i izvor tracking podataka ostaju poslovni podaci koje treba dostaviti Bali. Objavljene hrvatske rokove ne treba automatski preslikati na DE/AT.
+- Tea je potvrdila da dodatna GPSR upozorenja nisu potrebna te da sama priprema pravne tekstove i vodi dogovorene završne funkcionalne provjere. Pravni tekstovi i neaktivna DE/AT dostava ovim izmjenama nisu mijenjani.
+- Nakon povlačenja potrebna je završna mrežna provjera stvarne objavljene verzije, povezivanje HR feeda u Klaviyo računu i zasebni potpuni pregled pristupačnosti. Lokalni testovi ne potvrđuju vanjske payment zaslone niti stvarni primitak transakcijskih poruka.
+
+### Provjera ovih dorada
+
+Prošlo je 146 ciljanih PHP testova (961 tvrdnja) i 18 JavaScript testova. Uspješni su produkcijski frontend build, kompilacija Blade predložaka i provjera izmjena. Ručno je u lokalnom pregledniku provjeren preskok na glavni sadržaj, otvaranje i zatvaranje desktop podizbornika tipkovnicom te mobilni izbornik na širini 320 px: početni fokus, Tab/Shift+Tab unutar izbornika i Escape s povratkom na gumb. Ispravljen je i slučaj kada Safari prijavljuje dimenzije skrivenih poveznica unutar zatvorenog `details` elementa.

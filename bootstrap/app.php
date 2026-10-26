@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // CookieConsent writes this preference in the browser, without Laravel encryption.
+        $middleware->encryptCookies(except: ['cc_cookie']);
+
         $middleware->preventRequestsDuringMaintenance([
             'dashboard',
             'dashboard/*',

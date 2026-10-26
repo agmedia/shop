@@ -16,13 +16,17 @@
             $target = !empty($item['open_in_new_tab']) ? '_blank' : null;
             $rel = !empty($item['open_in_new_tab']) ? 'noopener noreferrer' : null;
             $topItemWeightClass = 'font-semibold';
+            $panelId = 'desktop-nav-panel-'.$loop->index;
         @endphp
 
         @if ($hasChildren)
-            <div class="group/nav">
+            <div class="group/nav flex items-center" data-desktop-nav-group>
                 <a href="{{ $href }}" class="inline-flex items-center py-6 text-[14px] {{ $topItemWeightClass }} uppercase tracking-[0.03em] text-slate-900 transition hover:text-black" @if($target) target="{{ $target }}" rel="{{ $rel }}" @endif>
                     <span class="border-b border-transparent pb-0.5 transition group-hover/nav:border-slate-400">{{ $item['label'] }}</span>
                 </a>
+                <button type="button" class="ml-1 inline-flex h-10 w-8 items-center justify-center text-slate-900" aria-label="{{ $item['label'] }}" aria-expanded="false" aria-controls="{{ $panelId }}" data-desktop-nav-toggle>
+                    <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m5 7.5 5 5 5-5" /></svg>
+                </button>
 
                 @php
                     $promo = is_array($item['mega_promo'] ?? null) ? $item['mega_promo'] : [];
@@ -76,7 +80,7 @@
                     }
                 @endphp
 
-                <div class="invisible fixed left-1/2 z-50 mt-0 {{ $panelWidthClass }} -translate-x-1/2 bg-white px-7 py-5 opacity-0 shadow-[0_24px_50px_-30px_rgba(15,23,42,0.55)] transition-all duration-150 group-hover/nav:visible group-hover/nav:opacity-100" style="top: var(--site-header-bottom, 90px);">
+                <div id="{{ $panelId }}" class="invisible fixed left-1/2 z-50 mt-0 {{ $panelWidthClass }} -translate-x-1/2 bg-white px-7 py-5 opacity-0 shadow-[0_24px_50px_-30px_rgba(15,23,42,0.55)] transition-all duration-150" style="top: var(--site-header-bottom, 90px);" data-desktop-nav-panel data-open="false" aria-hidden="true" inert>
                     <div class="grid items-start gap-4 {{ $hasPromo ? 'grid-cols-[minmax(0,4fr)_minmax(240px,1fr)]' : 'grid-cols-1' }}">
                         <div class="max-h-[52vh] overflow-y-auto pr-1">
                             @if ($isSpecialOffer)

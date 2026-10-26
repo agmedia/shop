@@ -14,6 +14,7 @@ use App\Models\Settings\Local\OrderStatus;
 use App\Models\Settings\Local\PaymentMethod;
 use App\Models\Settings\Local\ShippingMethod;
 use App\Models\User;
+use App\Support\Consent\StorefrontConsent;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -248,6 +249,7 @@ class CheckoutService
                 'customer_note' => (string) ($payload['customer_note'] ?? ''),
                 'payload' => [
                     'placed_from' => 'frontend_checkout',
+                    'privacy' => StorefrontConsent::fromRequest(request()),
                     'pricing' => ['shipping_gross' => $grossShippingTotal, 'payment_fee_gross' => $grossPaymentFeeTotal],
                     'coupon_code' => (string) ($summary['coupon_code'] ?? ''),
                     'shipping' => [

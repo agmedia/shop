@@ -27,7 +27,7 @@ class WishlistController extends Controller
         $locale = app()->getLocale();
         $fallbackLocale = (string) config('app.locale');
         $cols = $this->resolveGridCols($request, 4);
-        $this->queueGridColsCookie($cols);
+        $this->queueGridColsCookie($request, $cols);
         if ($request->query->has('cols')) {
             $query = $request->query();
             unset($query['cols']);

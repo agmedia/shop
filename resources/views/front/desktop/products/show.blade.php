@@ -262,6 +262,11 @@
             }
         }
 
+        [data-product-detail-form] .product-size-radio:focus-visible + .product-size-label {
+            outline: 3px solid #005fcc;
+            outline-offset: 3px;
+        }
+
         [data-product-detail-form] .product-size-radio:checked + .product-size-label,
         [data-product-detail-form] .product-size-radio:checked + .product-size-label span {
             border-color: #0f172a;

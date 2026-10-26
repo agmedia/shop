@@ -13,12 +13,16 @@
         window.gtag = function () { window.dataLayer.push(arguments); };
         window.cookieAnalyticsAllowed = false;
         window.canTrackAnalytics = () => window.cookieAnalyticsAllowed === true;
+        // Consent Mode alone can send cookieless pings after withdrawal.
+        // Disable the measurement destination before any consent or event calls.
+        window['ga-disable-' + @json($ga4Id)] = true;
         gtag('consent', 'default', {
             analytics_storage: 'denied', ad_storage: 'denied',
             ad_user_data: 'denied', ad_personalization: 'denied'
         });
         window.updateGoogleConsentFromCookie = function (analyticsGranted, marketingGranted) {
             window.cookieAnalyticsAllowed = analyticsGranted === true;
+            window['ga-disable-' + @json($ga4Id)] = analyticsGranted !== true;
             gtag('consent', 'update', {
                 analytics_storage: analyticsGranted ? 'granted' : 'denied',
                 ad_storage: marketingGranted ? 'granted' : 'denied',
@@ -32,6 +36,7 @@
             var script = document.createElement('script');
             script.async = true;
             script.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(@json($ga4Id));
+            script.onerror = function () { window.__googleAnalyticsLoaded = false; script.remove(); };
             document.head.appendChild(script);
         };
     </script>

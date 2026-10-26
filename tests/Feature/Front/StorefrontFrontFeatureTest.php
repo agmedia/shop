@@ -149,6 +149,7 @@ class StorefrontFrontFeatureTest extends TestCase
             'phone' => '+38591000000',
             'subject' => 'Wholesale inquiry',
             'message' => 'Please contact me with available B2B pricing details.',
+            'accept_terms' => 1,
         ])->assertRedirect('/contact');
 
         $this->assertDatabaseHas('contact_messages', [
@@ -245,7 +246,8 @@ class StorefrontFrontFeatureTest extends TestCase
             ->assertOk()
             ->assertSee('data-recaptcha-site-key="test-site-key"', false)
             ->assertSee('data-recaptcha-action="return_request_form"', false)
-            ->assertSee('https://www.google.com/recaptcha/api.js?render=test-site-key', false);
+            ->assertDontSee('<script src="https://www.google.com/recaptcha/api.js', false)
+            ->assertSee('window.getStoreRecaptchaToken', false);
 
         Http::fake([
             'https://www.google.com/recaptcha/api/siteverify' => Http::response([
@@ -287,13 +289,15 @@ class StorefrontFrontFeatureTest extends TestCase
             ->assertOk()
             ->assertSee('data-recaptcha-site-key="test-site-key"', false)
             ->assertSee('data-recaptcha-action="login_form"', false)
-            ->assertSee('https://www.google.com/recaptcha/api.js?render=test-site-key', false);
+            ->assertDontSee('<script src="https://www.google.com/recaptcha/api.js', false)
+            ->assertSee('window.getStoreRecaptchaToken', false);
 
         $this->get('/auth/register')
             ->assertOk()
             ->assertSee('data-recaptcha-site-key="test-site-key"', false)
             ->assertSee('data-recaptcha-action="register_form"', false)
-            ->assertSee('https://www.google.com/recaptcha/api.js?render=test-site-key', false);
+            ->assertDontSee('<script src="https://www.google.com/recaptcha/api.js', false)
+            ->assertSee('window.getStoreRecaptchaToken', false);
 
         $mobileHeaders = [
             'User-Agent' => 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
