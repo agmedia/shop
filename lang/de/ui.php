@@ -234,6 +234,7 @@ return array_replace_recursive(
             ],
             'shipping_methods' => [
                 'standard' => 'Versand mit DPD Kroatien – Kostenloser Versand für Bestellungen über 50 €',
+                'standard_eu' => 'DPD – Deutschland und Österreich',
                 'pickup' => 'Abholung im Geschäft (Hrupine 19, 40323, Prelog, Kroatien)',
             ],
             'payment_methods' => [
