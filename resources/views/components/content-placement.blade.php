@@ -1,4 +1,8 @@
 @foreach ($items as $item)
+    @continue(app()->getLocale() === 'de'
+        && str_starts_with((string) $item['slot']->placement, 'home.')
+        && (string) $item['block']->type === 'five_star_reviews_carousel')
+
     @php
         $block = $item['block'];
         $translation = $item['translation'];

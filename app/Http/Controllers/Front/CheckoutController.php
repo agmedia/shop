@@ -77,7 +77,10 @@ class CheckoutController extends Controller
             $billingCountry,
             $billingState,
             $billingPostal,
-            $selectedShippingCode
+            $selectedShippingCode,
+            $shippingCountry,
+            $shippingState,
+            $shippingPostal
         ))->first()?->code;
         $checkoutTotals = $this->checkout->estimateCheckoutTotals(
             (float) ($summary['subtotal'] ?? 0),
@@ -345,7 +348,10 @@ class CheckoutController extends Controller
             $billingPostal
         );
         $paymentMethods = $this->checkout
-            ->availablePaymentMethods($subtotal, $billingCountry, $billingState, $billingPostal, $totals['shipping_method_code'])
+            ->availablePaymentMethods(
+                $subtotal, $billingCountry, $billingState, $billingPostal,
+                $totals['shipping_method_code'], $shippingCountry, $shippingState, $shippingPostal
+            )
             ->values();
 
         return response()->json([

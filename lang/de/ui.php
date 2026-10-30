@@ -18,7 +18,7 @@ return array_replace_recursive(
                     'consent_privacy' => 'Verarbeitung meiner Daten für den Newsletter',
                 ],
                 'benefits' => [
-                    'shipping' => 'Kostenloser Versand ab 49,99 €',
+                    'shipping' => 'Kostenloser Versand innerhalb Kroatiens ab 49,99 €',
                     'returns' => 'Rückgabe und Umtausch innerhalb von 14 Tagen',
                     'secure' => '100 % sichere Online-Zahlung',
                 ],

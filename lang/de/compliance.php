@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'delivery_time_de_at' => 'Lieferzeit: 5–7 Werktage ab Zahlungseingang',
     'price_changed' => 'Der Gesamtbetrag hat sich geändert. Bitte prüfen Sie die aktualisierte Bestellübersicht und bestätigen Sie Ihre Bestellung erneut.',
     'search' => 'Suchen',
     'withdraw' => 'Vertrag widerrufen',

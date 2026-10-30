@@ -282,6 +282,8 @@
                             @endforeach
                         </div>
 
+                        @include('front.partials.delivery-estimate')
+
                         <div class="mt-3 hidden border border-slate-200 bg-slate-50 p-3" data-boxnow-panel>
                             <input type="hidden" name="shipping_boxnow_locker_id" value="{{ $selectedBoxNowLockerId }}" data-boxnow-locker-id>
                             <input type="hidden" name="shipping_boxnow_locker_name" value="{{ $selectedBoxNowLockerName }}" data-boxnow-locker-name>

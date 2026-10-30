@@ -235,10 +235,38 @@ php artisan queue:restart
 - Corvus integracija obrađuje broj narudžbe, odobrenje, jezik i potpis te sprema cijeli primljeni callback u `order_transactions.payload.raw`. Iznos i valuta narudžbe šalju se Corvusu; iz toga se ne smije zaključiti da ih provider vraća. Točan popis opcionalnih produkcijskih polja treba provjeriti iz strukture stvarnog odgovora bez iznošenja vrijednosti ili kod Corvusa. Nema vlastitih polja webshopa za unos punog broja kartice ili CVV-a.
 - Rokovi hosting access/error zapisa i njihove rotacije nisu potvrđeni kodom projekta. Aplikacija podržava više log kanala; zadani `single` nema automatski rok brisanja, dok opcionalni `daily` ovisi o runtime postavkama. Ne predstavljati zadani broj iz alternativnog kanala kao potvrđeni produkcijski rok. IP adrese u bazi obrazaca/sesija zasebna su obrada.
 - Na produkciji je potvrđen naziv `PH_HPXY_CHECK`, sesijski kolačić sigurnosne infrastrukture. [Plusova deklaracija](https://plus.hr/pravne-informacije/koristenje-kolacica) navodi zaštitu od brute-force napada; nije dodatak aplikacijskom kodu.
-- Potvrda otpreme pokreće se statusom slanja i trenutačno nema broj pošiljke ni tracking URL. Dostavni rokovi za DE/AT, prijevoznik i izvor tracking podataka ostaju poslovni podaci koje treba dostaviti Bali. Objavljene hrvatske rokove ne treba automatski preslikati na DE/AT.
+- Potvrda otpreme pokreće se statusom slanja i trenutačno nema broj pošiljke ni tracking URL. Bali je naknadno potvrdio DE/AT rok 5–7 radnih dana od evidentiranja uplate i da će kroz kontrolnu kupnju s DPD-om provjeriti prijenos tracking podataka. Objavljene hrvatske rokove ne treba automatski preslikati na DE/AT.
 - Tea je potvrdila da dodatna GPSR upozorenja nisu potrebna te da sama priprema pravne tekstove i vodi dogovorene završne funkcionalne provjere. Pravni tekstovi i neaktivna DE/AT dostava ovim izmjenama nisu mijenjani.
 - Nakon povlačenja potrebna je završna mrežna provjera stvarne objavljene verzije, povezivanje HR feeda u Klaviyo računu i zasebni potpuni pregled pristupačnosti. Lokalni testovi ne potvrđuju vanjske payment zaslone niti stvarni primitak transakcijskih poruka.
 
 ### Provjera ovih dorada
 
 Prošlo je 146 ciljanih PHP testova (961 tvrdnja) i 18 JavaScript testova. Uspješni su produkcijski frontend build, kompilacija Blade predložaka i provjera izmjena. Ručno je u lokalnom pregledniku provjeren preskok na glavni sadržaj, otvaranje i zatvaranje desktop podizbornika tipkovnicom te mobilni izbornik na širini 320 px: početni fokus, Tab/Shift+Tab unutar izbornika i Escape s povratkom na gumb. Ispravljen je i slučaj kada Safari prijavljuje dimenzije skrivenih poveznica unutar zatvorenog `details` elementa.
+
+## Završne dorade i DE/AT dostava — 30. listopada 2026.
+
+Korisnik je potvrdio dostavu za Njemačku i Austriju od 10,00 € s PDV-om, besplatno od 80,00 € vrijednosti proizvoda s odredišnim PDV-om nakon popusta. Potvrđeni rok je `Lieferzeit: 5–7 Werktage ab Zahlungseingang`. Cjelovit audit pristupačnosti Bali organizira naknadno, a DPD tracking provjerava kroz vlastite kontrolne kupnje.
+
+- Blok komentara potpuno se preskače na njemačkoj naslovnici prije prikaza njegova naslova i pozadine. Hrvatski i engleski prikaz te zapisi komentara u bazi ostaju isti.
+- Rok dostave u oba checkout predloška prati stvarnu državu dostave, uključujući zasebnu adresu i promjene države. Prikazuje se za DE/AT, a hrvatski rokovi se ne prepisuju.
+- Njemačka općenita obavijest o besplatnoj dostavi od 49,99 € sada izričito navodi da vrijedi unutar Hrvatske.
+- Naredba za aktivaciju mijenja samo namjensku DE/AT metodu. Njena granica besplatne dostave koristi bruto vrijednost proizvoda nakon popusta, bez dostave i naknada za plaćanje. Postojeće metode zadržavaju svoju dosadašnju osnovicu.
+- Pouzeće provjerava geo zonu stvarne adrese dostave, pa hrvatska adresa računa ne može omogućiti HR pouzeće za DE/AT dostavu. Ostali načini plaćanja zadržavaju svoju provjeru prema adresi računa, a osobno preuzimanje postojeće pravilo.
+
+Prošlo je 88 ciljanih PHP testova (626 tvrdnji), 19 JavaScript testova, kompilacija Blade predložaka i provjera razlika. Pokrivene su granice 79,99 / 80,00 / 80,01 € za obje države, popusti, naknade, očuvanje HR obračuna, ponovljena aktivacija i odbijanje nevažećeg pouzeća.
+
+### Objavljivanje isključivo kroz Git
+
+Prije objave pregledati `git status` i razliku produkcijskog checkouta. Ne prepisivati lokalne serverske izmjene niti koristiti izravno uređivanje koda. Za ovu doradu nema nove migracije ni promjene ovisnosti ili generiranih frontend datoteka.
+
+```sh
+git pull --ff-only origin kozo
+php artisan optimize:clear
+php artisan storefront:activate-de-at-shipping
+php artisan klaviyo:refresh-catalogs
+php artisan view:cache
+php artisan queue:restart
+git log -1 --oneline
+```
+
+Na serveru prije ove objave potvrđen je commit `e31d741`. Jedina praćena lokalna razlika bila je promjena prava `storage/app/.gitignore` iz 100644 u 100755; ona se čuva i nije dio novih izmjena. Nakon objave potvrditi novi HEAD, javne HR/DE/AT kataloge, uklanjanje njemačkog bloka komentara, stvarni DE/AT izračun dostave i PDV-a te mrežno ponašanje odbijene, analitičke, marketinške i povučene privole. Kontrolne narudžbe s plaćanjem i primitkom potvrda provodi Bali.

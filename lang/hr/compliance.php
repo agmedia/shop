@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'delivery_time_de_at' => 'Rok dostave: 5–7 radnih dana od evidentiranja uplate.',
     'price_changed' => 'Ukupan iznos se promijenio. Provjerite ažurirani pregled i ponovno potvrdite narudžbu.',
     'search' => 'Pretraži',
     'withdraw' => 'Odustanak od ugovora',

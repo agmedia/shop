@@ -33,16 +33,25 @@ class CheckoutService
         ?string $countryCode = null,
         ?string $regionCode = null,
         ?string $postalCode = null,
-        ?string $shippingMethodCode = null
+        ?string $shippingMethodCode = null,
+        ?string $shippingCountryCode = null,
+        ?string $shippingRegionCode = null,
+        ?string $shippingPostalCode = null
     ): Collection {
         $zoneIds = $this->resolveGeoZoneIdsForAddress($countryCode, $regionCode, $postalCode);
+        $deliveryZoneIds = $shippingCountryCode !== null
+            ? $this->resolveGeoZoneIdsForAddress($shippingCountryCode, $shippingRegionCode, $shippingPostalCode)
+            : $zoneIds;
 
         $methods = PaymentMethod::query()
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
-            ->filter(fn (PaymentMethod $method) => $this->methodMatchesGeoZones($method->geo_zone_id, $zoneIds))
+            ->filter(fn (PaymentMethod $method) => $this->methodMatchesGeoZones(
+                $method->geo_zone_id,
+                $this->isCashOnDelivery($method) ? $deliveryZoneIds : $zoneIds
+            ))
             ->filter(fn (PaymentMethod $method) => $this->subtotalFits($subtotal, $method->min_subtotal, $method->max_subtotal))
             ->filter(fn (PaymentMethod $method) => $this->paymentMatchesShippingMethod($method, $shippingMethodCode))
             ->values();
@@ -117,7 +126,10 @@ class CheckoutService
             $billingCountryCode,
             $billingRegionCode,
             $billingPostalCode,
-            $shippingMethod?->code
+            $shippingMethod?->code,
+            $shippingCountryCode,
+            $shippingRegionCode,
+            $shippingPostalCode
         )
             ->firstWhere('code', (string) ($payload['payment_method_code'] ?? ''));
 
@@ -142,7 +154,7 @@ class CheckoutService
             }
         }
 
-        $shippingTotal = $this->resolveShippingTotal($shippingMethod, $subtotalAfterDiscount);
+        $shippingTotal = $this->resolveShippingTotal($shippingMethod, $subtotalAfterDiscount, $taxTotal);
         $paymentFeeTotal = $this->resolvePaymentFeeTotal($paymentMethod, $subtotalAfterDiscount);
         $grossShippingTotal = $shippingTotal;
         $grossPaymentFeeTotal = $paymentFeeTotal;
@@ -398,6 +410,14 @@ class CheckoutService
         return true;
     }
 
+    private function isCashOnDelivery(PaymentMethod $paymentMethod): bool
+    {
+        $codes = ['cod', 'cash_on_delivery'];
+
+        return in_array(strtolower(trim((string) $paymentMethod->code)), $codes, true)
+            || in_array(strtolower(trim((string) $paymentMethod->provider)), $codes, true);
+    }
+
     private function paymentMatchesShippingMethod(PaymentMethod $paymentMethod, ?string $shippingMethodCode): bool
     {
         if (strtolower(trim((string) $shippingMethodCode)) !== 'pickup') {
@@ -410,12 +430,16 @@ class CheckoutService
             || in_array(strtolower(trim((string) $paymentMethod->provider)), $prepaidMethods, true);
     }
 
-    private function resolveShippingTotal(ShippingMethod $shippingMethod, float $subtotal): float
+    private function resolveShippingTotal(ShippingMethod $shippingMethod, float $subtotal, float $goodsTaxTotal): float
     {
         $price = (float) $shippingMethod->price;
         $freeOver = is_numeric($shippingMethod->free_over) ? (float) $shippingMethod->free_over : null;
+        // Opt-in thresholds use discounted goods with destination VAT, before any delivery/payment fees.
+        $thresholdSubtotal = data_get($shippingMethod->settings, 'free_over_basis') === 'gross'
+            ? round($subtotal + $goodsTaxTotal, 2)
+            : $subtotal;
 
-        if ($freeOver !== null && $freeOver >= 0 && $subtotal >= $freeOver) {
+        if ($freeOver !== null && $freeOver >= 0 && $thresholdSubtotal >= $freeOver) {
             return 0.0;
         }
 
@@ -503,7 +527,10 @@ class CheckoutService
             $billingCountryCode,
             $billingRegionCode,
             $billingPostalCode,
-            $shippingMethod?->code
+            $shippingMethod?->code,
+            $shippingCountryCode,
+            $shippingRegionCode,
+            $shippingPostalCode
         )->firstWhere('code', (string) $paymentMethodCode);
         if (! $paymentMethod) {
             $paymentMethod = $this->availablePaymentMethods(
@@ -511,11 +538,14 @@ class CheckoutService
                 $billingCountryCode,
                 $billingRegionCode,
                 $billingPostalCode,
-                $shippingMethod?->code
+                $shippingMethod?->code,
+                $shippingCountryCode,
+                $shippingRegionCode,
+                $shippingPostalCode
             )->first();
         }
 
-        $shippingTotal = $shippingMethod ? $this->resolveShippingTotal($shippingMethod, $subtotalAfterDiscount) : 0.0;
+        $shippingTotal = $shippingMethod ? $this->resolveShippingTotal($shippingMethod, $subtotalAfterDiscount, $taxTotal) : 0.0;
         $paymentFeeTotal = $paymentMethod ? $this->resolvePaymentFeeTotal($paymentMethod, $subtotalAfterDiscount) : 0.0;
         if (in_array(strtoupper((string) $shippingCountryCode), ['DE', 'AT'], true)) {
             $feeRate = $this->feeTaxRate($subtotalAfterDiscount, $taxTotal, $shippingCountryCode);

@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'delivery_time_de_at' => 'Delivery time: 5–7 working days after payment is received.',
     'price_changed' => 'The total has changed. Please review the updated order summary and confirm your order again.',
     'search' => 'Search',
     'withdraw' => 'Withdraw from contract',
