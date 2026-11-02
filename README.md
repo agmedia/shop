@@ -275,6 +275,7 @@ Na serveru prije ove objave potvrđen je commit `e31d741`. Jedina praćena lokal
 
 - Checkout prikazuje bruto cijene proizvoda, međuzbroj, popuste, dostavu i naknade. PDV je posebno označen kao već uključen u cijenu; promjena države osvježava i iznose i stopu PDV-a. Računanje i spremljeni neto iznosi narudžbe ostaju isti.
 - Države u checkoutu ograničene su na HR, DE i AT, uz provjeru izravnih zahtjeva. Velika obavijest o jamstvu zamijenjena je vidljivom poveznicom na istu službenu sliku prije završnog gumba.
+- Za njemački jezik početna država checkouta je Njemačka, uključujući početni PDV i izračun dostave. Valjane spremljene adrese i izričito odabrane države imaju prednost. Hrvatski i engleski zadržavaju dosadašnju početnu Hrvatsku. Hrvatski adresar popunjava podatke samo uz odabran HR i ne vraća DE/AT adresu na Hrvatsku.
 - Boje na PDP-u i kataloškim filtrima koriste izvornu oznaku boje, uz prednost učitanih swatch slika. Nepoznate boje više ne dobivaju nasumičnu nijansu. Verzija cachea kataloga je promijenjena.
 - Dopunjeni su DE tekstovi prijave/registracije, modala košarice, podnožja i potvrde narudžbe. DE podnožje navodi prag od 80 €. Prikaz bankovnog opisa i statusa je lokaliziran, bez izmjene IBAN-a, modela, reference, iznosa, QR-a ili spremljenih podataka.
 - Na njemačkim informativnim stranicama poznati markeri `FUNKTIONSLINK` prikazuju poveznice za odustanak i povrat te gumb za postavke kolačića. Izvorni pravni tekstovi u bazi ne prepisuju se. Gumb koristi postojeće odgođeno učitavanje CMP-a i ne daje privolu.

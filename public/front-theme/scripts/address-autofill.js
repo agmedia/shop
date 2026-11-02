@@ -51,8 +51,6 @@
     var cityInput = scope.querySelector('[data-address-city]');
     var postalInput = scope.querySelector('[data-address-postal]');
     var countySelect = scope.querySelector('[data-address-county]');
-    var stateSelect = scope.querySelector('[data-state-select]');
-    var stateInput = scope.querySelector('[data-state-input]');
     var countrySelect = scope.querySelector('[data-address-country]');
 
     if (!cityInput || !postalInput) {
@@ -60,9 +58,14 @@
     }
 
     var lock = false;
+    var autoFilledFields = [];
+
+    function isCroatianAddress() {
+      return countrySelect && String(countrySelect.value || '').trim().toUpperCase() === 'HR';
+    }
 
     function applyPlace(place) {
-      if (!place || lock) {
+      if (!isCroatianAddress() || !place || lock) {
         return;
       }
 
@@ -76,16 +79,19 @@
         postalInput.value = place.postal_code || postalInput.value;
       }
 
-      if (countrySelect && place.country_code) {
-        countrySelect.value = place.country_code;
-        countrySelect.dispatchEvent(new Event('change', { bubbles: true }));
-      }
+      autoFilledFields = [
+        { node: cityInput, value: cityInput.value },
+        { node: postalInput, value: postalInput.value }
+      ];
 
       if (countySelect && place.county) {
-        setSelectValue(countySelect, place.county);
+        if (setSelectValue(countySelect, place.county)) {
+          autoFilledFields.push({ node: countySelect, value: countySelect.value });
+        }
         countySelect.dispatchEvent(new Event('change', { bubbles: true }));
       }
 
+      countrySelect.dispatchEvent(new Event('change', { bubbles: true }));
       lock = false;
     }
 
@@ -111,37 +117,21 @@
       }) || null;
     }
 
-    function clearAddressFieldsForNonHr() {
-      if (!countrySelect) {
+    function clearStaleAutofill() {
+      if (isCroatianAddress()) {
         return;
       }
 
-      if (String(countrySelect.value || '').toUpperCase() === 'HR') {
-        return;
-      }
-
-      if (postalInput) {
-        postalInput.value = '';
-        postalInput.dispatchEvent(new Event('input', { bubbles: true }));
-        postalInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-
-      if (cityInput) {
-        cityInput.value = '';
-        cityInput.dispatchEvent(new Event('input', { bubbles: true }));
-        cityInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-
-      if (stateSelect) {
-        stateSelect.value = '';
-        stateSelect.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-
-      if (stateInput) {
-        stateInput.value = '';
-        stateInput.dispatchEvent(new Event('input', { bubbles: true }));
-        stateInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
+      var staleFields = autoFilledFields;
+      autoFilledFields = [];
+      staleFields.forEach(function (field) {
+        // Remove only untouched suggestions; preserve addresses entered by the customer.
+        if (field.node.value === field.value) {
+          field.node.value = '';
+          field.node.dispatchEvent(new Event('input', { bubbles: true }));
+          field.node.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
     }
 
     cityInput.addEventListener('change', function () {
@@ -166,7 +156,7 @@
 
     if (countrySelect) {
       countrySelect.addEventListener('change', function () {
-        clearAddressFieldsForNonHr();
+        clearStaleAutofill();
       });
     }
   }

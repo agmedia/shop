@@ -50,9 +50,10 @@ class CheckoutController extends Controller
         $user = $request->user();
         $user?->loadMissing(['profile', 'addresses']);
 
+        $defaultCountry = $this->checkoutCountryOrDefault(null);
         $billing = $user?->addresses?->firstWhere('type', UserAddress::TYPE_BILLING);
         $shipping = $user?->addresses?->firstWhere('type', UserAddress::TYPE_SHIPPING);
-        $shippingCountry = $this->checkoutCountryOrDefault($shipping?->country_code ?: $billing?->country_code ?: 'HR');
+        $shippingCountry = $this->checkoutCountryOrDefault($shipping?->country_code ?: $billing?->country_code ?: $defaultCountry);
         $shippingState = (string) ($shipping?->state ?: $billing?->state ?: '');
         $shippingPostal = (string) ($shipping?->postal_code ?: $billing?->postal_code ?: '');
         $billingCountry = $this->checkoutCountryOrDefault($billing?->country_code ?: $shippingCountry);
@@ -140,7 +141,7 @@ class CheckoutController extends Controller
                     'postal_code' => (string) ($billing?->postal_code ?? ''),
                     'city' => (string) ($billing?->city ?? ''),
                     'state' => (string) ($billing?->state ?? ''),
-                    'country_code' => $this->checkoutCountryOrDefault($billing?->country_code ?? 'HR'),
+                    'country_code' => $this->checkoutCountryOrDefault($billing?->country_code ?? $defaultCountry),
                 ],
                 'shipping' => [
                     'first_name' => (string) ($shipping?->first_name ?? ''),
@@ -153,7 +154,7 @@ class CheckoutController extends Controller
                     'postal_code' => (string) ($shipping?->postal_code ?? ''),
                     'city' => (string) ($shipping?->city ?? ''),
                     'state' => (string) ($shipping?->state ?? ''),
-                    'country_code' => $this->checkoutCountryOrDefault($shipping?->country_code ?? 'HR'),
+                    'country_code' => $this->checkoutCountryOrDefault($shipping?->country_code ?? $defaultCountry),
                 ],
             ],
         ]);
@@ -342,7 +343,7 @@ class CheckoutController extends Controller
             'billing_country_code.in' => __('compliance.checkout_country_unavailable'),
             'shipping_country_code.in' => __('compliance.checkout_country_unavailable'),
         ])->validate();
-        $billingCountry = (string) ($countries['billing_country_code'] ?? 'HR');
+        $billingCountry = (string) ($countries['billing_country_code'] ?? $this->checkoutCountryOrDefault(null));
         $billingState = (string) $request->query('billing_state', '');
         $billingPostal = (string) $request->query('billing_postal_code', '');
 
@@ -873,7 +874,9 @@ class CheckoutController extends Controller
     {
         $countryCode = is_string($countryCode) ? strtoupper(trim($countryCode)) : '';
 
-        return in_array($countryCode, self::CHECKOUT_COUNTRIES, true) ? $countryCode : 'HR';
+        return in_array($countryCode, self::CHECKOUT_COUNTRIES, true)
+            ? $countryCode
+            : (app()->getLocale() === 'de' ? 'DE' : 'HR');
     }
 
     private function resolveCorvusOrderNumber(Request $request): string

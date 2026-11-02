@@ -111,6 +111,69 @@ class CheckoutCountryRestrictionTest extends TestCase
         $this->getJson('/checkout/options')->assertOk()->assertJsonPath('totals.shipping_method_code', 'standard');
     }
 
+    #[DataProvider('localeDefaults')]
+    public function test_checkout_country_and_initial_vat_follow_the_language_default_on_both_templates(string $locale, string $country, bool $mobile): void
+    {
+        config(['app.locale' => $locale]);
+        app()->setLocale($locale);
+        app(SystemSettingsService::class)->put('catalog_use_mobile_view', $mobile);
+        $response = $this->withHeader('User-Agent', $mobile ? 'Mozilla/5.0 iPhone Mobile' : 'Mozilla/5.0 Macintosh')
+            ->get('/checkout')->assertOk()
+            ->assertViewHas('selectedCountryCodes', ['billing' => $country, 'shipping' => $country])
+            ->assertViewHas('prefill', fn ($prefill) => $prefill['billing']['country_code'] === $country && $prefill['shipping']['country_code'] === $country);
+
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="utf-8" ?>'.$response->getContent());
+        $xpath = new \DOMXPath($dom);
+        foreach (['billing_country_code', 'shipping_country_code'] as $field) {
+            $this->assertSame($country, $xpath->evaluate('string(//select[@name="'.$field.'"]/option[@selected]/@value)'));
+        }
+        $this->assertSame($country === 'DE' ? 23.8 : 25.0, $response->viewData('displayPricing')['subtotal']);
+        $this->getJson('/checkout/options')->assertOk()
+            ->assertJsonPath('display_pricing.subtotal', $country === 'DE' ? 23.8 : 25);
+    }
+
+    public static function localeDefaults(): array
+    {
+        return [
+            'German desktop' => ['de', 'DE', false], 'German mobile' => ['de', 'DE', true],
+            'Croatian desktop' => ['hr', 'HR', false], 'Croatian mobile' => ['hr', 'HR', true],
+            'English desktop' => ['en', 'HR', false], 'English mobile' => ['en', 'HR', true],
+        ];
+    }
+
+    public function test_german_language_preserves_explicit_countries_and_their_vat(): void
+    {
+        config(['app.locale' => 'de']);
+        app()->setLocale('de');
+        $this->withSession(['_old_input' => [
+            'billing_country_code' => 'AT', 'shipping_country_code' => 'HR', 'ship_to_different_address' => '1',
+        ]])->get('/checkout')->assertOk()
+            ->assertViewHas('selectedCountryCodes', ['billing' => 'AT', 'shipping' => 'HR'])
+            ->assertViewHas('displayPricing', fn ($pricing) => $pricing['subtotal'] === 25.0);
+        $this->getJson('/checkout/options?billing_country_code=AT&shipping_country_code=AT&ship_to_different_address=1')
+            ->assertOk()->assertJsonPath('display_pricing.subtotal', 24);
+    }
+
+    public function test_german_language_keeps_saved_supported_address_countries(): void
+    {
+        config(['app.locale' => 'de']);
+        app()->setLocale('de');
+        $user = User::factory()->create();
+        foreach ([UserAddress::TYPE_BILLING => 'HR', UserAddress::TYPE_SHIPPING => 'AT'] as $type => $country) {
+            UserAddress::query()->create([
+                'user_id' => $user->id, 'type' => $type, 'first_name' => 'Test', 'last_name' => 'Customer',
+                'address_line_1' => 'Test street 1', 'postal_code' => '10000', 'city' => 'Test', 'country_code' => $country,
+            ]);
+        }
+        $this->actingAs($user)->get('/checkout')->assertOk()
+            ->assertViewHas('selectedCountryCodes', ['billing' => 'HR', 'shipping' => 'AT'])
+            ->assertViewHas('displayPricing', fn ($pricing) => $pricing['subtotal'] === 25.0);
+        foreach ([UserAddress::TYPE_BILLING => 'HR', UserAddress::TYPE_SHIPPING => 'AT'] as $type => $country) {
+            $this->assertDatabaseHas('user_addresses', ['user_id' => $user->id, 'type' => $type, 'country_code' => $country]);
+        }
+    }
+
     public function test_create_filters_country_options_and_sanitizes_invalid_old_countries(): void
     {
         $this->withSession(['_old_input' => [
