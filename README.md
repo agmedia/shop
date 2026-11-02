@@ -270,3 +270,20 @@ git log -1 --oneline
 ```
 
 Na serveru prije ove objave potvrđen je commit `e31d741`. Jedina praćena lokalna razlika bila je promjena prava `storage/app/.gitignore` iz 100644 u 100755; ona se čuva i nije dio novih izmjena. Nakon objave potvrditi novi HEAD, javne HR/DE/AT kataloge, uklanjanje njemačkog bloka komentara, stvarni DE/AT izračun dostave i PDV-a te mrežno ponašanje odbijene, analitičke, marketinške i povučene privole. Kontrolne narudžbe s plaćanjem i primitkom potvrda provodi Bali.
+
+## Dorade prema prve tri stranice maila — 2. studenoga 2026.
+
+- Checkout prikazuje bruto cijene proizvoda, međuzbroj, popuste, dostavu i naknade. PDV je posebno označen kao već uključen u cijenu; promjena države osvježava i iznose i stopu PDV-a. Računanje i spremljeni neto iznosi narudžbe ostaju isti.
+- Države u checkoutu ograničene su na HR, DE i AT, uz provjeru izravnih zahtjeva. Velika obavijest o jamstvu zamijenjena je vidljivom poveznicom na istu službenu sliku prije završnog gumba.
+- Boje na PDP-u i kataloškim filtrima koriste izvornu oznaku boje, uz prednost učitanih swatch slika. Nepoznate boje više ne dobivaju nasumičnu nijansu. Verzija cachea kataloga je promijenjena.
+- Dopunjeni su DE tekstovi prijave/registracije, modala košarice, podnožja i potvrde narudžbe. DE podnožje navodi prag od 80 €. Prikaz bankovnog opisa i statusa je lokaliziran, bez izmjene IBAN-a, modela, reference, iznosa, QR-a ili spremljenih podataka.
+- Na njemačkim informativnim stranicama poznati markeri `FUNKTIONSLINK` prikazuju poveznice za odustanak i povrat te gumb za postavke kolačića. Izvorni pravni tekstovi u bazi ne prepisuju se. Gumb koristi postojeće odgođeno učitavanje CMP-a i ne daje privolu.
+
+Prošlo je 141 ciljanih PHP testova (1213 tvrdnji) i 26 JavaScript testova. Nema nove migracije ni konfiguracijske naredbe za ove dorade. Nakon povlačenja osvježiti cache i radnike prema postojećem Git postupku:
+
+```sh
+git pull --ff-only origin kozo
+php artisan optimize:clear
+php artisan view:cache
+php artisan queue:restart
+```

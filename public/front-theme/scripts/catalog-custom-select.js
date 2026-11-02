@@ -30,70 +30,12 @@
         button.classList.toggle('is-placeholder', isPlaceholder);
     };
 
-    const normalizeSwatchKey = (value) => String(value || '')
-        .trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '');
-
-    const swatchFromLabel = (label) => {
-        const key = normalizeSwatchKey(label);
-
-        const map = new Map([
-            [['crna', 'black'], 'background:#050505;'],
-            [['bijela', 'white'], 'background:#fcfcfc;'],
-            [['crvena', 'red'], 'background:#d62828;'],
-            [['siva', 'gray', 'grey'], 'background:#8f96a3;'],
-            [['tamno plava', 'tamno-plava', 'dark blue', 'navy'], 'background:#1e3a8a;'],
-            [['boja koze', 'boja-koze', 'nude', 'skin'], 'background:#d2a181;'],
-            [['kokos'], 'background:linear-gradient(135deg, #ceb08f 0%, #b98d62 48%, #7b5637 100%);'],
-            [['geometric'], 'background:linear-gradient(135deg, #101828 0 28%, #e11d48 28% 50%, #f8fafc 50% 62%, #101828 62% 100%);'],
-            [['squares'], 'background:linear-gradient(45deg, #111827 25%, #f8fafc 25% 50%, #111827 50% 75%, #f8fafc 75% 100%);background-size:12px 12px;'],
-            [['web'], 'background:radial-gradient(circle at center, transparent 0 11px, rgba(15,23,42,.18) 11px 12px, transparent 12px), repeating-linear-gradient(45deg, #111827 0 2px, transparent 2px 8px), #f8fafc;'],
-            [['red flowers'], 'background:radial-gradient(circle at 30% 35%, #fca5a5 0 18%, transparent 19%), radial-gradient(circle at 72% 68%, #ef4444 0 16%, transparent 17%), linear-gradient(135deg, #fff1f2 0%, #fecdd3 100%);'],
-            [['black roses'], 'background:radial-gradient(circle at 30% 35%, #fbcfe8 0 18%, transparent 19%), radial-gradient(circle at 72% 68%, #111827 0 16%, transparent 17%), linear-gradient(135deg, #111827 0%, #475569 100%);'],
-            [['butterfly'], 'background:linear-gradient(135deg, #fb7185 0%, #fecdd3 35%, #111827 35% 45%, #fecdd3 45% 65%, #e11d48 65% 100%);'],
-            [['footprint'], 'background:radial-gradient(circle at 30% 30%, #111827 0 13%, transparent 14%), radial-gradient(circle at 52% 52%, #111827 0 10%, transparent 11%), radial-gradient(circle at 70% 28%, #111827 0 7%, transparent 8%), linear-gradient(135deg, #f1e3d3 0%, #d4b08b 100%);'],
-            [['stars'], 'background:radial-gradient(circle at 22% 28%, #fef08a 0 6%, transparent 7%), radial-gradient(circle at 68% 36%, #fff7ae 0 5%, transparent 6%), radial-gradient(circle at 48% 70%, #fef08a 0 6%, transparent 7%), #1d4ed8;'],
-        ]);
-
-        for (const [aliases, style] of map.entries()) {
-            if (aliases.includes(key)) {
-                return style;
-            }
-        }
-
-        if (key.includes('karirano') && key.includes('crvena')) {
-            return 'background:repeating-linear-gradient(45deg, rgba(17,24,39,.45) 0 2px, transparent 2px 8px), repeating-linear-gradient(-45deg, rgba(17,24,39,.45) 0 2px, transparent 2px 8px), #dc2626;background-size:12px 12px;';
-        }
-
-        if (key.includes('karirano') && (key.includes('crna') || key.includes('black'))) {
-            return 'background:repeating-linear-gradient(45deg, rgba(248,250,252,.45) 0 2px, transparent 2px 8px), repeating-linear-gradient(-45deg, rgba(248,250,252,.45) 0 2px, transparent 2px 8px), #111827;background-size:12px 12px;';
-        }
-
-        const palette = [
-            ['#111827', '#475569'],
-            ['#7c2d12', '#fb923c'],
-            ['#1d4ed8', '#38bdf8'],
-            ['#6d28d9', '#c084fc'],
-            ['#be123c', '#fda4af'],
-            ['#166534', '#86efac'],
-        ];
-        let hash = 0;
-        for (let index = 0; index < key.length; index += 1) {
-            hash = ((hash << 5) - hash) + key.charCodeAt(index);
-            hash |= 0;
-        }
-        const [start, end] = palette[Math.abs(hash) % palette.length];
-
-        return `background:linear-gradient(135deg, ${start} 0%, ${end} 100%);`;
-    };
-
     const applySwatchStyle = (swatch, option) => {
         const imageUrl = String(option.dataset.filterSwatch || '').trim();
 
         if (imageUrl !== '') {
             swatch.style.cssText = '';
+            swatch.textContent = '';
             swatch.style.backgroundImage = `url("${imageUrl.replace(/"/g, '\\"')}")`;
             swatch.style.backgroundSize = 'cover';
             swatch.style.backgroundPosition = 'center';
@@ -102,7 +44,11 @@
             return;
         }
 
-        swatch.style.cssText = swatchFromLabel(option.textContent || '');
+        const style = String(option.dataset.filterSwatchStyle || '').trim();
+        swatch.style.cssText = style;
+        swatch.textContent = style === '' ? '?' : '';
+        swatch.style.alignItems = 'center';
+        swatch.style.justifyContent = 'center';
     };
 
     const buildCustomSelect = (select) => {

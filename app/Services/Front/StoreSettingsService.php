@@ -400,6 +400,19 @@ class StoreSettingsService
                 $fallbackLocale
             )));
 
+            if ($locale === 'de') {
+                foreach ($links as &$link) {
+                    $path = trim((string) parse_url($link['url'], PHP_URL_PATH), '/');
+                    if (
+                        in_array($path, ['forma-za-povrat-i-reklamacije', 'returns-and-claims', 'rucksendungen-und-reklamationen'], true)
+                        && in_array(trim($link['label']), ['Obrazac za povrat', 'Returns and claims form', 'Return form', 'Rückgabeformular'], true)
+                    ) {
+                        $link['label'] = (string) __('ui.front.desktop.footer.return_form');
+                    }
+                }
+                unset($link);
+            }
+
             $result[] = [
                 'title' => $title,
                 'links' => $links,

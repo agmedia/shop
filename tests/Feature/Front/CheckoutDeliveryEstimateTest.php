@@ -62,8 +62,8 @@ class CheckoutDeliveryEstimateTest extends TestCase
         };
         $this->assertSame($expected, $notes->item(0)->textContent);
         if ($locale === 'de' && $device === 'desktop') {
-            $response->assertSee('Kostenloser Versand innerhalb Kroatiens ab 49,99 €')
-                ->assertDontSee('Kostenloser Versand ab 49,99 €');
+            $response->assertSee('Kostenloser Versand nach Deutschland und Österreich ab 80 €')
+                ->assertDontSee('Kostenloser Versand innerhalb Kroatiens ab 49,99 €');
         }
     }
 

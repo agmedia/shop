@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'checkout_country_unavailable' => 'Please select Croatia, Germany or Austria.',
+    'tax_included' => 'Included VAT',
+    'tax_included_rate' => 'Included VAT (:rate %)',
+    'warranty_link' => 'Legal guarantee – view information',
     'delivery_time_de_at' => 'Delivery time: 5–7 working days after payment is received.',
     'price_changed' => 'The total has changed. Please review the updated order summary and confirm your order again.',
     'search' => 'Search',

@@ -23,7 +23,7 @@
             <h4 class="mb-3">{{ __('ui.checkout.success.summary') }}</h4>
             <div class="d-flex mb-2">
                 <span class="font-13 opacity-70">{{ __('ui.checkout.success.status') }}</span>
-                <span class="ms-auto font-600">{{ $order->status?->name ?? __('ui.checkout.success.status_fallback_new') }}</span>
+                <span class="ms-auto font-600">{{ \App\Support\CheckoutSuccessCopy::status($order->status?->name) }}</span>
             </div>
             <div class="d-flex mb-2">
                 <span class="font-13 opacity-70">{{ __('ui.checkout.success.items') }}</span>
@@ -79,7 +79,7 @@
                     <div><strong>{{ __('ui.checkout.success.bank_model') }}:</strong> {{ $bankTransfer['model'] ?? '-' }}</div>
                     <div><strong>{{ __('ui.checkout.success.bank_reference') }}:</strong> {{ $bankTransfer['reference'] ?? '-' }}</div>
                     <div><strong>{{ __('ui.checkout.success.bank_amount') }}:</strong> {{ $order->currency_code }} {{ number_format((float) ($bankTransfer['amount'] ?? 0), 2) }}</div>
-                    <div><strong>{{ __('ui.checkout.success.bank_description') }}:</strong> {{ $bankTransfer['description'] ?? '-' }}</div>
+                    <div><strong>{{ __('ui.checkout.success.bank_description') }}:</strong> {{ \App\Support\CheckoutSuccessCopy::bankDescription($bankTransfer['description'] ?? null) }}</div>
                 </div>
 
                 @if (!empty($bankTransfer['qr_image_base64']))

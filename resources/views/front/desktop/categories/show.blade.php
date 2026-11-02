@@ -1486,7 +1486,7 @@
                     <select name="{{ $filterOption['query_key'] }}" class="catalog-filter-select catalog-filter-inline-select h-9 w-full rounded-none border-slate-300 text-sm" data-auto-submit-filter @if($isCompositionFilter) data-filter-kind="composition" @elseif($isColorFilter) data-filter-kind="color" @endif>
                         <option value="">{{ $filterOption['label'] }}</option>
                         @foreach (($filterOption['values'] ?? []) as $value)
-                            <option value="{{ $value['id'] }}" @selected((string) ($filterOption['selected'] ?? '') === (string) $value['id']) @if($isColorFilter) data-filter-count="{{ (int) ($value['count'] ?? 0) }}" @if(!empty($value['swatch_image_url'])) data-filter-swatch="{{ $value['swatch_image_url'] }}" @endif @endif>
+                            <option value="{{ $value['id'] }}" @selected((string) ($filterOption['selected'] ?? '') === (string) $value['id']) @if($isColorFilter) data-filter-count="{{ (int) ($value['count'] ?? 0) }}" data-filter-swatch-style="{{ $value['swatch_style'] ?? '' }}" @if(!empty($value['swatch_image_url'])) data-filter-swatch="{{ $value['swatch_image_url'] }}" @endif @endif>
                                 {{ $value['label'] }}
                             </option>
                         @endforeach

@@ -406,6 +406,7 @@ return [
             'place_order' => 'Naruči',
         ],
         'shipping_methods' => [
+            'standard_eu' => 'DPD – Njemačka i Austrija',
             'standard' => 'Dostava DPD Hrvatska - Besplatna dostava za narudžbe iznad 50 €',
             'pickup' => 'Preuzimanje u trgovini (Hrupine 19, 40323, Prelog, Croatia)',
         ],
@@ -505,6 +506,7 @@ return [
             'bank_reference' => 'Poziv na broj',
             'bank_amount' => 'Iznos',
             'bank_description' => 'Opis plaćanja',
+            'bank_description_order' => 'Web narudžba',
             'bank_qr_alt' => 'UPI QR kod za uplatu',
             'boxnow_title' => 'BOX NOW paketomat',
             'boxnow_locker' => 'Paketomat',

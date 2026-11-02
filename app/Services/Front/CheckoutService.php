@@ -547,6 +547,8 @@ class CheckoutService
 
         $shippingTotal = $shippingMethod ? $this->resolveShippingTotal($shippingMethod, $subtotalAfterDiscount, $taxTotal) : 0.0;
         $paymentFeeTotal = $paymentMethod ? $this->resolvePaymentFeeTotal($paymentMethod, $subtotalAfterDiscount) : 0.0;
+        $grossShippingTotal = $shippingTotal;
+        $grossPaymentFeeTotal = $paymentFeeTotal;
         if (in_array(strtoupper((string) $shippingCountryCode), ['DE', 'AT'], true)) {
             $feeRate = $this->feeTaxRate($subtotalAfterDiscount, $taxTotal, $shippingCountryCode);
             $netShipping = round($shippingTotal / (1 + $feeRate), 2);
@@ -564,6 +566,8 @@ class CheckoutService
             'tax_total' => round($taxTotal, 2),
             'shipping_total' => round($shippingTotal, 2),
             'payment_fee_total' => round($paymentFeeTotal, 2),
+            'shipping_gross' => round($grossShippingTotal, 2),
+            'payment_fee_gross' => round($grossPaymentFeeTotal, 2),
             'grand_total' => $grandTotal,
             'shipping_method_code' => (string) ($shippingMethod?->code ?? ''),
             'payment_method_code' => (string) ($paymentMethod?->code ?? ''),

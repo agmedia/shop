@@ -6,6 +6,7 @@ use App\Models\Catalog\Option\Option;
 use App\Models\Catalog\Option\OptionValue;
 use App\Models\Catalog\Product\Product;
 use App\Services\Catalog\CatalogFeatureService;
+use App\Support\ProductColorSwatch;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -56,7 +57,7 @@ class ProductColorVariantService
                 }
 
                 $label = $this->valueLabel($colorValue, $locale, $fallbackLocale);
-                $colorKey = $this->normalizeSwatchKey($label);
+                $colorKey = $this->normalizeSwatchKey((string) $colorValue->code);
                 if ($colorKey === '') {
                     $colorKey = 'value-'.$colorValue->id;
                 }
@@ -71,7 +72,7 @@ class ProductColorVariantService
                     'is_current' => (int) $variantProduct->id === (int) $product->id,
                     'sort_order' => (int) ($colorValue->sort_order ?? 0),
                     'swatch_image_url' => $this->swatchImageUrl($colorValue),
-                    'swatch_style' => $this->swatchStyle($label),
+                    'swatch_style' => ProductColorSwatch::style($colorValue),
                 ];
             })
             ->filter()
@@ -345,63 +346,6 @@ class ProductColorVariantService
         }
 
         return Storage::disk('public')->url($path);
-    }
-
-    private function swatchStyle(string $label): string
-    {
-        $key = $this->normalizeSwatchKey($label);
-        $styles = [
-            'crna' => 'background:#050505;',
-            'black' => 'background:#050505;',
-            'bijela' => 'background:#fcfcfc;',
-            'white' => 'background:#fcfcfc;',
-            'crvena' => 'background:#d62828;',
-            'red' => 'background:#d62828;',
-            'siva' => 'background:#8f96a3;',
-            'gray' => 'background:#8f96a3;',
-            'grey' => 'background:#8f96a3;',
-            'tamno plava' => 'background:#1e3a8a;',
-            'tamno-plava' => 'background:#1e3a8a;',
-            'dark blue' => 'background:#1e3a8a;',
-            'navy' => 'background:#1e3a8a;',
-            'boja koze' => 'background:#d2a181;',
-            'boja-koze' => 'background:#d2a181;',
-            'nude' => 'background:#d2a181;',
-            'skin' => 'background:#d2a181;',
-            'kokos' => 'background:linear-gradient(135deg, #ceb08f 0%, #b98d62 48%, #7b5637 100%);',
-            'geometric' => 'background:linear-gradient(135deg, #101828 0 28%, #e11d48 28% 50%, #f8fafc 50% 62%, #101828 62% 100%);',
-            'squares' => 'background:linear-gradient(45deg, #111827 25%, #f8fafc 25% 50%, #111827 50% 75%, #f8fafc 75% 100%);background-size:12px 12px;',
-            'web' => 'background:radial-gradient(circle at center, transparent 0 11px, rgba(15,23,42,.18) 11px 12px, transparent 12px), repeating-linear-gradient(45deg, #111827 0 2px, transparent 2px 8px), #f8fafc;',
-            'red flowers' => 'background:radial-gradient(circle at 30% 35%, #fca5a5 0 18%, transparent 19%), radial-gradient(circle at 72% 68%, #ef4444 0 16%, transparent 17%), linear-gradient(135deg, #fff1f2 0%, #fecdd3 100%);',
-            'black roses' => 'background:radial-gradient(circle at 30% 35%, #fbcfe8 0 18%, transparent 19%), radial-gradient(circle at 72% 68%, #111827 0 16%, transparent 17%), linear-gradient(135deg, #111827 0%, #475569 100%);',
-            'butterfly' => 'background:linear-gradient(135deg, #fb7185 0%, #fecdd3 35%, #111827 35% 45%, #fecdd3 45% 65%, #e11d48 65% 100%);',
-            'footprint' => 'background:radial-gradient(circle at 30% 30%, #111827 0 13%, transparent 14%), radial-gradient(circle at 52% 52%, #111827 0 10%, transparent 11%), radial-gradient(circle at 70% 28%, #111827 0 7%, transparent 8%), linear-gradient(135deg, #f1e3d3 0%, #d4b08b 100%);',
-            'stars' => 'background:radial-gradient(circle at 22% 28%, #fef08a 0 6%, transparent 7%), radial-gradient(circle at 68% 36%, #fff7ae 0 5%, transparent 6%), radial-gradient(circle at 48% 70%, #fef08a 0 6%, transparent 7%), #1d4ed8;',
-        ];
-
-        if (isset($styles[$key])) {
-            return $styles[$key];
-        }
-
-        if (Str::contains($key, 'karirano') && Str::contains($key, 'crvena')) {
-            return 'background:repeating-linear-gradient(45deg, rgba(17,24,39,.45) 0 2px, transparent 2px 8px), repeating-linear-gradient(-45deg, rgba(17,24,39,.45) 0 2px, transparent 2px 8px), #dc2626;background-size:12px 12px;';
-        }
-
-        if (Str::contains($key, 'karirano') && (Str::contains($key, 'crna') || Str::contains($key, 'black'))) {
-            return 'background:repeating-linear-gradient(45deg, rgba(248,250,252,.45) 0 2px, transparent 2px 8px), repeating-linear-gradient(-45deg, rgba(248,250,252,.45) 0 2px, transparent 2px 8px), #111827;background-size:12px 12px;';
-        }
-
-        $palette = [
-            ['#111827', '#475569'],
-            ['#7c2d12', '#fb923c'],
-            ['#1d4ed8', '#38bdf8'],
-            ['#6d28d9', '#c084fc'],
-            ['#be123c', '#fda4af'],
-            ['#166534', '#86efac'],
-        ];
-        $colors = $palette[abs((int) crc32($key)) % count($palette)];
-
-        return sprintf('background:linear-gradient(135deg, %s 0%%, %s 100%%);', $colors[0], $colors[1]);
     }
 
     private function normalizeSwatchKey(string $value): string

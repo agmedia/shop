@@ -23,7 +23,7 @@
                     <p class="mb-0">{{ $translation->excerpt }}</p>
                 @endif
             </div>
-            <div class="font-13 content-richtext">{!! $translation?->body_html ?: '<p>No content available.</p>' !!}</div>
+            <div class="font-13 content-richtext">{!! app(\App\Services\Front\LegalPageLinkService::class)->render($translation?->body_html ?: '<p>No content available.</p>', (string) $locale) !!}</div>
         </div>
     </div>
 

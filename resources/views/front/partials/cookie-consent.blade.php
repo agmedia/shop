@@ -201,17 +201,24 @@
                 });
         };
 
+        const openCookiePreferences = () => {
+            ensureCookieConsentAssets().then(() => {
+                runCookieConsent();
+                if (typeof window.CookieConsent?.showPreferences === 'function') {
+                    window.CookieConsent.showPreferences();
+                }
+            });
+        };
+
         const cookieFloatingButton = document.getElementById('cookie-consent-floating-button');
         if (cookieFloatingButton) {
-            cookieFloatingButton.addEventListener('click', () => {
-                ensureCookieConsentAssets().then(() => {
-                    runCookieConsent();
-                    if (typeof window.CookieConsent?.showPreferences === 'function') {
-                        window.CookieConsent.showPreferences();
-                    }
-                });
-            });
+            cookieFloatingButton.addEventListener('click', openCookiePreferences);
         }
+        document.addEventListener('click', (event) => {
+            if (!event.target?.closest?.('[data-cookie-consent-preferences]')) return;
+            event.preventDefault();
+            openCookiePreferences();
+        });
 
         const hasStoredCookieConsent = () => document.cookie.split(';').some((entry) => entry.trim().startsWith('cc_cookie='));
 

@@ -15,7 +15,7 @@
         <dl class="mt-6 grid gap-3 text-sm md:grid-cols-2">
             <div class="border border-slate-200 bg-slate-100 p-4">
                 <dt class="text-slate-500">{{ __('ui.checkout.success.status') }}</dt>
-                <dd class="mt-1 font-semibold text-slate-900">{{ $order->status?->name ?? __('ui.checkout.success.status_fallback_new') }}</dd>
+                <dd class="mt-1 font-semibold text-slate-900">{{ \App\Support\CheckoutSuccessCopy::status($order->status?->name) }}</dd>
             </div>
             <div class="border border-slate-200 bg-slate-100 p-4">
                 <dt class="text-slate-500">{{ __('ui.checkout.success.grand_total') }}</dt>
@@ -34,7 +34,7 @@
                     <p><strong>{{ __('ui.checkout.success.bank_model') }}:</strong> {{ $bankTransfer['model'] ?? '-' }}</p>
                     <p><strong>{{ __('ui.checkout.success.bank_reference') }}:</strong> {{ $bankTransfer['reference'] ?? '-' }}</p>
                     <p><strong>{{ __('ui.checkout.success.bank_amount') }}:</strong> {{ $order->currency_code }} {{ number_format((float) ($bankTransfer['amount'] ?? 0), 2) }}</p>
-                    <p><strong>{{ __('ui.checkout.success.bank_description') }}:</strong> {{ $bankTransfer['description'] ?? '-' }}</p>
+                    <p><strong>{{ __('ui.checkout.success.bank_description') }}:</strong> {{ \App\Support\CheckoutSuccessCopy::bankDescription($bankTransfer['description'] ?? null) }}</p>
                 </div>
 
                 @if (!empty($bankTransfer['qr_image_base64']))

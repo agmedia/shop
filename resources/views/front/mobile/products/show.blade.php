@@ -161,7 +161,9 @@
         }
 
         .mobile-product-color-variant-swatch {
-            display: block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             width: 28px;
             height: 28px;
             border: 1px solid rgba(15, 23, 42, 0.16);
@@ -242,7 +244,7 @@
                                 data-color-variant-link
                                 data-color-variant-label="{{ $variant['label'] }}"
                             >
-                                <span class="mobile-product-color-variant-swatch" style="{{ $swatchStyle }}" data-color-variant-swatch aria-hidden="true"></span>
+                                <span class="mobile-product-color-variant-swatch" style="{{ $swatchStyle }}" data-color-variant-swatch aria-hidden="true">{{ $swatchStyle === '' ? '?' : '' }}</span>
                             </a>
                         @endforeach
                     </div>

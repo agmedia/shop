@@ -407,6 +407,7 @@ return [
         ],
         'shipping_methods' => [
             'standard' => 'DPD Croatia shipping - Free shipping on orders over €50',
+            'standard_eu' => 'DPD – Germany and Austria',
             'pickup' => 'Store pickup (Hrupine 19, 40323, Prelog, Croatia)',
         ],
         'payment_methods' => [
@@ -505,6 +506,7 @@ return [
             'bank_reference' => 'Reference',
             'bank_amount' => 'Amount',
             'bank_description' => 'Payment description',
+            'bank_description_order' => 'Online order',
             'bank_qr_alt' => 'UPI QR payment code',
             'boxnow_title' => 'BOX NOW locker',
             'boxnow_locker' => 'Locker',

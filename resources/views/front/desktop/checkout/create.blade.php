@@ -181,7 +181,7 @@
                         <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('ui.account.fields.country_code') }}</label>
                         <select name="billing_country_code" class="h-11 w-full border-slate-300 text-sm focus:border-slate-500 focus:ring-0" data-address-country required>
                             @foreach ($countryOptions as $countryOption)
-                                <option value="{{ $countryOption['code'] }}" @selected(old('billing_country_code', $prefill['billing']['country_code']) === $countryOption['code'])>{{ $countryOption['label'] }}</option>
+                                <option value="{{ $countryOption['code'] }}" @selected($selectedCountryCodes['billing'] === $countryOption['code'])>{{ $countryOption['label'] }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -247,7 +247,7 @@
                             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('ui.account.fields.country_code') }}</label>
                             <select name="shipping_country_code" class="h-11 w-full border-slate-300 text-sm focus:border-slate-500 focus:ring-0" data-address-country>
                                 @foreach ($countryOptions as $countryOption)
-                                    <option value="{{ $countryOption['code'] }}" @selected(old('shipping_country_code', $prefill['shipping']['country_code']) === $countryOption['code'])>{{ $countryOption['label'] }}</option>
+                                    <option value="{{ $countryOption['code'] }}" @selected($selectedCountryCodes['shipping'] === $countryOption['code'])>{{ $countryOption['label'] }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -401,29 +401,27 @@
                 </div>
                 <div class="mt-2 flex items-center justify-between">
                     <span class="text-slate-600">{{ __('ui.checkout.labels.subtotal') }}</span>
-                    <span class="font-semibold text-slate-900">{{ \App\Support\Currency::format((float) $summary['subtotal']) }}</span>
+                    <span class="font-semibold text-slate-900" data-checkout-price="subtotal">{{ $displayPricing['subtotal_formatted'] }}</span>
                 </div>
-                @if ((float) ($summary['discount_total'] ?? 0) > 0)
-                    <div class="mt-2 flex items-center justify-between">
-                        <span class="text-slate-600">{{ __('ui.checkout.labels.discount') }}</span>
-                        <span class="font-semibold text-emerald-700">-{{ \App\Support\Currency::format((float) $summary['discount_total']) }}</span>
-                    </div>
-                @endif
-                <div class="mt-2 flex items-center justify-between">
-                    <span class="text-slate-600">{{ __('ui.checkout.labels.tax') }}</span>
-                    <span class="font-semibold text-slate-900" data-summary-tax>{{ \App\Support\Currency::format((float) ($checkoutTotals['tax_total'] ?? $summary['tax_total'] ?? 0)) }}</span>
+                <div class="mt-2 flex items-center justify-between" data-summary-discount-row style="{{ $displayPricing['discount_total'] <= 0 ? 'display:none' : '' }}" @if($displayPricing['discount_total'] <= 0) hidden @endif>
+                    <span class="text-slate-600">{{ __('ui.checkout.labels.discount') }}</span>
+                    <span class="font-semibold text-emerald-700">-<span data-checkout-price="discount_total">{{ $displayPricing['discount_total_formatted'] }}</span></span>
                 </div>
                 <div class="mt-2 flex items-center justify-between" data-summary-shipping-row>
                     <span class="text-slate-600">{{ __('ui.checkout.labels.shipping') }}</span>
-                    <span class="font-semibold text-slate-900" data-summary-shipping>{{ \App\Support\Currency::format((float) ($checkoutTotals['shipping_total'] ?? 0)) }}</span>
+                    <span class="font-semibold text-slate-900" data-summary-shipping data-checkout-price="shipping_total">{{ $displayPricing['shipping_total_formatted'] }}</span>
                 </div>
                 <div class="mt-2 flex items-center justify-between {{ (float) ($checkoutTotals['payment_fee_total'] ?? 0) <= 0 ? 'hidden' : '' }}" data-summary-payment-fee-row>
                     <span class="text-slate-600">{{ __('ui.checkout.labels.payment_fee') }}</span>
-                    <span class="font-semibold text-slate-900" data-summary-payment-fee>{{ \App\Support\Currency::format((float) ($checkoutTotals['payment_fee_total'] ?? 0)) }}</span>
+                    <span class="font-semibold text-slate-900" data-summary-payment-fee data-checkout-price="payment_fee_total">{{ $displayPricing['payment_fee_total_formatted'] }}</span>
                 </div>
                 <div class="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
                     <span class="text-slate-900">{{ __('ui.checkout.labels.total') }}</span>
-                    <span class="font-bold text-slate-900" data-summary-total>{{ \App\Support\Currency::format((float) ($checkoutTotals['grand_total'] ?? $summary['grand_total'] ?? 0)) }}</span>
+                    <span class="font-bold text-slate-900" data-summary-total data-checkout-price="grand_total">{{ $displayPricing['grand_total_formatted'] }}</span>
+                </div>
+                <div class="mt-2 flex items-center justify-between text-xs text-slate-600">
+                    <span data-checkout-tax-label>{{ $displayPricing['tax_label'] }}</span>
+                    <span data-summary-tax data-checkout-price="tax_total">{{ $displayPricing['tax_total_formatted'] }}</span>
                 </div>
             </div>
 
@@ -431,6 +429,8 @@
             <button type="submit" class="mt-5 w-full border border-slate-900 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700">{{ __('ui.checkout.actions.place_order') }}</button>
         </aside>
     </form>
+
+    @include('front.partials.checkout-display-pricing')
 
     <div id="boxnow-widget-root"></div>
 @endsection
@@ -790,7 +790,8 @@
                     const totals = payload.totals || {};
                     renderShippingOptions(payload.shipping_methods || [], String(totals.shipping_method_code || ''));
                     renderPaymentOptions(payload.payment_methods || [], String(totals.payment_method_code || ''));
-                    renderCheckoutTotals(totals);
+                    renderCheckoutTotals(payload.display_pricing || totals);
+                    window.dispatchEvent(new CustomEvent('shop:checkout-pricing', { detail: payload }));
                     const quote = document.querySelector('[data-quoted-total]');
                     if (quote) quote.value = Number(totals.grand_total || 0).toFixed(2);
                     initBoxNowWidget();

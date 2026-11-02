@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'checkout_country_unavailable' => 'Odaberite Hrvatsku, Njemačku ili Austriju.',
+    'tax_included' => 'Uključeni PDV',
+    'tax_included_rate' => 'Uključeni PDV (:rate %)',
+    'warranty_link' => 'Zakonsko jamstvo – prikaži informacije',
     'delivery_time_de_at' => 'Rok dostave: 5–7 radnih dana od evidentiranja uplate.',
     'price_changed' => 'Ukupan iznos se promijenio. Provjerite ažurirani pregled i ponovno potvrdite narudžbu.',
     'search' => 'Pretraži',

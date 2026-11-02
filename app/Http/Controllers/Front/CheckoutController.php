@@ -16,18 +16,22 @@ use App\Services\Payments\BankTransferUpiService;
 use App\Services\Payments\CorvusPayFormService;
 use App\Services\Payments\KeksPayService;
 use App\Services\Payments\WSPayFormService;
+use App\Support\CheckoutDisplayPricing;
 use App\Support\Currency;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CheckoutController extends Controller
 {
     use ResolvesFrontendView;
+
+    private const CHECKOUT_COUNTRIES = ['HR', 'DE', 'AT'];
 
     public function __construct(
         private readonly CartService $cart,
@@ -48,17 +52,18 @@ class CheckoutController extends Controller
 
         $billing = $user?->addresses?->firstWhere('type', UserAddress::TYPE_BILLING);
         $shipping = $user?->addresses?->firstWhere('type', UserAddress::TYPE_SHIPPING);
-        $shippingCountry = (string) ($shipping?->country_code ?: $billing?->country_code ?: 'HR');
+        $shippingCountry = $this->checkoutCountryOrDefault($shipping?->country_code ?: $billing?->country_code ?: 'HR');
         $shippingState = (string) ($shipping?->state ?: $billing?->state ?: '');
         $shippingPostal = (string) ($shipping?->postal_code ?: $billing?->postal_code ?: '');
-        $billingCountry = (string) ($billing?->country_code ?: $shippingCountry);
+        $billingCountry = $this->checkoutCountryOrDefault($billing?->country_code ?: $shippingCountry);
         $billingState = (string) ($billing?->state ?: '');
         $billingPostal = (string) ($billing?->postal_code ?: '');
 
-        $billingCountry = (string) $request->old('billing_country_code', $billingCountry);
+        $billingCountry = $this->checkoutCountryOrDefault($request->old('billing_country_code', $billingCountry));
+        $selectedShippingCountry = $this->checkoutCountryOrDefault($request->old('shipping_country_code', $shippingCountry));
         $differentAddress = $request->old('ship_to_different_address') === '1' || $request->old('use_billing_for_shipping') === '0';
         $shippingCountry = $differentAddress
-            ? (string) $request->old('shipping_country_code', $shippingCountry)
+            ? $selectedShippingCountry
             : $billingCountry;
         $summary = $this->cart->summary(countryCode: $shippingCountry);
 
@@ -97,13 +102,20 @@ class CheckoutController extends Controller
             $billingPostal
         );
 
+        $lines = $this->cart->lines(countryCode: $shippingCountry);
+
         return view($this->frontendView($request, 'checkout.create'), [
-            'lines' => $this->cart->lines(countryCode: $shippingCountry),
+            'lines' => $lines,
             'summary' => $summary,
+            'displayPricing' => CheckoutDisplayPricing::make($lines, $summary, $checkoutTotals),
             'shippingMethods' => $shippingMethods,
             'paymentMethods' => $paymentMethods,
             'checkoutTotals' => $checkoutTotals,
-            'countryOptions' => $addressDirectory->countries((string) app()->getLocale()),
+            'countryOptions' => array_values(array_filter(
+                $addressDirectory->countries((string) app()->getLocale()),
+                static fn (array $country): bool => in_array($country['code'], self::CHECKOUT_COUNTRIES, true)
+            )),
+            'selectedCountryCodes' => ['billing' => $billingCountry, 'shipping' => $selectedShippingCountry],
             'countyOptions' => array_values(array_map(
                 static fn (array $row): string => (string) ($row['name'] ?? ''),
                 $regionOptionsByCountry['HR'] ?? []
@@ -128,7 +140,7 @@ class CheckoutController extends Controller
                     'postal_code' => (string) ($billing?->postal_code ?? ''),
                     'city' => (string) ($billing?->city ?? ''),
                     'state' => (string) ($billing?->state ?? ''),
-                    'country_code' => (string) ($billing?->country_code ?? 'HR'),
+                    'country_code' => $this->checkoutCountryOrDefault($billing?->country_code ?? 'HR'),
                 ],
                 'shipping' => [
                     'first_name' => (string) ($shipping?->first_name ?? ''),
@@ -141,7 +153,7 @@ class CheckoutController extends Controller
                     'postal_code' => (string) ($shipping?->postal_code ?? ''),
                     'city' => (string) ($shipping?->city ?? ''),
                     'state' => (string) ($shipping?->state ?? ''),
-                    'country_code' => (string) ($shipping?->country_code ?? 'HR'),
+                    'country_code' => $this->checkoutCountryOrDefault($shipping?->country_code ?? 'HR'),
                 ],
             ],
         ]);
@@ -151,6 +163,12 @@ class CheckoutController extends Controller
     {
         if (! $this->cart->hasItems()) {
             return redirect()->route('cart.index')->with('status', 'Your cart is empty.');
+        }
+
+        foreach (['billing_country_code', 'shipping_country_code'] as $field) {
+            if (is_string($request->input($field))) {
+                $request->merge([$field => strtoupper(trim($request->input($field)))]);
+            }
         }
 
         $validated = $request->validate([
@@ -169,7 +187,7 @@ class CheckoutController extends Controller
             'billing_postal_code' => ['required', 'string', 'max:32'],
             'billing_city' => ['required', 'string', 'max:120'],
             'billing_state' => ['required_if:billing_country_code,HR', 'nullable', 'string', 'max:120'],
-            'billing_country_code' => ['required', 'string', 'size:2'],
+            'billing_country_code' => ['required', 'string', 'size:2', Rule::in(self::CHECKOUT_COUNTRIES)],
 
             'use_billing_for_shipping' => ['nullable', 'boolean'],
             'ship_to_different_address' => ['nullable', 'boolean'],
@@ -184,7 +202,7 @@ class CheckoutController extends Controller
             'shipping_postal_code' => ['nullable', 'string', 'max:32'],
             'shipping_city' => ['nullable', 'string', 'max:120'],
             'shipping_state' => ['nullable', 'string', 'max:120'],
-            'shipping_country_code' => ['nullable', 'string', 'size:2'],
+            'shipping_country_code' => ['nullable', 'string', 'size:2', Rule::in(self::CHECKOUT_COUNTRIES)],
             'shipping_boxnow_locker_id' => ['nullable', 'string', 'max:80'],
             'shipping_boxnow_locker_name' => ['nullable', 'string', 'max:255'],
             'shipping_boxnow_address_line_1' => ['nullable', 'string', 'max:255'],
@@ -209,6 +227,8 @@ class CheckoutController extends Controller
             'customer_phone.regex' => __('ui.checkout.validation.customer_phone_invalid'),
             'customer_phone.max' => __('ui.checkout.validation.customer_phone_max'),
             'billing_state.required_if' => __('ui.checkout.validation.billing_state_required_hr'),
+            'billing_country_code.in' => __('compliance.checkout_country_unavailable'),
+            'shipping_country_code.in' => __('compliance.checkout_country_unavailable'),
             'register_password.required' => __('ui.checkout.validation.register_password_required'),
             'register_password.min' => __('ui.checkout.validation.register_password_min'),
             'register_password.confirmed' => __('ui.checkout.validation.register_password_confirmed'),
@@ -309,12 +329,25 @@ class CheckoutController extends Controller
 
     public function options(Request $request): JsonResponse
     {
-        $billingCountry = strtoupper((string) $request->query('billing_country_code', 'HR'));
+        $countryInput = $request->query();
+        foreach (['billing_country_code', 'shipping_country_code'] as $field) {
+            if (isset($countryInput[$field]) && is_string($countryInput[$field])) {
+                $countryInput[$field] = strtoupper(trim($countryInput[$field]));
+            }
+        }
+        $countries = validator($countryInput, [
+            'billing_country_code' => ['sometimes', 'required', 'string', 'size:2', Rule::in(self::CHECKOUT_COUNTRIES)],
+            'shipping_country_code' => ['sometimes', 'required', 'string', 'size:2', Rule::in(self::CHECKOUT_COUNTRIES)],
+        ], [
+            'billing_country_code.in' => __('compliance.checkout_country_unavailable'),
+            'shipping_country_code.in' => __('compliance.checkout_country_unavailable'),
+        ])->validate();
+        $billingCountry = (string) ($countries['billing_country_code'] ?? 'HR');
         $billingState = (string) $request->query('billing_state', '');
         $billingPostal = (string) $request->query('billing_postal_code', '');
 
         $shipToDifferent = filter_var((string) $request->query('ship_to_different_address', '0'), FILTER_VALIDATE_BOOL);
-        $shippingCountry = strtoupper((string) $request->query('shipping_country_code', $billingCountry));
+        $shippingCountry = (string) ($countries['shipping_country_code'] ?? $billingCountry);
         $shippingState = (string) $request->query('shipping_state', '');
         $shippingPostal = (string) $request->query('shipping_postal_code', '');
 
@@ -354,8 +387,11 @@ class CheckoutController extends Controller
             )
             ->values();
 
+        $lines = $this->cart->lines(countryCode: $shippingCountry);
+
         return response()->json([
-            'lines' => $this->cart->lines(countryCode: $shippingCountry)->map(fn ($line) => ['key' => $line['key'], 'total_formatted' => Currency::format($line['display_line_total'])])->values()->all(),
+            'lines' => $lines->map(fn ($line) => ['key' => $line['key'], 'total_formatted' => Currency::format($line['display_line_total'])])->values()->all(),
+            'display_pricing' => CheckoutDisplayPricing::make($lines, $summary, $totals),
             'shipping_methods' => $shippingMethods->map(fn ($method) => [
                 'code' => (string) $method->code,
                 'name' => (string) ($method->display_name ?: $method->name),
@@ -831,6 +867,13 @@ class CheckoutController extends Controller
         $keksPayload['notification_sent_at'] = now()->toIso8601String();
         $payload['kekspay'] = $keksPayload;
         $order->forceFill(['payload' => $payload])->save();
+    }
+
+    private function checkoutCountryOrDefault(mixed $countryCode): string
+    {
+        $countryCode = is_string($countryCode) ? strtoupper(trim($countryCode)) : '';
+
+        return in_array($countryCode, self::CHECKOUT_COUNTRIES, true) ? $countryCode : 'HR';
     }
 
     private function resolveCorvusOrderNumber(Request $request): string

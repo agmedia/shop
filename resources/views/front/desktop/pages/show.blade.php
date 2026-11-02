@@ -32,7 +32,7 @@
 
     <article class="bg-white px-2 py-2">
         <div class="content-richtext">
-            {!! $translation?->body_html ?: '<p>This page has no body content.</p>' !!}
+            {!! app(\App\Services\Front\LegalPageLinkService::class)->render($translation?->body_html ?: '<p>This page has no body content.</p>', (string) $locale) !!}
         </div>
     </article>
 

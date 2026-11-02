@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'checkout_country_unavailable' => 'Bitte wählen Sie Kroatien, Deutschland oder Österreich.',
+    'tax_included' => 'Enthaltene MwSt.',
+    'tax_included_rate' => 'Enthaltene MwSt. (:rate %)',
+    'warranty_link' => 'Gesetzliche Gewährleistung – Informationen anzeigen',
     'delivery_time_de_at' => 'Lieferzeit: 5–7 Werktage ab Zahlungseingang',
     'price_changed' => 'Der Gesamtbetrag hat sich geändert. Bitte prüfen Sie die aktualisierte Bestellübersicht und bestätigen Sie Ihre Bestellung erneut.',
     'search' => 'Suchen',

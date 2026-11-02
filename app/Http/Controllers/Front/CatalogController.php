@@ -19,6 +19,7 @@ use App\Services\Front\WishlistService;
 use App\Services\Pricing\ProductPricePresentationService;
 use App\Services\Settings\SystemSettingsService;
 use App\Support\Media\MediaUrl;
+use App\Support\ProductColorSwatch;
 use App\Support\ProductMaterialLabel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -795,7 +796,7 @@ class CatalogController extends Controller
             ? sha1(implode(',', array_map(static fn ($id): int => (int) $id, $categoryScopeIds)))
             : 'all';
         $hideOutOfStock = $this->hideOutOfStockProducts();
-        $cacheKey = sprintf('front:catalog:option-filters:v5:%s:%s:%s:%s:%s', $locale, $fallbackLocale, sha1(implode(',', $optionIds)), $categoryKey, $hideOutOfStock ? 'hide-oos' : 'all-stock');
+        $cacheKey = sprintf('front:catalog:option-filters:v6:%s:%s:%s:%s:%s', $locale, $fallbackLocale, sha1(implode(',', $optionIds)), $categoryKey, $hideOutOfStock ? 'hide-oos' : 'all-stock');
 
         $rows = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($locale, $fallbackLocale, $optionIds, $categoryScopeIds, $hideOutOfStock): array {
             $scopeIds = collect($categoryScopeIds ?? [])
@@ -862,6 +863,7 @@ class CatalogController extends Controller
                             'count' => (int) ($valueCounts[(int) $value->id] ?? 0),
                             'sort_rank' => $this->catalogColorSortRank((string) $value->code, $valueLabel),
                             'swatch_image_url' => $this->catalogOptionValueSwatchImageUrl($value),
+                            'swatch_style' => ProductColorSwatch::style($value),
                         ];
                     })
                     ->when($kind === 'color', fn ($values) => $values->sortBy([
