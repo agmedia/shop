@@ -110,7 +110,7 @@
                                     @endforeach
                                 </div>
                             @else
-                                <div class="mx-auto columns-2 gap-6 lg:columns-4">
+                                <div class="mx-auto grid grid-cols-2 gap-6 lg:grid-cols-4">
                                     @foreach ($megaBlocks as $block)
                                         <div class="mb-4 break-inside-avoid">
                                             <a href="{{ $block['url'] }}" class="text-[15px] font-extrabold uppercase tracking-[0.05em] text-slate-900 transition hover:text-black">
