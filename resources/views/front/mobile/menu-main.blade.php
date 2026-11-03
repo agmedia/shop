@@ -285,18 +285,19 @@
                         $children = collect($navItem['children'] ?? []);
                         $target = !empty($navItem['open_in_new_tab']) ? '_blank' : null;
                         $rel = !empty($navItem['open_in_new_tab']) ? 'noopener noreferrer' : null;
+                        $navColor = \App\Models\Catalog\Category\Category::normalizeNavigationColor($navItem['color'] ?? null);
                     @endphp
 
                     @if ($children->isNotEmpty())
                         <details class="mobile-nav-details">
                             <summary class="mobile-nav-row mobile-nav-row--primary">
-                                <span>{{ $navItem['label'] ?? 'Menu' }}</span>
+                                <span @if($navColor !== null) style="color: {{ $navColor }};" @endif>{{ $navItem['label'] ?? 'Menu' }}</span>
                                 <span class="menu-toggle-plus menu-toggle-sign">+</span>
                                 <span class="menu-toggle-minus menu-toggle-sign">-</span>
                             </summary>
                             <div class="mobile-nav-children">
                                 <a href="{{ $navItem['url'] ?? '#' }}" class="close-menu mobile-nav-row mobile-nav-row--view-all" @if($target) target="{{ $target }}" rel="{{ $rel }}" @endif>
-                                    <span>{{ __('ui.mobile.menu.shop') }}: {{ $navItem['label'] ?? 'Menu' }}</span>
+                                    <span @if($navColor !== null) style="color: {{ $navColor }};" @endif>{{ __('ui.mobile.menu.shop') }}: {{ $navItem['label'] ?? 'Menu' }}</span>
                                 </a>
                                 @foreach ($children as $child)
                                     @include('front.mobile.partials.menu-main-child', ['child' => $child, 'level' => 0])
@@ -305,7 +306,7 @@
                         </details>
                     @else
                         <a href="{{ $navItem['url'] ?? '#' }}" class="close-menu mobile-nav-row mobile-nav-row--primary" @if($target) target="{{ $target }}" rel="{{ $rel }}" @endif>
-                            <span>{{ $navItem['label'] ?? 'Menu' }}</span>
+                            <span @if($navColor !== null) style="color: {{ $navColor }};" @endif>{{ $navItem['label'] ?? 'Menu' }}</span>
                         </a>
                     @endif
                 @endforeach

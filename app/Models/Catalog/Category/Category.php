@@ -18,10 +18,16 @@ class Category extends Model implements HasMedia
     use NodeTrait;
 
     public const SCOPE_CATALOG = 'catalog';
+
     public const SCOPE_BLOG = 'blog';
+
     public const SCOPE_PAGE = 'page';
+
     public const PAYLOAD_SHOW_FILTERS = 'show_filters';
+
     public const PAYLOAD_SHOW_PRODUCTS = 'show_products';
+
+    public const PAYLOAD_NAVIGATION_COLOR = 'navigation_color';
 
     /**
      * @return array<int, string>
@@ -105,6 +111,22 @@ class Category extends Model implements HasMedia
 
         return $this->catalogPageShowsProducts()
             && (bool) ($payload[self::PAYLOAD_SHOW_FILTERS] ?? true);
+    }
+
+    public function navigationColor(): ?string
+    {
+        return self::normalizeNavigationColor(data_get($this->payload, self::PAYLOAD_NAVIGATION_COLOR));
+    }
+
+    public static function normalizeNavigationColor(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $color = trim($value);
+
+        return preg_match('/\A#[0-9a-fA-F]{6}\z/', $color) === 1 ? strtolower($color) : null;
     }
 
     public function translations(): HasMany

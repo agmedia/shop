@@ -16,13 +16,14 @@
             $target = !empty($item['open_in_new_tab']) ? '_blank' : null;
             $rel = !empty($item['open_in_new_tab']) ? 'noopener noreferrer' : null;
             $topItemWeightClass = 'font-semibold';
+            $itemColor = \App\Models\Catalog\Category\Category::normalizeNavigationColor($item['color'] ?? null);
             $panelId = 'desktop-nav-panel-'.$loop->index;
         @endphp
 
         @if ($hasChildren)
             <div class="group/nav flex items-center" data-desktop-nav-group>
                 <a href="{{ $href }}" class="inline-flex items-center py-6 text-[14px] {{ $topItemWeightClass }} uppercase tracking-[0.03em] text-slate-900 transition hover:text-black" @if($target) target="{{ $target }}" rel="{{ $rel }}" @endif>
-                    <span class="border-b border-transparent pb-0.5 transition group-hover/nav:border-slate-400">{{ $item['label'] }}</span>
+                    <span class="border-b border-transparent pb-0.5 transition group-hover/nav:border-slate-400" @if($itemColor) style="color: {{ $itemColor }};" @endif>{{ $item['label'] }}</span>
                 </a>
                 <button type="button" class="ml-1 inline-flex h-10 w-8 items-center justify-center text-slate-900" aria-label="{{ $item['label'] }}" aria-expanded="false" aria-controls="{{ $panelId }}" data-desktop-nav-toggle>
                     <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m5 7.5 5 5 5-5" /></svg>
@@ -45,6 +46,7 @@
                             return [
                                 'title' => (string) ($subChild['label'] ?? ''),
                                 'url' => (string) ($subChild['url'] ?? '#'),
+                                'color' => \App\Models\Catalog\Category\Category::normalizeNavigationColor($subChild['color'] ?? null),
                                 'items' => collect($subChild['children'] ?? []),
                             ];
                         });
@@ -53,6 +55,7 @@
                             $blocks = collect([[
                                 'title' => (string) ($child['label'] ?? ''),
                                 'url' => (string) ($child['url'] ?? '#'),
+                                'color' => \App\Models\Catalog\Category\Category::normalizeNavigationColor($child['color'] ?? null),
                                 'items' => collect(),
                             ]]);
                         }
@@ -62,6 +65,7 @@
 
                         return [
                             'label' => (string) ($child['label'] ?? ''),
+                            'color' => \App\Models\Catalog\Category\Category::normalizeNavigationColor($child['color'] ?? null),
                             'columns' => [
                                 $chunks->get(0, collect()),
                                 $chunks->get(1, collect()),
@@ -75,6 +79,7 @@
                         $megaBlocks->push([
                             'title' => (string) ($child['label'] ?? ''),
                             'url' => (string) ($child['url'] ?? '#'),
+                            'color' => \App\Models\Catalog\Category\Category::normalizeNavigationColor($child['color'] ?? null),
                             'items' => $subChildren,
                         ]);
                     }
@@ -87,13 +92,13 @@
                                 <div class="mx-auto grid gap-x-6 gap-y-4 lg:grid-cols-2">
                                     @foreach ($megaGroups as $group)
                                         <section>
-                                            <h3 class="mb-2 text-[17px] font-black uppercase tracking-[0.06em] text-slate-900">{{ $group['label'] }}</h3>
+                                            <h3 class="mb-2 text-[17px] font-black uppercase tracking-[0.06em] text-slate-900" @if($group['color']) style="color: {{ $group['color'] }};" @endif>{{ $group['label'] }}</h3>
                                             <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
                                                 @foreach ($group['columns'] as $columnBlocks)
                                                     <div>
                                                         @foreach ($columnBlocks as $block)
                                                             <div class="mb-3">
-                                                                <a href="{{ $block['url'] }}" class="text-[15px] font-extrabold uppercase tracking-[0.05em] text-slate-900 transition hover:text-black">
+                                                                <a href="{{ $block['url'] }}" class="text-[15px] font-extrabold uppercase tracking-[0.05em] text-slate-900 transition hover:text-black" @if($block['color']) style="color: {{ $block['color'] }};" @endif>
                                                                     {{ $block['title'] }}
                                                                 </a>
                                                                 <ul class="mt-1.5 space-y-0.5">
@@ -113,7 +118,7 @@
                                 <div class="mx-auto grid grid-cols-2 gap-6 lg:grid-cols-4">
                                     @foreach ($megaBlocks as $block)
                                         <div class="mb-4 break-inside-avoid">
-                                            <a href="{{ $block['url'] }}" class="text-[15px] font-extrabold uppercase tracking-[0.05em] text-slate-900 transition hover:text-black">
+                                            <a href="{{ $block['url'] }}" class="text-[15px] font-extrabold uppercase tracking-[0.05em] text-slate-900 transition hover:text-black" @if($block['color']) style="color: {{ $block['color'] }};" @endif>
                                                 {{ $block['title'] }}
                                             </a>
                                             <ul class="mt-1.5 space-y-0.5">
@@ -163,7 +168,7 @@
             </div>
         @else
             <a href="{{ $href }}" class="inline-flex items-center py-6 text-[14px] {{ $topItemWeightClass }} uppercase tracking-[0.03em] text-slate-900 transition hover:text-black" @if($target) target="{{ $target }}" rel="{{ $rel }}" @endif>
-                <span class="border-b border-transparent pb-0.5 transition hover:border-slate-400">{{ $item['label'] }}</span>
+                <span class="border-b border-transparent pb-0.5 transition hover:border-slate-400" @if($itemColor) style="color: {{ $itemColor }};" @endif>{{ $item['label'] }}</span>
             </a>
         @endif
     @endforeach

@@ -298,6 +298,7 @@ class NavigationMenuService
                 $fallbackLocale
             ),
             'url' => route('categories.show', ['slug' => $slug]),
+            'color' => $category->navigationColor(),
             'children' => $children,
             'open_in_new_tab' => false,
             'mega_promo' => $this->resolveMegaPromo($item, $locale, $fallbackLocale),
@@ -363,6 +364,7 @@ class NavigationMenuService
             $children[] = [
                 'label' => (string) ($translation?->name ?? $child->code),
                 'url' => route('categories.show', ['slug' => $slug]),
+                'color' => $child->navigationColor(),
                 'children' => $this->buildCategoryChildren((int) $child->id, $childrenByParentId, $locale, $fallbackLocale),
             ];
         }

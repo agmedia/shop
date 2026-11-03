@@ -7,10 +7,11 @@
         default => 'text-[13px]',
     };
     $weightClass = $level === 0 ? 'font-light' : 'font-light';
+    $childColor = \App\Models\Catalog\Category\Category::normalizeNavigationColor($child['color'] ?? null);
 @endphp
 <li>
     <a href="{{ $child['url'] ?? '#' }}" class="flex items-center justify-between rounded-md px-1.5 py-0.5 {{ $textSize }} {{ $weightClass }} text-slate-500 transition hover:bg-white/70 hover:text-slate-900" style="padding-left: {{ $padding }}rem;">
-        <span>{{ $child['label'] ?? '' }}</span>
+        <span @if($childColor) style="color: {{ $childColor }};" @endif>{{ $child['label'] ?? '' }}</span>
     </a>
 
     @if ($children->isNotEmpty())

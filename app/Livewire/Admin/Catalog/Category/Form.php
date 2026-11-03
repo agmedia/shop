@@ -22,6 +22,7 @@ class Form extends Component
         'code' => '',
         'is_active' => true,
         'show_in_menu' => true,
+        'navigation_color' => '',
         'catalog_show_filters' => true,
         'catalog_show_products' => true,
         'sort_order' => 0,
@@ -96,6 +97,9 @@ class Form extends Component
 
     public function save()
     {
+        if (is_string($this->form['navigation_color'] ?? null)) {
+            $this->form['navigation_color'] = trim($this->form['navigation_color']);
+        }
         $validated = $this->validate($this->rules());
         $wasEditing = (bool) $this->categoryId;
 
@@ -119,10 +123,17 @@ class Form extends Component
             if ($scope === Category::SCOPE_CATALOG) {
                 $payload[Category::PAYLOAD_SHOW_FILTERS] = (bool) $validated['form']['catalog_show_filters'];
                 $payload[Category::PAYLOAD_SHOW_PRODUCTS] = (bool) $validated['form']['catalog_show_products'];
+                $navigationColor = Category::normalizeNavigationColor($validated['form']['navigation_color'] ?? null);
+                if ($navigationColor !== null) {
+                    $payload[Category::PAYLOAD_NAVIGATION_COLOR] = $navigationColor;
+                } else {
+                    unset($payload[Category::PAYLOAD_NAVIGATION_COLOR]);
+                }
             } else {
                 unset(
                     $payload[Category::PAYLOAD_SHOW_FILTERS],
-                    $payload[Category::PAYLOAD_SHOW_PRODUCTS]
+                    $payload[Category::PAYLOAD_SHOW_PRODUCTS],
+                    $payload[Category::PAYLOAD_NAVIGATION_COLOR]
                 );
             }
 
@@ -312,6 +323,7 @@ class Form extends Component
             ],
             'form.is_active' => ['boolean'],
             'form.show_in_menu' => ['boolean'],
+            'form.navigation_color' => ['nullable', 'string', 'regex:/\A#[0-9a-fA-F]{6}\z/'],
             'form.catalog_show_filters' => ['boolean'],
             'form.catalog_show_products' => ['boolean'],
             'form.sort_order' => ['nullable', 'integer', 'min:0'],
@@ -365,9 +377,11 @@ class Form extends Component
         $payload = is_array($category->payload) ? $category->payload : [];
         $this->form['catalog_show_filters'] = (bool) ($payload[Category::PAYLOAD_SHOW_FILTERS] ?? true);
         $this->form['catalog_show_products'] = (bool) ($payload[Category::PAYLOAD_SHOW_PRODUCTS] ?? true);
+        $this->form['navigation_color'] = $category->navigationColor() ?? '';
         unset(
             $payload[Category::PAYLOAD_SHOW_FILTERS],
-            $payload[Category::PAYLOAD_SHOW_PRODUCTS]
+            $payload[Category::PAYLOAD_SHOW_PRODUCTS],
+            $payload[Category::PAYLOAD_NAVIGATION_COLOR]
         );
         $this->form['payload_text'] = $payload !== []
             ? json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)

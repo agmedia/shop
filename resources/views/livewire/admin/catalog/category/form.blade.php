@@ -126,6 +126,24 @@
             </div>
 
             @if ($form['scope'] === \App\Models\Catalog\Category\Category::SCOPE_CATALOG)
+                <div class="mt-5 max-w-xl" x-data="{ color: $wire.entangle('form.navigation_color') }">
+                    <label for="category-navigation-color" class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Navigation text color') }}</label>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <input
+                            type="color"
+                            :value="/^#[0-9a-f]{6}$/i.test(color) ? color : '#dc2626'"
+                            @input="color = $event.target.value"
+                            aria-label="{{ __('Choose navigation text color') }}"
+                            class="h-10 w-14 cursor-pointer rounded-xl border border-slate-300 bg-white p-1"
+                        >
+                        <input id="category-navigation-color" type="text" x-model="color" maxlength="7" placeholder="#DC2626" spellcheck="false" class="w-32 rounded-xl border border-slate-300 px-3 py-2 font-mono text-sm">
+                        <button type="button" @click="color = ''" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">{{ __('Use default color') }}</button>
+                        <span class="text-sm font-semibold text-slate-900" :style="/^#[0-9a-f]{6}$/i.test(color) ? { color: color } : {}">{{ __('Preview') }}</span>
+                    </div>
+                    <p class="mt-2 text-sm text-slate-600">{{ __('Applies to this category name in desktop and mobile navigation. Leave empty for the default color.') }}</p>
+                    @error('form.navigation_color') <p class="mt-1 text-xs text-rose-600">{{ __('Enter a color such as #DC2626.') }}</p> @enderror
+                </div>
+
                 <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{{ __('Category Page') }}</p>
                     <p class="mt-2 text-sm text-slate-600">{{ __('Use category page as classic product listing or as widget landing page with content blocks.') }}</p>

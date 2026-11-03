@@ -5,6 +5,7 @@
     $leafWeightClass = $level === 0 ? 'font-medium' : 'font-light';
     $target = !empty($child['open_in_new_tab']) ? '_blank' : null;
     $rel = !empty($child['open_in_new_tab']) ? 'noopener noreferrer' : null;
+    $childColor = \App\Models\Catalog\Category\Category::normalizeNavigationColor($child['color'] ?? null);
 @endphp
 
 <li>
@@ -17,7 +18,7 @@
                     data-mobile-nav-link
                     @if($target) target="{{ $target }}" rel="{{ $rel }}" @endif
                 >
-                    {{ $child['label'] ?? '' }}
+                    <span @if($childColor) style="color: {{ $childColor }};" @endif>{{ $child['label'] ?? '' }}</span>
                 </a>
                 <span class="absolute right-3 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center border border-slate-300 bg-white text-slate-500 group-open/subnav:hidden" aria-hidden="true">
                     <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
@@ -39,7 +40,7 @@
         </details>
     @else
         <a href="{{ $child['url'] ?? '#' }}" class="desktop-mobile-menu-row flex min-h-[52px] items-center py-3 text-[13px] {{ $leafWeightClass }} text-slate-700 hover:bg-slate-100 hover:text-slate-900" style="padding-left: {{ $padding }}rem;">
-            {{ $child['label'] ?? '' }}
+            <span @if($childColor) style="color: {{ $childColor }};" @endif>{{ $child['label'] ?? '' }}</span>
         </a>
     @endif
 </li>

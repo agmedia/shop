@@ -309,3 +309,9 @@ git log -1 --oneline
 ```
 
 Nakon objave potvrditi novi HEAD te isti bruto iznos proizvoda na PDP-u, u košarici, DE/AT checkoutu i javnim katalozima; provjeriti odredišnu stopu, uključeni PDV, popust i nepromijenjeni bruto iznos dostave. Git push sam po sebi nije potvrda objave.
+
+## Boja naziva kategorije u navigaciji — 3. studenoga 2026.
+
+U **Katalog → Kategorije → Uredi** polje **Boja naziva u navigaciji** omogućuje odabir boje iz palete ili unos poput `#DC2626`. Gumb **Zadana boja** uklanja prilagodbu; promjenu treba spremiti gumbom za ažuriranje kategorije. Boja vrijedi za naziv te kategorije u navigaciji na svim jezicima, uključujući desktop, mobilni izbornik i podkategorije. Ostale kategorije zadržavaju svoje boje.
+
+Postavka se sprema u postojeći `categories.payload.navigation_color`, uz provjeru šesteroznamenkaste HEX vrijednosti. **Nema migracije baze.** Objaviti kroz isti Git postupak s osvježavanjem cachea i prikaza; nije potrebna promjena postavki navigacije ni ponovno generiranje slika.
