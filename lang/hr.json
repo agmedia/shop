@@ -745,6 +745,7 @@
     "Prepared now so front Vue templates can consume same values from one source.": "Pripremljeno kako bi front Vue template-i mogli čitati iste vrijednosti iz jednog izvora.",
     "Preset": "Preset",
     "Navigation text color": "Boja naziva u navigaciji",
+    "Use custom navigation color": "Koristi prilagođenu boju navigacije",
     "Choose navigation text color": "Odaberi boju naziva u navigaciji",
     "Use default color": "Zadana boja",
     "Applies to this category name in desktop and mobile navigation. Leave empty for the default color.": "Boja vrijedi za naziv ove kategorije u navigaciji na računalu i mobitelu. Prazno polje koristi zadanu boju.",

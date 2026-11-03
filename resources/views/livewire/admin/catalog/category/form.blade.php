@@ -128,13 +128,19 @@
             @if ($form['scope'] === \App\Models\Catalog\Category\Category::SCOPE_CATALOG)
                 <div class="mt-5 max-w-xl" x-data="{ color: $wire.entangle('form.navigation_color') }">
                     <label for="category-navigation-color" class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Navigation text color') }}</label>
+                    <label class="mb-2 inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" :checked="!!color" @change="color = $event.target.checked ? '#dc2626' : ''" class="rounded border-slate-300 text-cyan-700 focus:ring-cyan-500">
+                        <span>{{ __('Use custom navigation color') }}</span>
+                    </label>
                     <div class="flex flex-wrap items-center gap-2">
                         <input
                             type="color"
-                            :value="/^#[0-9a-f]{6}$/i.test(color) ? color : '#dc2626'"
+                            :value="/^#[0-9a-f]{6}$/i.test(color) ? color : '#0f172a'"
+                            :disabled="!color"
                             @input="color = $event.target.value"
+                            @change="color = $event.target.value"
                             aria-label="{{ __('Choose navigation text color') }}"
-                            class="h-10 w-14 cursor-pointer rounded-xl border border-slate-300 bg-white p-1"
+                            class="h-10 w-14 cursor-pointer rounded-xl border border-slate-300 bg-white p-1 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                         <input id="category-navigation-color" type="text" x-model="color" maxlength="7" placeholder="#DC2626" spellcheck="false" class="w-32 rounded-xl border border-slate-300 px-3 py-2 font-mono text-sm">
                         <button type="button" @click="color = ''" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">{{ __('Use default color') }}</button>
