@@ -28,6 +28,7 @@
     $pricePresenter = app(\App\Services\Pricing\ProductPricePresentationService::class);
     $authUser = auth()->user();
     $productPriceData = $formatPriceData($pricePresentation);
+    $promotionBadge = trim((string) ($pricePresentation['promotion_badge'] ?? ''));
     $optionPriceData = static function ($row) use ($pricePresenter, $product, $authUser, $formatPriceData): array {
         $storedBase = $row->price_override !== null
             ? (float) $row->price_override
@@ -216,6 +217,9 @@
     <div class="card card-style">
         <div class="content">
             <h2 class="mb-0" data-product-price-current>{{ $productPriceData['current'] }}</h2>
+            @if ($promotionBadge !== '')
+                <span class="badge bg-highlight mt-2" data-product-promotion-badge>{{ $promotionBadge }}</span>
+            @endif
             <p class="font-12 opacity-60 mb-2">{{ __('ui.product.sku') }} <span data-product-sku-value>{{ $product->sku ?: $product->code ?: 'n/a' }}</span></p>
 
             @if ($manufacturerTranslation && $manufacturerEnabled)

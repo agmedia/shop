@@ -4,7 +4,7 @@
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{{ __('Catalog / Actions') }}</p>
                 <h1 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{{ $isEdit ? __('Edit Action / Discount') : __('Create Action / Discount') }}</h1>
-                <p class="mt-2 text-sm text-slate-600">{{ __('Use simple action types now, keep advanced logic in payload for future execution layer.') }}</p>
+                <p class="mt-2 text-sm text-slate-600">{{ __('Set the discount, eligible products and campaign period.') }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <span class="admin-chip">{{ __('Locale:') }} {{ $form['locale'] }}</span>
@@ -45,7 +45,7 @@
                     <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Type') }}</label>
                     <select wire:model.live="form.type" data-tom-select class="admin-select w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
                         @foreach ($typeOptions as $key => $label)
-                            <option value="{{ $key }}">{{ $label }}</option>
+                            <option value="{{ $key }}" @selected($form['type'] === $key)>{{ $label }}</option>
                         @endforeach
                     </select>
                     @error('form.type') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
@@ -118,7 +118,7 @@
 
                 <div class="mt-3 grid gap-3" style="grid-template-columns: repeat(12, minmax(0, 1fr));">
                     <div style="grid-column: span 4;">
-                        <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Buy Qty') }}</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ $form['type'] === \App\Models\Catalog\Action\CatalogAction::TYPE_BUY_X_GET_Y ? __('Total quantity including free items') : __('Buy Qty') }}</label>
                         <input type="number" min="1" wire:model="form.buy_qty" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
                         @error('form.buy_qty') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
@@ -141,7 +141,16 @@
                 </div>
 
                 <div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                    {{ __('`Buy X Get Y` and `Gift On Amount` are fully storable now; execution logic can be expanded in checkout/cart services later.') }}
+                    @if ($form['type'] === \App\Models\Catalog\Action\CatalogAction::TYPE_BUY_X_GET_Y)
+                        {{ __('For 4+1, enter 5 total items and 1 free item. Eligible models and sizes can be mixed. The cheapest items are free, once for every complete group.') }}
+                        @if ($form['is_exclusive'])
+                            {{ __('A locked campaign does not combine with other product or coupon discounts. The cart uses the cheaper offer for the goods.') }}
+                        @endif
+                    @elseif ($form['type'] === \App\Models\Catalog\Action\CatalogAction::TYPE_GIFT_ON_AMOUNT)
+                        {{ __('Gift On Amount settings are saved, but automatic gift fulfillment is not implemented.') }}
+                    @else
+                        {{ __('Product discounts apply to unit prices. Cart discounts apply when the customer enters the matching coupon.') }}
+                    @endif
                 </div>
             </div>
 

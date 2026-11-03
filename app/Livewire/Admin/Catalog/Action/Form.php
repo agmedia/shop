@@ -17,7 +17,9 @@ use Livewire\Component;
 class Form extends Component
 {
     public ?int $actionId = null;
+
     public string $targetSearch = '';
+
     public string $userSearch = '';
 
     public array $form = [
@@ -363,8 +365,8 @@ class Form extends Component
         }
 
         if ($type === CatalogAction::TYPE_BUY_X_GET_Y) {
-            $rules['form.buy_qty'] = ['required', 'integer', 'min:1'];
-            $rules['form.get_qty'] = ['required', 'integer', 'min:1'];
+            $rules['form.buy_qty'] = ['required', 'integer', 'min:2'];
+            $rules['form.get_qty'] = ['required', 'integer', 'min:1', 'lt:form.buy_qty'];
         }
 
         if ($type === CatalogAction::TYPE_GIFT_ON_AMOUNT) {
@@ -387,7 +389,7 @@ class Form extends Component
 
     private function loadAction(): void
     {
-        if (!$this->actionId) {
+        if (! $this->actionId) {
             return;
         }
 
@@ -446,8 +448,9 @@ class Form extends Component
 
     private function loadTranslationForLocale(): void
     {
-        if (!$this->actionId) {
+        if (! $this->actionId) {
             $this->clearTranslationFields();
+
             return;
         }
 
@@ -456,8 +459,9 @@ class Form extends Component
             ->where('locale', $this->form['locale'])
             ->first();
 
-        if (!$translation) {
+        if (! $translation) {
             $this->clearTranslationFields();
+
             return;
         }
 
@@ -492,12 +496,14 @@ class Form extends Component
         if (json_last_error() !== JSON_ERROR_NONE) {
             $this->addError($field, __('Invalid JSON payload.'));
             $this->dispatch('notify', type: 'danger', message: __('Invalid JSON payload.'));
+
             return false;
         }
 
-        if (!is_array($decoded)) {
+        if (! is_array($decoded)) {
             $this->addError($field, __('JSON payload must decode to object/array.'));
             $this->dispatch('notify', type: 'danger', message: __('JSON payload must decode to object/array.'));
+
             return false;
         }
 
@@ -507,12 +513,14 @@ class Form extends Component
     private function nullableString(mixed $value): ?string
     {
         $value = trim((string) $value);
+
         return $value === '' ? null : $value;
     }
 
     private function nullableCouponCode(mixed $value): ?string
     {
         $value = $this->nullableString($value);
+
         return $value === null ? null : strtoupper($value);
     }
 
@@ -537,6 +545,7 @@ class Form extends Component
     private function nullableDateTime(mixed $value): ?string
     {
         $value = trim((string) $value);
+
         return $value === '' ? null : $value;
     }
 

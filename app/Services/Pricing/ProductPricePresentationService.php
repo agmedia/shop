@@ -22,12 +22,13 @@ class ProductPricePresentationService
      *   old_gross: float|null,
      *   has_discount: bool,
      *   discount_percent: int|null,
+     *   promotion_badge: string|null,
      *   lowest_30_days_gross: float|null
      * }
      */
-    public function forProduct(Product $product, ?User $user = null): array
+    public function forProduct(Product $product, ?User $user = null, ?string $locale = null, ?string $fallbackLocale = null): array
     {
-        return $this->forStoredBase($product, (float) $product->base_price, $user);
+        return $this->forStoredBase($product, (float) $product->base_price, $user, $locale, $fallbackLocale);
     }
 
     /**
@@ -37,10 +38,11 @@ class ProductPricePresentationService
      *   old_gross: float|null,
      *   has_discount: bool,
      *   discount_percent: int|null,
+     *   promotion_badge: string|null,
      *   lowest_30_days_gross: float|null
      * }
      */
-    public function forStoredBase(Product $product, float $storedBase, ?User $user = null): array
+    public function forStoredBase(Product $product, float $storedBase, ?User $user = null, ?string $locale = null, ?string $fallbackLocale = null): array
     {
         $resolvedAction = $this->actionResolver->resolveProductAction($product, $user);
         $storedCurrent = $resolvedAction
@@ -64,8 +66,31 @@ class ProductPricePresentationService
             'discount_percent' => $hasDiscount && $baseGross > 0
                 ? (int) round((($baseGross - $currentGross) / $baseGross) * 100)
                 : null,
+            'promotion_badge' => $this->promotionBadge($product, $user, $locale, $fallbackLocale),
             'lowest_30_days_gross' => $lowest30DaysGross,
         ];
+    }
+
+    private function promotionBadge(Product $product, ?User $user, ?string $locale, ?string $fallbackLocale): ?string
+    {
+        $promotion = $this->actionResolver->resolveProductPromotion($product, $user);
+        if (! $promotion) {
+            return null;
+        }
+        $promotion->loadMissing('translations');
+
+        foreach (array_unique([
+            $locale ?: app()->getLocale(),
+            $fallbackLocale ?: (string) config('app.locale', 'en'),
+            (string) config('app.fallback_locale', 'en'),
+        ]) as $language) {
+            $badge = trim((string) ($promotion->translations->firstWhere('locale', $language)?->badge ?? ''));
+            if ($badge !== '') {
+                return $badge;
+            }
+        }
+
+        return null;
     }
 
     private function grossForStoredPrice(float $storedPrice, Product $product): float

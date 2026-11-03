@@ -61,9 +61,9 @@
                 </svg>
             </button>
         </form>
-        @if (! empty($discountPercent))
-            <span class="absolute left-2 top-2 inline-flex h-7 items-center border border-rose-600 bg-rose-600 px-2 text-xs font-bold text-white">
-                -{{ $discountPercent }}%
+        @if (! empty($promotionBadge) || ! empty($discountPercent))
+            <span class="absolute left-2 top-2 inline-flex h-7 items-center border border-rose-600 bg-rose-600 px-2 text-xs font-bold text-white" data-product-promotion-badge>
+                {{ ($promotionBadge ?? null) ?: '-'.$discountPercent.'%' }}
             </span>
         @endif
 

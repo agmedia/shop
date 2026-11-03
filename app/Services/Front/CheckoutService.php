@@ -315,6 +315,7 @@ class CheckoutService
                     'sort_order' => $index++,
                     'payload' => [
                         'product_slug' => (string) ($translation?->slug ?? ''),
+                        'quantity_promotion' => $line['quantity_promotion'] ?? null,
                         'pricing' => [
                             'base_unit_gross' => (float) $line['display_base_unit_price'],
                             'unit_gross' => (float) $line['display_unit_price'],

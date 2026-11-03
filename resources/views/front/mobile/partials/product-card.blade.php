@@ -12,7 +12,10 @@
         $categoryTranslation = $product->categories?->first()?->translations?->firstWhere('locale', $locale ?? app()->getLocale())
             ?? $product->categories?->first()?->translations?->firstWhere('locale', $fallbackLocale ?? config('app.locale'));
     }
-    $displayPrice = app(\App\Services\Pricing\TaxPricingService::class)->grossFromStored((float) $product->base_price, $product);
+    $pricePresentation = app(\App\Services\Pricing\ProductPricePresentationService::class)->forProduct($product, auth()->user(), $locale ?? null, $fallbackLocale ?? null);
+    $displayPrice = (float) $pricePresentation['current_gross'];
+    $promotionBadge = trim((string) ($pricePresentation['promotion_badge'] ?? ''));
+    $discountPercent = (int) ($pricePresentation['discount_percent'] ?? 0);
     $materialLabel = \App\Support\ProductMaterialLabel::resolve($product, $locale ?? app()->getLocale(), $fallbackLocale ?? config('app.locale'));
 @endphp
 
@@ -36,6 +39,9 @@
                 </a>
                 @if ($materialLabel !== '')
                     <p class="font-12 opacity-60 mb-2">{{ $materialLabel }}</p>
+                @endif
+                @if ($promotionBadge !== '' || $discountPercent > 0)
+                    <span class="badge bg-highlight mb-2" data-product-promotion-badge>{{ $promotionBadge !== '' ? $promotionBadge : '-'.$discountPercent.'%' }}</span>
                 @endif
                 <h4 class="font-700 mb-0">{{ number_format($displayPrice, 2) }} €</h4>
                 <p class="font-11 opacity-50 mb-0">Stock {{ (int) $product->stock_qty }}</p>

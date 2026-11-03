@@ -5,6 +5,7 @@ namespace App\Services\Front;
 use App\Models\Catalog\Action\CatalogAction;
 use App\Models\Catalog\Product\Product;
 use App\Models\Catalog\Product\ProductOptionValue;
+use App\Models\User;
 use App\Services\Catalog\ActionResolverService;
 use App\Services\Pricing\TaxPricingService;
 use Illuminate\Support\Collection;
@@ -181,7 +182,7 @@ class CartService
             ]);
         }
 
-        return $lines->values();
+        return $this->applyQuantityPromotions($lines->values(), $user, $couponCode);
     }
 
     /**
@@ -340,10 +341,10 @@ class CartService
             return false;
         }
 
-        $baseDiscount = (float) ($this->summary(null, '')['discount_total'] ?? 0);
-        $candidateDiscount = (float) ($this->summary(null, $couponCode)['discount_total'] ?? 0);
+        $baseTotal = (float) ($this->summary(null, '')['grand_total'] ?? 0);
+        $candidateTotal = (float) ($this->summary(null, $couponCode)['grand_total'] ?? 0);
 
-        if ($candidateDiscount <= ($baseDiscount + 0.0001)) {
+        if ($candidateTotal >= $baseTotal - 0.0001) {
             return false;
         }
 
@@ -428,11 +429,126 @@ class CartService
 
     /**
      * @param  Collection<int, array<string, mixed>>  $lines
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function applyQuantityPromotions(Collection $lines, ?User $user, string $couponCode): Collection
+    {
+        $candidates = [];
+        $productActions = [];
+        foreach ($lines as $line) {
+            $product = $line['product'];
+            $productActions[$product->id] ??= $this->actionResolver->quantityPromotionsForProduct($product, $user, $couponCode);
+            foreach ($productActions[$product->id] as $action) {
+                $candidates[$action->id]['action'] = $action;
+                $candidates[$action->id]['keys'][$line['key']] = true;
+            }
+        }
+
+        if ($candidates === []) {
+            return $lines;
+        }
+
+        $bestLines = $lines;
+        $bestGross = $this->discountedGoodsGross($lines, $couponCode);
+        $rankedCandidates = collect($candidates)->sortByDesc(fn (array $candidate): array => [
+            (int) $candidate['action']->is_exclusive,
+            (int) $candidate['action']->priority,
+            (int) $candidate['action']->id,
+        ]);
+        foreach ($rankedCandidates as $candidate) {
+            /** @var CatalogAction $action */
+            $action = $candidate['action'];
+            $eligibleKeys = $candidate['keys'];
+            $eligible = $lines->filter(fn (array $line): bool => isset($eligibleKeys[$line['key']]));
+            $eligibleNet = round((float) $eligible->sum(fn (array $line): float => $line['base_unit_price'] * $line['quantity']), 2);
+            if ($action->min_subtotal !== null && $eligibleNet < (float) $action->min_subtotal) {
+                continue;
+            }
+
+            // buy_qty is the total group size, including its get_qty free units.
+            $freeRemaining = intdiv((int) $eligible->sum('quantity'), (int) $action->buy_qty) * (int) $action->get_qty;
+            if ($freeRemaining === 0) {
+                continue;
+            }
+
+            $freeByKey = [];
+            foreach ($eligible->sortBy(fn (array $line): array => [$line['display_base_unit_price'], $line['key']]) as $line) {
+                $free = min($freeRemaining, (int) $line['quantity']);
+                $freeByKey[$line['key']] = $free;
+                $freeRemaining -= $free;
+                if ($freeRemaining === 0) {
+                    break;
+                }
+            }
+
+            $candidateLines = $lines->map(function (array $line) use ($action, $eligibleKeys, $freeByKey): array {
+                $eligible = isset($eligibleKeys[$line['key']]);
+                if (! $eligible && ! $action->is_exclusive) {
+                    return $line;
+                }
+
+                $quantity = (int) $line['quantity'];
+                $free = $eligible ? (int) ($freeByKey[$line['key']] ?? 0) : 0;
+                $paid = $quantity - $free;
+                $net = (float) $line['base_unit_price'];
+                $gross = (float) $line['display_base_unit_price'];
+                $unitTax = round(max(0.0, $gross - $net), 2);
+
+                // Keep unit prices intact; only whole free units reduce line totals.
+                // An exclusive campaign replaces every other product/cart discount.
+                $line['unit_price'] = $net;
+                $line['display_unit_price'] = $gross;
+                $line['unit_discount'] = 0.0;
+                $line['line_discount_total'] = round($net * $free, 2);
+                $line['line_total'] = round($net * $paid, 2);
+                $line['line_tax_total'] = round($unitTax * $paid, 2);
+                $line['display_line_total'] = round($gross * $paid, 2);
+                $line['action_code'] = $eligible ? $action->code : null;
+                if ($eligible) {
+                    $line['free_quantity'] = $free;
+                    $line['quantity_promotion'] = [
+                        'id' => (int) $action->id,
+                        'code' => (string) $action->code,
+                        'buy_qty' => (int) $action->buy_qty,
+                        'get_qty' => (int) $action->get_qty,
+                        'free_quantity' => $free,
+                        'is_exclusive' => (bool) $action->is_exclusive,
+                    ];
+                }
+
+                return $line;
+            });
+
+            $candidateGross = $this->discountedGoodsGross($candidateLines, $couponCode);
+            // Pick one campaign and preserve the existing offer on an equal total.
+            if ($candidateGross < $bestGross - 0.0001) {
+                $bestGross = $candidateGross;
+                $bestLines = $candidateLines;
+            }
+        }
+
+        return $bestLines;
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $lines
+     */
+    private function discountedGoodsGross(Collection $lines, string $couponCode): float
+    {
+        $net = round((float) $lines->sum('line_total'), 2);
+        $cartDiscount = $this->resolveCartDiscount($lines, $net, $couponCode);
+
+        return round(max(0.0, (float) $lines->sum('display_line_total') - $cartDiscount['amount'] - $cartDiscount['tax_discount']), 2);
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $lines
      * @return array{action:CatalogAction|null, amount:float, tax_discount:float}
      */
     private function resolveCartDiscount(Collection $lines, float $subtotalAfterLineDiscount, string $couponCode): array
     {
-        if ($couponCode === '' || $lines->isEmpty() || $subtotalAfterLineDiscount <= 0.0) {
+        if ($couponCode === '' || $lines->isEmpty() || $subtotalAfterLineDiscount <= 0.0
+            || $lines->contains(fn (array $line): bool => (bool) data_get($line, 'quantity_promotion.is_exclusive', false))) {
             return ['action' => null, 'amount' => 0.0, 'tax_discount' => 0.0];
         }
 

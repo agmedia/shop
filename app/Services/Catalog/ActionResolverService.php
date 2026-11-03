@@ -6,6 +6,7 @@ use App\Models\Catalog\Action\CatalogAction;
 use App\Models\Catalog\Product\Product;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 class ActionResolverService
 {
@@ -14,11 +15,54 @@ class ActionResolverService
         ?User $user = null,
         ?string $couponCode = null
     ): ?CatalogAction {
+        return $this->bestPriceAction($product, $this->eligibleProductActions($product, $user, $couponCode));
+    }
+
+    public function resolveProductPromotion(
+        Product $product,
+        ?User $user = null,
+        ?string $couponCode = null
+    ): ?CatalogAction {
+        $actions = $this->eligibleProductActions($product, $user, $couponCode);
+        $priceAction = $this->bestPriceAction($product, $actions);
+        $quantityAction = $actions->first(fn (CatalogAction $action): bool => $this->quantityPromotionAvailable($action));
+
+        $promotion = $quantityAction && ($quantityAction->is_exclusive || $priceAction === null)
+            ? $quantityAction
+            : $priceAction;
+
+        return $promotion?->loadMissing('translations');
+    }
+
+    /**
+     * @return Collection<int, CatalogAction>
+     */
+    public function quantityPromotionsForProduct(Product $product, ?User $user = null, ?string $couponCode = null): Collection
+    {
+        return $this->eligibleProductActions($product, $user, $couponCode)
+            ->filter(fn (CatalogAction $action): bool => $this->quantityPromotionAvailable($action))
+            ->values();
+    }
+
+    private function quantityPromotionAvailable(CatalogAction $action): bool
+    {
+        return $action->type === CatalogAction::TYPE_BUY_X_GET_Y
+            && (int) $action->buy_qty >= 2
+            && (int) $action->get_qty > 0
+            && (int) $action->get_qty < (int) $action->buy_qty
+            && ($action->usage_limit === null || (int) $action->used_count < (int) $action->usage_limit);
+    }
+
+    /**
+     * @return Collection<int, CatalogAction>
+     */
+    private function eligibleProductActions(Product $product, ?User $user, ?string $couponCode): Collection
+    {
         $couponCode = trim((string) $couponCode);
         $categoryIds = $product->categories()->pluck('categories.id')->map(fn ($id) => (int) $id)->all();
         $manufacturerId = $product->manufacturer_id ? (int) $product->manufacturer_id : null;
 
-        $actions = CatalogAction::query()
+        return CatalogAction::query()
             ->active()
             ->where('scope', CatalogAction::SCOPE_PRODUCT)
             ->availableForAudience($user)
@@ -43,7 +87,7 @@ class ActionResolverService
                             });
                     })
                     ->orWhere(function (Builder $qq) use ($manufacturerId): void {
-                        if (!$manufacturerId) {
+                        if (! $manufacturerId) {
                             return;
                         }
 
@@ -63,7 +107,13 @@ class ActionResolverService
             ->orderByDesc('priority')
             ->orderByDesc('id')
             ->get();
+    }
 
+    /**
+     * @param  Collection<int, CatalogAction>  $actions
+     */
+    private function bestPriceAction(Product $product, Collection $actions): ?CatalogAction
+    {
         $bestAction = null;
         $bestPrice = (float) $product->base_price;
 

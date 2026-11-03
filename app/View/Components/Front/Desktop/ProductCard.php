@@ -13,16 +13,12 @@ use Illuminate\View\View;
 
 class ProductCard extends Component
 {
-    /** @var array<string, array{current_gross:float,current_price:string, old_price:?string, discount_percent:?int, lowest_30_days_price:?string}> */
-    private static array $priceCache = [];
-
     public function __construct(
         public Product $product,
         public ?string $locale = null,
         public ?string $fallbackLocale = null,
         public bool $flat = false,
-    ) {
-    }
+    ) {}
 
     public function render(): View
     {
@@ -123,22 +119,25 @@ class ProductCard extends Component
             ->all();
 
         $authUser = auth()->user();
-        $priceCacheKey = (string) $this->product->id.'|'.(string) ($authUser?->id ?? 0);
-        if (! isset(self::$priceCache[$priceCacheKey])) {
-            $priceData = app(ProductPricePresentationService::class)->forProduct($this->product, $authUser);
+        $priceCacheKey = (string) $this->product->id.'|'.(string) ($authUser?->id ?? 0).'|'.$locale.'|'.$fallbackLocale;
+        $priceCache = request()->attributes->get('front.product_card_prices', []);
+        if (! isset($priceCache[$priceCacheKey])) {
+            $priceData = app(ProductPricePresentationService::class)->forProduct($this->product, $authUser, $locale, $fallbackLocale);
 
-            self::$priceCache[$priceCacheKey] = [
+            $priceCache[$priceCacheKey] = [
                 'current_gross' => (float) $priceData['current_gross'],
                 'current_price' => number_format((float) $priceData['current_gross'], 2).' €',
                 'old_price' => $priceData['old_gross'] !== null ? number_format((float) $priceData['old_gross'], 2).' €' : null,
                 'discount_percent' => $priceData['discount_percent'],
+                'promotion_badge' => $priceData['promotion_badge'],
                 'lowest_30_days_price' => $priceData['lowest_30_days_gross'] !== null
                     ? number_format((float) $priceData['lowest_30_days_gross'], 2).' €'
                     : null,
             ];
+            request()->attributes->set('front.product_card_prices', $priceCache);
         }
 
-        $priceData = self::$priceCache[$priceCacheKey];
+        $priceData = $priceCache[$priceCacheKey];
         $manufacturerName = '';
         if ($this->product->relationLoaded('manufacturer')) {
             $manufacturerName = (string) ($this->product->manufacturer?->translations?->firstWhere('locale', $locale)?->name
@@ -181,6 +180,7 @@ class ProductCard extends Component
             'price' => $priceData['current_price'],
             'oldPrice' => $priceData['old_price'],
             'discountPercent' => $priceData['discount_percent'],
+            'promotionBadge' => $priceData['promotion_badge'],
             'lowest30DaysPrice' => $priceData['lowest_30_days_price'],
             'reviewSummary' => $this->product->approvedCommentSummary([$locale, $fallbackLocale]),
             'flat' => $this->flat,

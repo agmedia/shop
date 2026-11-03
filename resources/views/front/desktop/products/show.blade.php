@@ -38,6 +38,7 @@
         ? $formatGrossPrice((float) $pricePresentation['old_gross'])
         : null;
     $discountPercent = (int) ($pricePresentation['discount_percent'] ?? 0);
+    $promotionBadge = trim((string) ($pricePresentation['promotion_badge'] ?? ''));
     $lowest30DaysPrice = isset($pricePresentation['lowest_30_days_gross']) && $pricePresentation['lowest_30_days_gross'] !== null
         ? $formatGrossPrice((float) $pricePresentation['lowest_30_days_gross'])
         : null;
@@ -610,11 +611,15 @@
                 <div class="mt-3">
                     <div class="flex flex-wrap items-center gap-2">
                         <p class="text-xl font-semibold text-slate-900" data-product-price-current>{{ $currentPrice }}</p>
-                        <span class="{{ $discountPercent > 0 ? 'inline-flex' : 'hidden' }} h-7 items-center border border-rose-600 bg-rose-600 px-2 text-xs font-bold text-white" data-product-price-discount>
-                            @if ($discountPercent > 0)
-                                -{{ $discountPercent }}%
-                            @endif
-                        </span>
+                        @if ($promotionBadge !== '')
+                            <span class="inline-flex h-7 items-center border border-rose-600 bg-rose-600 px-2 text-xs font-bold text-white" data-product-promotion-badge>{{ $promotionBadge }}</span>
+                        @else
+                            <span class="{{ $discountPercent > 0 ? 'inline-flex' : 'hidden' }} h-7 items-center border border-rose-600 bg-rose-600 px-2 text-xs font-bold text-white" data-product-price-discount>
+                                @if ($discountPercent > 0)
+                                    -{{ $discountPercent }}%
+                                @endif
+                            </span>
+                        @endif
                     </div>
                     <p class="{{ $oldPrice ? '' : 'hidden' }} mt-1 text-sm text-slate-500 line-through" data-product-price-old>{{ $oldPrice ?: '' }}</p>
                     <p class="{{ $lowest30DaysPrice ? '' : 'hidden' }} mt-1 text-xs text-slate-600" data-product-price-lowest>{{ $lowest30DaysPrice ? __('ui.product.lowest_price_30_days', ['price' => $lowest30DaysPrice]) : '' }}</p>

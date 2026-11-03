@@ -315,3 +315,11 @@ Nakon objave potvrditi novi HEAD te isti bruto iznos proizvoda na PDP-u, u koša
 U **Katalog → Kategorije → Uredi** polje **Boja naziva u navigaciji** omogućuje odabir boje iz palete ili unos poput `#DC2626`. Gumb **Zadana boja** uklanja prilagodbu; promjenu treba spremiti gumbom za ažuriranje kategorije. Boja vrijedi za naziv te kategorije u navigaciji na svim jezicima, uključujući desktop, mobilni izbornik i podkategorije. Ostale kategorije zadržavaju svoje boje.
 
 Postavka se sprema u postojeći `categories.payload.navigation_color`, uz provjeru šesteroznamenkaste HEX vrijednosti. **Nema migracije baze.** Objaviti kroz isti Git postupak s osvježavanjem cachea i prikaza; nije potrebna promjena postavki navigacije ni ponovno generiranje slika.
+
+## Količinska akcija 4+1 — 3. studenoga 2026.
+
+U opsegu **Akcija na artiklima**, tip **Kupi X dobiješ Y** koristi polje **Ukupna količina s gratis artiklima** kao veličinu cijele grupe: `5` ukupno i `1` gratis znači 4+1. Modeli, veličine i različite stavke obuhvaćene istom akcijom mogu se kombinirati. Za svaku punu grupu od pet komada najjeftiniji komad je gratis; deset komada daje dva najjeftinija gratis. Gratis količina mora biti manja od ukupne količine. Podaci postojeće akcije ne prepisuju se objavom koda.
+
+Košarica bira jednu količinsku akciju samo ako daje strogo povoljniju bruto vrijednost robe od postojeće kombinacije popusta i kupona. Zaključana količinska akcija zamjenjuje sve ostale popuste na artikle i kupone; nezaključana zadržava druge popuste izvan svojeg ciljanog asortimana i može kombinirati postojeći kupon. Usporedba vrijedi za robu prije zasebnog izračuna dostave i naknada; prag besplatne dostave i dalje se računa nakon popusta.
+
+Gratis se obračunava u cijelim jedinicama iz izvorne bruto cijene, odgovarajućeg neta i uključenog PDV-a. Jedinična cijena ostaje nepromijenjena, a popust smanjuje iznos stavke; primjer 5 × 9,99 € daje 39,96 € za robu. Nove narudžbe čuvaju `quantity_promotion` snapshot uz postojeće bruto iznose. Lokalizirana oznaka akcije prikazuje se na karticama i PDP-u, bez lažnog snižavanja jedinične cijene prije zadovoljenja količine. **Nema migracije baze.** Tip **Poklon na iznos** i dalje samo sprema postavke; automatsko dodavanje poklona nije implementirano.
