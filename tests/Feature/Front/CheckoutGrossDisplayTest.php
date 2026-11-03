@@ -52,7 +52,7 @@ class CheckoutGrossDisplayTest extends TestCase
     }
 
     #[DataProvider('checkoutDisplays')]
-    public function test_checkout_displays_gross_prices_and_included_tax_without_changing_saved_net_totals(
+    public function test_checkout_displays_gross_prices_and_saves_destination_net_and_tax(
         string $country,
         string $device,
         ?string $discountScope
@@ -72,8 +72,8 @@ class CheckoutGrossDisplayTest extends TestCase
         $response = $this->withSession(['_old_input' => [
             'billing_country_code' => $country, 'shipping_method_code' => 'standard_eu', 'payment_method_code' => 'bank',
         ]])->get('/checkout')->assertOk();
-        $grossSubtotal = $country === 'DE' ? 119.0 : 120.0;
-        $grossDiscount = $discountScope === null ? 0.0 : ($country === 'DE' ? 11.9 : 12.0);
+        $grossSubtotal = 125.0;
+        $grossDiscount = $discountScope === null ? 0.0 : 12.5;
         $grandTotal = round($grossSubtotal - $grossDiscount + 12, 2);
         $xpath = $this->xpath($response->getContent());
         $pricing = $response->viewData('displayPricing');
@@ -95,7 +95,7 @@ class CheckoutGrossDisplayTest extends TestCase
             'ship_to_different_address' => 1, 'shipping_method_code' => 'standard_eu', 'payment_method_code' => 'bank',
         ]))->assertOk();
         $this->assertEquals($pricing, $quote->json('display_pricing'));
-        $this->assertSame($grossSubtotal === 119.0 ? 8.4 : 8.33, (float) $quote->json('totals.shipping_total'));
+        $this->assertSame($country === 'DE' ? 8.4 : 8.33, (float) $quote->json('totals.shipping_total'));
         $order = app(CheckoutService::class)->placeOrder([
             'customer_email' => 'display@example.test', 'billing_country_code' => 'HR', 'shipping_country_code' => $country,
             'shipping_method_code' => 'standard_eu', 'payment_method_code' => 'bank', 'quoted_total' => $grandTotal,
@@ -104,8 +104,11 @@ class CheckoutGrossDisplayTest extends TestCase
         $this->assertEquals($quote->json('totals.shipping_total'), $order->shipping_total);
         $this->assertEquals($quote->json('totals.payment_fee_total'), $order->payment_fee_total);
         $this->assertEquals($quote->json('totals.tax_total'), $order->tax_total);
-        $this->assertEquals(100, $order->items->first()->unit_price);
-        $this->assertEquals($discountScope === CatalogAction::SCOPE_PRODUCT ? 90 : 100, $order->items->first()->line_total);
+        $this->assertEquals($country === 'DE' ? 105.04 : 104.17, $order->items->first()->unit_price);
+        $expectedLineNet = $discountScope === CatalogAction::SCOPE_PRODUCT
+            ? ($country === 'DE' ? 94.54 : 93.75)
+            : ($country === 'DE' ? 105.04 : 104.17);
+        $this->assertEquals($expectedLineNet, $order->items->first()->line_total);
         $this->assertEquals(10, data_get($order->payload, 'pricing.shipping_gross'));
     }
 

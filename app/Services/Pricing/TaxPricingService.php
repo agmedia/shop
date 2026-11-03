@@ -92,6 +92,27 @@ class TaxPricingService
         return $this->grossFromNet($storedAmount, $product, $taxRate);
     }
 
+    /**
+     * @return array{net: float, gross: float, tax: float}
+     */
+    public function amountsFromStored(float $storedAmount, ?Product $product = null, ?TaxRate $taxRate = null): array
+    {
+        if ($this->pricesIncludeTax()) {
+            $gross = $this->grossFromStored($storedAmount, $product, $taxRate);
+            $net = $this->netFromGross($gross, $product, $taxRate);
+        } else {
+            $net = $this->normalizeNetPrice($storedAmount, $product, $taxRate);
+            $gross = $this->grossFromNet($net, $product, $taxRate);
+        }
+
+        // Preserve the advertised gross price and assign any rounding cent to VAT.
+        return [
+            'net' => $net,
+            'gross' => $gross,
+            'tax' => round(max(0.0, $gross - $net), 2),
+        ];
+    }
+
     public function taxFromNet(float $netAmount, ?Product $product = null, ?TaxRate $taxRate = null): float
     {
         $gross = $this->grossFromNet($netAmount, $product, $taxRate);

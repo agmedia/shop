@@ -145,7 +145,7 @@ php artisan route:list
 Implemented in the local project:
 
 - German checkout button: `Zahlungspflichtig bestellen`.
-- Destination VAT for Bali apparel: DE 19%, AT 20%. Stored gross product prices are first converted using the source tax class, then destination VAT is applied. Destination overrides for other product tax classes belong in `tax_rates.settings.destination_rates`. Unknown classes stop checkout rather than silently charge the wrong VAT. Shipping and payment method fees are configured gross; for DE/AT their VAT is separated and included in the order tax total. The original gross fees are recorded in the order payload for ERP export.
+- Destination VAT for Bali apparel: DE 19%, AT 20%. The original source-net → destination-gross conversion for tax-inclusive product prices was replaced on **3 November 2026** by the fixed advertised gross-price contract documented below. Destination overrides for other product tax classes belong in `tax_rates.settings.destination_rates`. Unknown classes stop checkout rather than silently charge the wrong VAT. Shipping and payment method fees are configured gross; for DE/AT their VAT is separated and included in the order tax total. The original gross fees are recorded in the order payload for ERP export.
 - Guest withdrawal is available through the existing returns portal with `?withdrawal=1`, linked visibly on every page. The buyer reviews the customer name, email, order reference and optional partial withdrawal before selecting `Widerruf bestätigen`. Confirmation persists the declaration, exact receipt time and a database mail task together. Repeating confirmation does not create another declaration. A new message also appears in the existing admin support inbox.
 - Automatic withdrawal receipts include the declaration, affected items, name, contract reference, date, time and timezone. Order dispatch confirmation runs when a web order changes to `sent`, `shipped`, `dispatched` or a status with `settings.is_shipped=true`. German order receipts are translated and distinguish receipt from acceptance on dispatch.
 - Manufacturer information appears after Material without an extra dropdown, including Bali d.o.o., Hrupine 19, HR-40323 Prelog, Kroatien, webshop@balidoo.com and product SKU/code. Applicable localized warnings can be supplied in `products.payload.safety_warnings.de` (and `hr`/`en`); warnings are never invented.
@@ -273,7 +273,7 @@ Na serveru prije ove objave potvrđen je commit `e31d741`. Jedina praćena lokal
 
 ## Dorade prema prve tri stranice maila — 2. studenoga 2026.
 
-- Checkout prikazuje bruto cijene proizvoda, međuzbroj, popuste, dostavu i naknade. PDV je posebno označen kao već uključen u cijenu; promjena države osvježava i iznose i stopu PDV-a. Računanje i spremljeni neto iznosi narudžbe ostaju isti.
+- Checkout prikazuje bruto cijene proizvoda, međuzbroj, popuste, dostavu i naknade. PDV je posebno označen kao već uključen u cijenu; promjena države osvježava i iznose i stopu PDV-a. Ova prikazna dorada 2. studenoga nije mijenjala tadašnji obračun i neto iznose; pravilo cijena i odredišnih neto iznosa zamijenjeno je doradom od 3. studenoga opisanom niže.
 - Države u checkoutu ograničene su na HR, DE i AT, uz provjeru izravnih zahtjeva. Velika obavijest o jamstvu zamijenjena je vidljivom poveznicom na istu službenu sliku prije završnog gumba.
 - Za njemački jezik početna država checkouta je Njemačka, uključujući početni PDV i izračun dostave. Valjane spremljene adrese i izričito odabrane države imaju prednost. Hrvatski i engleski zadržavaju dosadašnju početnu Hrvatsku. Hrvatski adresar popunjava podatke samo uz odabran HR i ne vraća DE/AT adresu na Hrvatsku.
 - Boje na PDP-u i kataloškim filtrima koriste izvornu oznaku boje, uz prednost učitanih swatch slika. Nepoznate boje više ne dobivaju nasumičnu nijansu. Verzija cachea kataloga je promijenjena.
@@ -288,3 +288,24 @@ php artisan optimize:clear
 php artisan view:cache
 php artisan queue:restart
 ```
+
+## Ista oglašena bruto cijena za HR/DE/AT — 3. studenoga 2026.
+
+Kada je `store_pricing_prices_include_tax=true`, spremljena bruto cijena ostaje ista na proizvodu, varijantama, u košarici, checkoutu i Klaviyo katalogu za HR, DE i AT. Primjer: proizvod oglašen po **9,99 €** ostaje 9,99 €, a ne 9,51 € u njemačkom checkoutu. Isto pravilo vrijedi nakon proizvodnog popusta i za prikaz najniže cijene u zadnjih 30 dana.
+
+Neto se izdvaja iz tog bruto iznosa prema odredišnoj stopi, a PDV je zaokružena razlika bruto minus neto: za DE 9,99 € = 8,39 € neto + 1,60 € PDV-a; za AT 9,99 € = 8,33 € neto + 1,66 € PDV-a. PDV se ne dodaje još jednom na konačnu cijenu. Dostava i naknade zadržavaju zadane bruto iznose. Kada roba ima jednu stopu PDV-a, ta se deklarirana stopa koristi i za razdvajanje bruto dostave i naknada, bez izvođenja stope iz već zaokruženih iznosa robe.
+
+Za konfiguraciju s neto pohranom (`store_pricing_prices_include_tax=false`) ostaje dosadašnji obračun neto cijene s odredišnim PDV-om. Osnova kupona na razini košarice ostaje neto. Struktura narudžbe i dalje čuva neto i PDV zasebno, a nove stavke u `payload.pricing` bilježe točne bruto iznose. Postojeći katalog i povijesne narudžbe ne prepisuju se. **Nema nove migracije.** Klaviyo katalog koristi cache verziju `v2`.
+
+Nakon pregleda promjena, provjera, commita i pusha objaviti postojećim Git postupkom:
+
+```sh
+git pull --ff-only origin kozo
+php artisan optimize:clear
+php artisan view:cache
+php artisan queue:restart
+php artisan klaviyo:refresh-catalogs
+git log -1 --oneline
+```
+
+Nakon objave potvrditi novi HEAD te isti bruto iznos proizvoda na PDP-u, u košarici, DE/AT checkoutu i javnim katalozima; provjeriti odredišnu stopu, uključeni PDV, popust i nepromijenjeni bruto iznos dostave. Git push sam po sebi nije potvrda objave.

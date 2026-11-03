@@ -53,7 +53,10 @@ class KlaviyoCatalogService
             $storedPrice = $action
                 ? $this->actions->applyToPrice((float) $product->base_price, $action)
                 : (float) $product->base_price;
-            $net = $this->pricing->normalizeNetPrice($storedPrice, $product);
+            $destinationRate = $this->pricing->rateForDestination($product, $country);
+            $price = $this->pricing->pricesIncludeTax()
+                ? $this->pricing->grossFromStored($storedPrice, $product, $destinationRate)
+                : $this->pricing->grossFromNet($this->pricing->normalizeNetPrice($storedPrice, $product), $product, $destinationRate);
             $inventory = (int) $product->active_variant_count > 0
                 ? (int) $product->active_variant_stock
                 : (int) $product->stock_qty;
@@ -64,7 +67,7 @@ class KlaviyoCatalogService
                 'link' => $baseUrl.'/product/'.rawurlencode($translation->slug).'?lang='.rawurlencode($locale),
                 'image_link' => $imageUrl,
                 'description' => trim(html_entity_decode(strip_tags((string) ($translation->description ?: $translation->excerpt)))) ?: $translation->name ?: $product->code,
-                'price' => $this->pricing->grossFromNet($net, $product, $this->pricing->rateForDestination($product, $country)),
+                'price' => $price,
                 'currency' => 'EUR',
                 'inventory_quantity' => max(0, $inventory),
                 'inventory_policy' => 1,
@@ -99,7 +102,7 @@ class KlaviyoCatalogService
 
     private function cacheKey(string $country): string
     {
-        return 'klaviyo.catalog.v1:'.$country.':'.hash('sha256', $this->baseUrl());
+        return 'klaviyo.catalog.v2:'.$country.':'.hash('sha256', $this->baseUrl());
     }
 
     private function baseUrl(): string

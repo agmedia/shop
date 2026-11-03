@@ -82,25 +82,25 @@ class StorefrontComplianceTest extends TestCase
         Mail::assertSentCount(1);
     }
 
-    public function test_destination_tax_uses_shipping_country_and_preserves_source_net_from_tax_inclusive_prices(): void
+    public function test_destination_tax_uses_shipping_country_and_preserves_inclusive_gross_prices(): void
     {
         $product = $this->seedCart();
         app(SystemSettingsService::class)->put('store_pricing_prices_include_tax', true);
         $cart = app(CartService::class);
-        $this->assertSame(100.0, $cart->summary(countryCode: 'DE')['subtotal']);
-        $this->assertSame(119.0, $cart->summary(countryCode: 'DE')['grand_total']);
-        $this->assertSame(120.0, $cart->summary(countryCode: 'AT')['grand_total']);
+        $this->assertSame(105.04, $cart->summary(countryCode: 'DE')['subtotal']);
+        $this->assertSame(125.0, $cart->summary(countryCode: 'DE')['grand_total']);
+        $this->assertSame(125.0, $cart->summary(countryCode: 'AT')['grand_total']);
         $this->getJson('/checkout/options?billing_country_code=AT&shipping_country_code=DE&ship_to_different_address=1&shipping_method_code=standard&payment_method_code=bank')
-            ->assertOk()->assertJsonPath('totals.tax_total', 19.8)->assertJsonPath('totals.grand_total', 124)
+            ->assertOk()->assertJsonPath('totals.tax_total', 20.76)->assertJsonPath('totals.grand_total', 130)
             ->assertJsonPath('totals.shipping_total', 4.2);
         $this->getJson('/checkout/options?billing_country_code=AT&shipping_country_code=DE&ship_to_different_address=0&shipping_method_code=standard&payment_method_code=bank')
-            ->assertOk()->assertJsonPath('totals.grand_total', 125);
+            ->assertOk()->assertJsonPath('totals.grand_total', 130);
         $order = app(CheckoutService::class)->placeOrder([
             'customer_email' => 'guest@example.test', 'billing_country_code' => 'AT', 'shipping_country_code' => 'DE',
             'shipping_method_code' => 'standard', 'payment_method_code' => 'bank',
         ]);
-        $this->assertEquals(124, $order->grand_total);
-        $this->assertEquals(19.8, $order->tax_total);
+        $this->assertEquals(130, $order->grand_total);
+        $this->assertEquals(20.76, $order->tax_total);
         $this->assertEquals(19, $order->items->first()->tax_rate);
         $this->assertEquals(25, $product->taxRate->rate);
     }

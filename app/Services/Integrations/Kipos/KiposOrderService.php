@@ -216,6 +216,11 @@ class KiposOrderService
 
     private function grossProductUnitPrice(OrderItem $item, int $quantity): float
     {
+        $recordedGross = data_get($item->payload, 'pricing.base_unit_gross');
+        if (is_numeric($recordedGross)) {
+            return round(max(0.0, (float) $recordedGross), 2);
+        }
+
         $netUnitPrice = round(max(0.0, (float) $item->unit_price), 2);
         $taxRate = max(0.0, (float) $item->tax_rate);
 

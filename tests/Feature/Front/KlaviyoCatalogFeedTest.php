@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Front;
 
+use App\Models\Catalog\Action\CatalogAction;
 use App\Models\Catalog\Option\Option;
 use App\Models\Catalog\Option\OptionValue;
 use App\Models\Catalog\Product\Product;
@@ -43,7 +44,7 @@ class KlaviyoCatalogFeedTest extends TestCase
     {
         $product = $this->product();
 
-        foreach (['de' => 119, 'at' => 120] as $country => $price) {
+        foreach (['de' => 125, 'at' => 125] as $country => $price) {
             $response = $this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')
                 ->assertOk()
                 ->assertJsonCount(1)
@@ -83,7 +84,29 @@ class KlaviyoCatalogFeedTest extends TestCase
         $german = $this->getJson('/feeds/klaviyo-katalog-de.json')->assertOk()
             ->assertJsonPath('0.id', $croatian->json('0.id'))
             ->assertJsonPath('0.title', 'Testprodukt '.$product->id);
-        $this->assertEquals(119, $german->json('0.price'));
+        $this->assertEquals(125, $german->json('0.price'));
+    }
+
+    public function test_inclusive_cent_prices_and_public_promotions_match_the_storefront_in_all_catalogs(): void
+    {
+        $product = $this->product(['base_price' => 9.99]);
+        $this->translateToCroatian($product);
+        foreach (['hr', 'de', 'at'] as $country) {
+            $this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')->assertOk()
+                ->assertJsonPath('0.price', 9.99);
+        }
+
+        CatalogAction::query()->create([
+            'code' => 'PUBLIC10', 'scope' => CatalogAction::SCOPE_PRODUCT,
+            'type' => CatalogAction::TYPE_PERCENTAGE, 'discount_value' => 10,
+            'target_type' => CatalogAction::TARGET_ALL, 'audience_type' => CatalogAction::AUDIENCE_ALL,
+            'is_active' => true,
+        ]);
+        $this->artisan('klaviyo:refresh-catalogs')->assertSuccessful();
+        foreach (['hr', 'de', 'at'] as $country) {
+            $this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')->assertOk()
+                ->assertJsonPath('0.price', 8.99);
+        }
     }
 
     public function test_guest_following_croatian_catalog_link_switches_from_german_to_croatian(): void
@@ -179,14 +202,14 @@ class KlaviyoCatalogFeedTest extends TestCase
 
         $product->update(['base_price' => 250, 'stock_qty' => 3]);
         $this->travel(179)->minutes();
-        foreach (['de' => 119, 'hr' => 125] as $country => $price) {
+        foreach (['de' => 125, 'hr' => 125] as $country => $price) {
             $cached = $this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')->assertOk()
                 ->assertJsonPath('0.inventory_quantity', 10);
             $this->assertEquals($price, $cached->json('0.price'));
         }
 
         $this->travel(2)->minutes();
-        foreach (['de' => 238, 'hr' => 250] as $country => $price) {
+        foreach (['de' => 250, 'hr' => 250] as $country => $price) {
             $refreshed = $this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')->assertOk()
                 ->assertJsonPath('0.inventory_quantity', 3);
             $this->assertEquals($price, $refreshed->json('0.price'));
@@ -205,7 +228,7 @@ class KlaviyoCatalogFeedTest extends TestCase
         $product->update(['base_price' => 250, 'stock_qty' => 6]);
         $this->artisan('klaviyo:refresh-catalogs')->assertSuccessful();
 
-        foreach (['de' => 238, 'at' => 240, 'hr' => 250] as $country => $price) {
+        foreach (['de' => 250, 'at' => 250, 'hr' => 250] as $country => $price) {
             $response = $this->getJson('/feeds/klaviyo-katalog-'.$country.'.json')->assertOk()
                 ->assertJsonPath('0.inventory_quantity', 6);
             $this->assertEquals($price, $response->json('0.price'));

@@ -140,18 +140,18 @@ class CartService
             $storedDiscountedUnitPrice = $resolvedAction
                 ? $this->actionResolver->applyToPrice($storedBaseUnitPrice, $resolvedAction)
                 : $storedBaseUnitPrice;
-            $baseUnitPrice = $this->taxPricing->normalizeNetPrice($storedBaseUnitPrice, $product);
-            $unitPrice = $this->taxPricing->normalizeNetPrice($storedDiscountedUnitPrice, $product);
+            $destinationRate = $this->taxPricing->rateForDestination($product, $countryCode);
+            $baseAmounts = $this->taxPricing->amountsFromStored($storedBaseUnitPrice, $product, $destinationRate);
+            $amounts = $this->taxPricing->amountsFromStored($storedDiscountedUnitPrice, $product, $destinationRate);
+            $baseUnitPrice = $baseAmounts['net'];
+            $unitPrice = $amounts['net'];
             $unitDiscount = round(max(0, $baseUnitPrice - $unitPrice), 2);
             $lineDiscountTotal = round($unitDiscount * $qty, 2);
             $lineTotal = round($unitPrice * $qty, 2);
-            $destinationRate = $this->taxPricing->rateForDestination($product, $countryCode);
-            $unitTaxAmount = $this->taxPricing->taxFromNet($unitPrice, $product, $destinationRate);
-            $baseUnitTaxAmount = $this->taxPricing->taxFromNet($baseUnitPrice, $product, $destinationRate);
-            $lineTaxTotal = round($unitTaxAmount * $qty, 2);
-            $displayUnitPrice = round($unitPrice + $unitTaxAmount, 2);
-            $displayBaseUnitPrice = round($baseUnitPrice + $baseUnitTaxAmount, 2);
-            $displayLineTotal = round($lineTotal + $lineTaxTotal, 2);
+            $lineTaxTotal = round($amounts['tax'] * $qty, 2);
+            $displayUnitPrice = $amounts['gross'];
+            $displayBaseUnitPrice = $baseAmounts['gross'];
+            $displayLineTotal = round($displayUnitPrice * $qty, 2);
             $taxRateValue = (float) ($destinationRate?->rate ?? 0);
             $translation = $product->translations->firstWhere('locale', $locale)
                 ?? $product->translations->firstWhere('locale', $fallbackLocale);

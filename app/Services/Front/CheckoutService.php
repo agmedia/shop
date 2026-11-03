@@ -315,6 +315,11 @@ class CheckoutService
                     'sort_order' => $index++,
                     'payload' => [
                         'product_slug' => (string) ($translation?->slug ?? ''),
+                        'pricing' => [
+                            'base_unit_gross' => (float) $line['display_base_unit_price'],
+                            'unit_gross' => (float) $line['display_unit_price'],
+                            'line_gross' => (float) $line['display_line_total'],
+                        ],
                     ],
                 ]);
 
@@ -463,13 +468,17 @@ class CheckoutService
      */
     private function feeTaxRate(float $subtotalAfterDiscount, float $taxTotal, ?string $countryCode, ?Collection $lines = null): float
     {
+        $lines ??= $this->cart->lines(countryCode: $countryCode);
+        $rates = $lines->pluck('tax_rate')->map(fn ($rate): float => max(0.0, (float) $rate))->unique();
+        if ($rates->count() === 1) {
+            // Rounded product VAT must not change the declared rate on delivery.
+            return (float) $rates->first() / 100;
+        }
         if ($subtotalAfterDiscount > 0) {
             return $taxTotal / $subtotalAfterDiscount;
         }
 
         // A full product discount does not make separately charged delivery tax-free.
-        // Keep the destination rates even when the discounted product tax is zero.
-        $lines ??= $this->cart->lines(countryCode: $countryCode);
         $weightTotal = 0.0;
         $weightedRateTotal = 0.0;
         foreach ($lines as $line) {

@@ -128,9 +128,9 @@ class CheckoutCountryRestrictionTest extends TestCase
         foreach (['billing_country_code', 'shipping_country_code'] as $field) {
             $this->assertSame($country, $xpath->evaluate('string(//select[@name="'.$field.'"]/option[@selected]/@value)'));
         }
-        $this->assertSame($country === 'DE' ? 23.8 : 25.0, $response->viewData('displayPricing')['subtotal']);
+        $this->assertSame(25.0, $response->viewData('displayPricing')['subtotal']);
         $this->getJson('/checkout/options')->assertOk()
-            ->assertJsonPath('display_pricing.subtotal', $country === 'DE' ? 23.8 : 25);
+            ->assertJsonPath('display_pricing.subtotal', 25);
     }
 
     public static function localeDefaults(): array
@@ -152,7 +152,7 @@ class CheckoutCountryRestrictionTest extends TestCase
             ->assertViewHas('selectedCountryCodes', ['billing' => 'AT', 'shipping' => 'HR'])
             ->assertViewHas('displayPricing', fn ($pricing) => $pricing['subtotal'] === 25.0);
         $this->getJson('/checkout/options?billing_country_code=AT&shipping_country_code=AT&ship_to_different_address=1')
-            ->assertOk()->assertJsonPath('display_pricing.subtotal', 24);
+            ->assertOk()->assertJsonPath('display_pricing.subtotal', 25);
     }
 
     public function test_german_language_keeps_saved_supported_address_countries(): void

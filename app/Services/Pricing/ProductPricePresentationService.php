@@ -13,8 +13,7 @@ class ProductPricePresentationService
     public function __construct(
         private readonly ActionResolverService $actionResolver,
         private readonly TaxPricingService $taxPricing,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{
@@ -47,17 +46,14 @@ class ProductPricePresentationService
         $storedCurrent = $resolvedAction
             ? $this->actionResolver->applyToPrice($storedBase, $resolvedAction)
             : $storedBase;
-        $baseNet = $this->taxPricing->normalizeNetPrice($storedBase, $product);
-        $currentNet = $this->taxPricing->normalizeNetPrice($storedCurrent, $product);
-
-        $baseGross = (float) $this->taxPricing->grossFromNet($baseNet, $product);
-        $currentGross = (float) $this->taxPricing->grossFromNet($currentNet, $product);
+        $baseGross = $this->grossForStoredPrice($storedBase, $product);
+        $currentGross = $this->grossForStoredPrice($storedCurrent, $product);
         $hasDiscount = $currentGross < ($baseGross - 0.0001);
 
         $lowest30DaysGross = null;
         if ($hasDiscount) {
-            $lowest30DaysNet = $this->lowestNetPriceInLast30Days($product, $storedBase, $user);
-            $lowest30DaysGross = (float) $this->taxPricing->grossFromNet($lowest30DaysNet, $product);
+            $lowest30DaysStored = $this->lowestStoredPriceInLast30Days($product, $storedBase, $user);
+            $lowest30DaysGross = $this->grossForStoredPrice($lowest30DaysStored, $product);
         }
 
         return [
@@ -72,7 +68,18 @@ class ProductPricePresentationService
         ];
     }
 
-    private function lowestNetPriceInLast30Days(Product $product, float $storedBasePrice, ?User $user): float
+    private function grossForStoredPrice(float $storedPrice, Product $product): float
+    {
+        if ($this->taxPricing->pricesIncludeTax()) {
+            return $this->taxPricing->grossFromStored($storedPrice, $product);
+        }
+
+        $net = $this->taxPricing->normalizeNetPrice($storedPrice, $product);
+
+        return $this->taxPricing->grossFromNet($net, $product);
+    }
+
+    private function lowestStoredPriceInLast30Days(Product $product, float $storedBasePrice, ?User $user): float
     {
         $periodStart = now()->subDays(30);
         $periodEnd = now();
@@ -140,6 +147,6 @@ class ProductPricePresentationService
             }
         }
 
-        return max(0.0, $this->taxPricing->normalizeNetPrice($best, $product));
+        return max(0.0, $best);
     }
 }
