@@ -3,6 +3,7 @@
 return [
     'checkout_country_unavailable' => 'Bitte wählen Sie Kroatien, Deutschland oder Österreich.',
     'tax_included' => 'Enthaltene MwSt.',
+    'cart_tax_note' => 'Der endgültige Steueranteil richtet sich an der Kasse nach dem Lieferland.',
     'tax_included_rate' => 'Enthaltene MwSt. (:rate %)',
     'warranty_link' => 'Gesetzliche Gewährleistung – Informationen anzeigen',
     'delivery_time_de_at' => 'Lieferzeit: 5–7 Werktage ab Zahlungseingang',

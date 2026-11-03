@@ -3,6 +3,7 @@
 return [
     'checkout_country_unavailable' => 'Please select Croatia, Germany or Austria.',
     'tax_included' => 'Included VAT',
+    'cart_tax_note' => 'The final VAT share is determined at checkout by the delivery country.',
     'tax_included_rate' => 'Included VAT (:rate %)',
     'warranty_link' => 'Legal guarantee – view information',
     'delivery_time_de_at' => 'Delivery time: 5–7 working days after payment is received.',

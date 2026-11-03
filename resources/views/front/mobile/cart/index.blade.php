@@ -33,8 +33,8 @@
                             @if (!empty($line['option_label']))
                                 <p class="font-11 opacity-60 mb-1">{{ $line['option_label'] }}</p>
                             @endif
-                            <h4 class="font-700 mb-1">EUR {{ number_format((float) ($line['display_line_total'] ?? $line['line_total']), 2) }}</h4>
-                            <p class="font-11 opacity-60 mb-0">Unit EUR {{ number_format((float) ($line['display_unit_price'] ?? $line['unit_price']), 2) }}</p>
+                            <h4 class="font-700 mb-1" data-cart-line-total>{{ \App\Support\Currency::format($line['display_line_total'] ?? $line['line_total']) }}</h4>
+                            <p class="font-11 opacity-60 mb-0">{{ __('ui.cart.table.price') }} <span data-cart-unit-price>{{ \App\Support\Currency::format($line['display_unit_price'] ?? $line['unit_price']) }}</span></p>
                         </div>
                         <div class="align-self-center" style="min-width:88px;">
                             <form method="POST" action="{{ route('cart.items.update', ['product' => $product->id]) }}" class="mb-2">
@@ -73,17 +73,30 @@
 
         <div class="card card-style mt-n2">
             <div class="content mb-2 mt-3">
-                <div class="d-flex">
-                    <div class="pe-4 w-60">
-                        <p class="font-600 color-highlight mb-0 font-13">Total</p>
-                        <h2>EUR {{ number_format((float) ($summary['grand_total'] ?? $summary['subtotal']), 2) }}</h2>
+                <h2 class="font-18 mb-3">{{ __('ui.cart.summary.title') }}</h2>
+                <dl class="mb-0">
+                    <div class="d-flex justify-content-between mb-2">
+                        <dt>{{ __('ui.cart.summary.items') }}</dt>
+                        <dd class="mb-0">{{ $summary['item_qty'] }}</dd>
                     </div>
-                    <div class="w-100 pt-1">
-                        <h6 class="font-14 font-700">Items <span class="float-end color-theme">{{ $summary['item_qty'] }}</span></h6>
-                        <div class="divider mb-2 mt-1"></div>
-                        <h6 class="font-14 font-700">Lines <span class="float-end color-theme">{{ $summary['line_count'] }}</span></h6>
+                    <div class="d-flex justify-content-between mb-2">
+                        <dt>{{ __('ui.cart.summary.subtotal') }}</dt>
+                        <dd class="mb-0" data-cart-price="subtotal">{{ $displayPricing['subtotal_formatted'] }}</dd>
                     </div>
-                </div>
+                    @if ($displayPricing['discount_total'] > 0)
+                        <div class="d-flex justify-content-between mb-2">
+                            <dt>{{ __('ui.cart.summary.discount') }}</dt>
+                            <dd class="mb-0 color-green-dark" data-cart-price="discount_total">-{{ $displayPricing['discount_total_formatted'] }}</dd>
+                        </div>
+                    @endif
+                    <div class="divider mb-2 mt-2"></div>
+                    <div class="d-flex justify-content-between font-700">
+                        <dt>{{ __('ui.cart.summary.total') }}</dt>
+                        <dd class="mb-0" data-cart-price="grand_total">{{ $displayPricing['grand_total_formatted'] }}</dd>
+                    </div>
+                </dl>
+                <p class="font-12 mb-0 mt-2" data-cart-tax-label>{{ __('compliance.tax_included') }}</p>
+                <p class="font-11 opacity-60 mb-0">{{ __('compliance.cart_tax_note') }}</p>
             </div>
         </div>
 

@@ -72,12 +72,12 @@
                                         @if ($displayBase > ($displayCurrent + 0.0001))
                                             <span class="text-xs text-slate-500 line-through">{{ number_format($displayBase, 2) }} €</span>
                                         @endif
-                                        <span class="font-semibold text-slate-900">{{ number_format($displayCurrent, 2) }} €</span>
+                                        <span class="font-semibold text-slate-900" data-cart-unit-price>{{ number_format($displayCurrent, 2) }} €</span>
                                     </div>
                                 </div>
                                 <div>
                                     <p class="text-xs uppercase tracking-wide text-slate-500">{{ __('ui.cart.table.total') }}</p>
-                                    <p class="mt-0.5 font-semibold text-slate-900">{{ number_format((float) ($line['display_line_total'] ?? $line['line_total']), 2) }} €</p>
+                                    <p class="mt-0.5 font-semibold text-slate-900" data-cart-line-total>{{ number_format((float) ($line['display_line_total'] ?? $line['line_total']), 2) }} €</p>
                                 </div>
                             </div>
 
@@ -191,7 +191,7 @@
                                     @if ($displayBase > ($displayCurrent + 0.0001))
                                         <span class="text-xs text-slate-500 line-through">{{ number_format($displayBase, 2) }} €</span>
                                     @endif
-                                    <span class="font-semibold text-slate-900">{{ number_format($displayCurrent, 2) }} €</span>
+                                    <span class="font-semibold text-slate-900" data-cart-unit-price>{{ number_format($displayCurrent, 2) }} €</span>
                                 </div>
                             </td>
                             <td class="px-4 py-4">
@@ -205,7 +205,7 @@
                                     <button type="submit" class="border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">{{ __('ui.cart.table.save') }}</button>
                                 </form>
                             </td>
-                            <td class="px-4 py-4 font-semibold text-slate-900">{{ number_format((float) ($line['display_line_total'] ?? $line['line_total']), 2) }} €</td>
+                            <td class="px-4 py-4 font-semibold text-slate-900" data-cart-line-total>{{ number_format((float) ($line['display_line_total'] ?? $line['line_total']), 2) }} €</td>
                             <td class="px-4 py-4">
                                 <form
                                     method="POST"
@@ -250,28 +250,21 @@
                     </div>
                     <div class="flex items-center justify-between">
                         <dt class="text-slate-600">{{ __('ui.cart.summary.subtotal') }}</dt>
-                        <dd class="font-semibold text-slate-900">{{ number_format((float) $summary['subtotal'], 2) }} €</dd>
+                        <dd class="font-semibold text-slate-900" data-cart-price="subtotal">{{ $displayPricing['subtotal_formatted'] }}</dd>
                     </div>
-                    @if ((float) ($summary['discount_total'] ?? 0) > 0)
+                    @if ($displayPricing['discount_total'] > 0)
                         <div class="flex items-center justify-between">
                             <dt class="text-slate-600">{{ __('ui.cart.summary.discount') }}</dt>
-                            <dd class="font-semibold text-emerald-700">-{{ number_format((float) $summary['discount_total'], 2) }} €</dd>
+                            <dd class="font-semibold text-emerald-700" data-cart-price="discount_total">-{{ $displayPricing['discount_total_formatted'] }}</dd>
                         </div>
                     @endif
-                    <div class="flex items-center justify-between">
-                        <dt class="text-slate-600">
-                            {{ __('ui.cart.summary.tax') }}
-                            @if ((float) ($summary['tax_rate'] ?? 0) > 0)
-                                ({{ rtrim(rtrim(number_format((float) $summary['tax_rate'], 2), '0'), '.') }}%)
-                            @endif
-                        </dt>
-                        <dd class="font-semibold text-slate-900">{{ number_format((float) ($summary['tax_total'] ?? 0), 2) }} €</dd>
-                    </div>
                     <div class="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
                         <dt class="text-slate-900">{{ __('ui.cart.summary.total') }}</dt>
-                        <dd class="font-bold text-slate-900">{{ number_format((float) ($summary['grand_total'] ?? 0), 2) }} €</dd>
+                        <dd class="font-bold text-slate-900" data-cart-price="grand_total">{{ $displayPricing['grand_total_formatted'] }}</dd>
                     </div>
                 </dl>
+                <p class="mt-2 text-xs text-slate-600" data-cart-tax-label>{{ __('compliance.tax_included') }}</p>
+                <p class="mt-1 text-xs text-slate-500">{{ __('compliance.cart_tax_note') }}</p>
 
                 @php
                     $couponOpen = $errors->has('coupon_code') || ((string) ($summary['coupon_code'] ?? '') !== '');

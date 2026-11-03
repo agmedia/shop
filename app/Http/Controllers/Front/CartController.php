@@ -7,8 +7,9 @@ use App\Http\Controllers\Front\Concerns\ResolvesFrontendView;
 use App\Models\Catalog\Product\Product;
 use App\Models\Catalog\Product\ProductOptionValue;
 use App\Services\Front\CartService;
-use Illuminate\Http\RedirectResponse;
+use App\Support\CheckoutDisplayPricing;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -19,14 +20,22 @@ class CartController extends Controller
 
     public function __construct(
         private readonly CartService $cart
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {
+        $lines = $this->cart->lines();
+        $summary = $this->cart->summary();
+
         return view($this->frontendView($request, 'cart.index'), [
-            'lines' => $this->cart->lines(),
-            'summary' => $this->cart->summary(),
+            'lines' => $lines,
+            'summary' => $summary,
+            'displayPricing' => CheckoutDisplayPricing::make($lines, $summary, [
+                'tax_total' => $summary['tax_total'],
+                'shipping_total' => 0.0,
+                'payment_fee_total' => 0.0,
+                'grand_total' => $summary['grand_total'],
+            ]),
         ]);
     }
 
