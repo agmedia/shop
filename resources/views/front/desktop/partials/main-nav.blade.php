@@ -92,14 +92,14 @@
                                 <div class="mx-auto grid gap-x-6 gap-y-4 lg:grid-cols-2">
                                     @foreach ($megaGroups as $group)
                                         <section>
-                                            <h3 class="mb-2 text-[17px] font-black uppercase tracking-[0.06em] text-slate-900" @if($group['color']) style="color: {{ $group['color'] }};" @endif>{{ $group['label'] }}</h3>
+                                            <h3 class="mb-2 text-[17px] font-black uppercase tracking-[0.06em] text-slate-900"><span @if($group['color']) style="color: {{ $group['color'] }};" @endif>{{ $group['label'] }}</span></h3>
                                             <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
                                                 @foreach ($group['columns'] as $columnBlocks)
                                                     <div>
                                                         @foreach ($columnBlocks as $block)
                                                             <div class="mb-3">
-                                                                <a href="{{ $block['url'] }}" class="text-[15px] font-extrabold uppercase tracking-[0.05em] text-slate-900 transition hover:text-black" @if($block['color']) style="color: {{ $block['color'] }};" @endif>
-                                                                    {{ $block['title'] }}
+                                                                <a href="{{ $block['url'] }}" class="text-[15px] font-extrabold uppercase tracking-[0.05em] text-slate-900 transition hover:text-black">
+                                                                    <span @if($block['color']) style="color: {{ $block['color'] }};" @endif>{{ $block['title'] }}</span>
                                                                 </a>
                                                                 <ul class="mt-1.5 space-y-0.5">
                                                                     @foreach ($block['items'] as $subChild)
@@ -118,8 +118,8 @@
                                 <div class="mx-auto grid grid-cols-2 gap-6 lg:grid-cols-4">
                                     @foreach ($megaBlocks as $block)
                                         <div class="mb-4 break-inside-avoid">
-                                            <a href="{{ $block['url'] }}" class="text-[15px] font-extrabold uppercase tracking-[0.05em] text-slate-900 transition hover:text-black" @if($block['color']) style="color: {{ $block['color'] }};" @endif>
-                                                {{ $block['title'] }}
+                                            <a href="{{ $block['url'] }}" class="text-[15px] font-extrabold uppercase tracking-[0.05em] text-slate-900 transition hover:text-black">
+                                                <span @if($block['color']) style="color: {{ $block['color'] }};" @endif>{{ $block['title'] }}</span>
                                             </a>
                                             <ul class="mt-1.5 space-y-0.5">
                                                 @foreach ($block['items'] as $subChild)
