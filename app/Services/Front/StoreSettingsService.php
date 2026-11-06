@@ -4,6 +4,7 @@ namespace App\Services\Front;
 
 use App\Models\Catalog\Category\Category;
 use App\Models\Content\Page\InfoPage;
+use App\Models\Settings\Local\Language;
 use App\Services\Settings\SystemSettingsService;
 use Illuminate\Support\Facades\Storage;
 
@@ -40,10 +41,12 @@ class StoreSettingsService
      */
     public function announcement(): array
     {
+        $defaultLocale = (string) (Language::query()->where('is_default', true)->orderBy('sort_order')->value('code') ?: config('app.locale', 'hr'));
+
         return [
             'enabled' => (bool) $this->settings->get('store_announcement_enabled', true),
-            'text' => (string) $this->settings->get('store_announcement_text', __('ui.front.desktop.promo_bar')),
-            'url' => trim((string) $this->settings->get('store_announcement_url', '')),
+            'text' => (string) $this->localizedSetting('store_announcement_text', __('ui.front.desktop.promo_bar'), fallbackLocale: $defaultLocale, preferProvidedDefault: true),
+            'url' => trim((string) $this->localizedSetting('store_announcement_url', '', fallbackLocale: $defaultLocale, preferProvidedDefault: true)),
             'new_tab' => (bool) $this->settings->get('store_announcement_new_tab', false),
             'scroll_enabled' => (bool) $this->settings->get('store_announcement_scroll_enabled', false),
             'scroll_duration_seconds' => $this->settings->getInt('store_announcement_scroll_duration_seconds', 18, 6, 60),
@@ -187,6 +190,7 @@ class StoreSettingsService
             'mailchimp_list_id' => (string) $this->settings->get('store_newsletter_mailchimp_list_id', ''),
             'klaviyo_api_key' => (string) $this->settings->get('store_newsletter_klaviyo_api_key', ''),
             'klaviyo_list_id' => (string) $this->settings->get('store_newsletter_klaviyo_list_id', ''),
+            'klaviyo_list_id_de' => (string) $this->settings->get('store_newsletter_klaviyo_list_id_de', ''),
             'klaviyo_site_id' => trim((string) $this->settings->get('store_newsletter_klaviyo_site_id', 'TYXFZd')),
             'club_label' => trim((string) $this->settings->get('store_newsletter_club_label', '')),
             'title' => trim((string) $this->settings->get('store_newsletter_title', '')),

@@ -93,6 +93,27 @@ and list ID. The private key needs `events:write` in addition to the existing
 newsletter subscription permissions. The public Site ID defaults to `TYXFZd`
 from the supplied Bali tracking snippet and can be changed or cleared in settings.
 
+**Klaviyo List ID — German market** stores the separate list for signups made
+in German (including German-language Austrian visitors). Croatian and other
+languages keep the existing list ID. A German signup requires the German ID;
+it is never sent to the default list when the German field is empty.
+After pulling this change through the existing Git deployment, run
+`php artisan klaviyo:configure-german-newsletter` to set the client-supplied
+German list `V3EEiA` (Tea's 4 November 2026 email). The command can be rerun and
+preserves a different ID already entered in admin; `--force` explicitly replaces
+it. Clear application caches and restart queue workers using the normal project
+deployment procedure. No migration or frontend asset build is required for this
+newsletter setting.
+
+The newsletter subscription API is pinned to revision `2026-10-15` and sends
+the visitor's explicit email marketing consent. The old `2024-10-15` revision
+retired on 15 October 2026; its automatic fallback requires a `subscriptions`
+object that the old email-only payload omitted. See Klaviyo's
+[revision changelog](https://developers.klaviyo.com/en/docs/changelog_) and
+[email consent API guide](https://developers.klaviyo.com/en/docs/collect_email_and_sms_consent_via_api).
+The list's own single/double opt-in settings still apply; the webshop does not
+bypass confirmation emails or mark subscriptions as historical imports.
+
 When Klaviyo is selected, the webshop skips its own BALI10 newsletter coupon
 email so the Klaviyo welcome flow handles that message. Newsletter subscriptions
 still sync to Klaviyo, and order and contact emails keep their existing settings.
@@ -132,6 +153,19 @@ References: [Klaviyo custom ecommerce integration](https://developers.klaviyo.co
 [Create Event and required scope](https://developers.klaviyo.com/en/reference/create_event).
 
 ## Useful Commands
+
+Hero slider images can be assigned separately by language in the block's media
+manager. New images use the selected content language; **Jezik slike** can assign
+an existing image to HR, DE or all languages. A language-specific set replaces
+the shared slides. Until Tea supplies the German artwork, the existing shared
+slides remain visible. No German artwork is generated or uploaded by deployment.
+
+In **Store Settings → Announcement bar**, choose the content language to edit
+the text and optional URL independently. Colors, visibility and animation remain
+shared. Without a translation, visitors see the built-in text for their language
+and no inherited campaign link. Desktop and mobile templates use the same bar.
+Existing Croatian text and links are retained. The final German announcement
+copy can be entered in this tab when supplied.
 
 ```bash
 php artisan optimize:clear

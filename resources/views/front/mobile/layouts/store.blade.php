@@ -105,6 +105,7 @@
     <div class="page-title-clear"></div>
 
     <main id="main-content" tabindex="-1" class="page-content footer-bar-clear">
+        @include('front.partials.announcement-bar')
         @include('front.mobile.partials.flash')
         @yield('content')
         <div class="mb-5"></div>

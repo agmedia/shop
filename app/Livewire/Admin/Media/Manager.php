@@ -35,6 +35,7 @@ class Manager extends Component
     /**
      * @var array<int, array{
      *     name: string,
+     *     locale: string,
      *     alt: string,
      *     caption: string,
      *     link_url: string,
@@ -118,10 +119,15 @@ class Manager extends Component
             $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
             $fileName = $safeBaseName.'-'.Str::lower(Str::random(6)).'.'.$ext;
 
-            $record->addMedia($file->getRealPath())
+            $mediaAdder = $record->addMedia($file->getRealPath())
                 ->usingName($originalName !== '' ? $originalName : $safeBaseName)
-                ->usingFileName($fileName)
-                ->toMediaCollection($collectionName);
+                ->usingFileName($fileName);
+
+            if ($record instanceof ContentBlock && $record->hasLocalizedSlides() && $collectionName === 'block_slides') {
+                $mediaAdder->withCustomProperties(['locale' => strtolower(trim($this->locale))]);
+            }
+
+            $mediaAdder->toMediaCollection($collectionName);
         }
 
         $mainCollection = (string) ($this->modelProfile['main_collection'] ?? '');
@@ -276,6 +282,19 @@ class Manager extends Component
         $instagramImported = false;
         $custom = (array) ($media->custom_properties ?? []);
         $locale = trim($this->locale) !== '' ? $this->locale : (string) config('app.locale', 'en');
+
+        $record = $this->record;
+        if ($record instanceof ContentBlock && $record->hasLocalizedSlides() && $media->collection_name === 'block_slides') {
+            $this->validate([
+                "meta.$mediaId.locale" => ['nullable', 'string', 'max:10', 'regex:/^[a-z]{2,3}(?:[_-][a-zA-Z]{2,4})?$/'],
+            ]);
+            $imageLocale = strtolower(trim((string) ($meta['locale'] ?? $media->getCustomProperty('locale', ''))));
+            if ($imageLocale === '') {
+                Arr::forget($custom, 'locale');
+            } else {
+                data_set($custom, 'locale', $imageLocale);
+            }
+        }
 
         if ($notify && $this->shouldImportInstagramPreview($media, $linkUrl)) {
             try {
@@ -636,6 +655,7 @@ class Manager extends Component
 
                 $this->meta[$media->id] = [
                     'name' => (string) $media->name,
+                    'locale' => (string) data_get($custom, 'locale', ''),
                     'alt' => (string) data_get($custom, "alt.$locale", ''),
                     'caption' => (string) data_get($custom, "caption.$locale", ''),
                     'link_url' => (string) (

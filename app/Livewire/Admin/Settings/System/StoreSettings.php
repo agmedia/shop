@@ -29,6 +29,8 @@ class StoreSettings extends Component
 
     /** @var array<int, string> */
     private const LOCALIZED_SETTING_KEYS = [
+        'store_announcement_text',
+        'store_announcement_url',
         'store_footer_hours',
         'store_footer_col_1_title',
         'store_footer_col_1_custom_links',
@@ -123,6 +125,7 @@ class StoreSettings extends Component
         'store_newsletter_mailchimp_list_id' => '',
         'store_newsletter_klaviyo_api_key' => '',
         'store_newsletter_klaviyo_list_id' => '',
+        'store_newsletter_klaviyo_list_id_de' => '',
         'store_newsletter_klaviyo_site_id' => 'TYXFZd',
         'store_newsletter_club_label' => '',
         'store_newsletter_title' => '',
@@ -271,10 +274,6 @@ class StoreSettings extends Component
         $this->loadLocalizedInputs($this->locale);
         $this->form = $this->sanitizeSelectableSettings($this->form);
 
-        if (trim((string) $this->form['store_announcement_text']) === '') {
-            $this->form['store_announcement_text'] = (string) __('ui.front.desktop.promo_bar');
-        }
-
         $this->refreshWebpGenerationStatus();
     }
 
@@ -404,6 +403,7 @@ class StoreSettings extends Component
                 'max:255',
             ],
             'form.store_newsletter_club_label' => ['nullable', 'string', 'max:120'],
+            'form.store_newsletter_klaviyo_list_id_de' => ['nullable', 'string', 'max:255'],
             'form.store_newsletter_klaviyo_site_id' => ['nullable', 'string', 'regex:/^[a-zA-Z0-9]{6}$/'],
             'form.store_newsletter_title' => ['nullable', 'string', 'max:191'],
             'form.store_newsletter_subtitle' => ['nullable', 'string', 'max:255'],

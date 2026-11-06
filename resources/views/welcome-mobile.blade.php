@@ -166,6 +166,7 @@
     <div class="page-title-clear"></div>
 
     <div class="page-content footer-bar-clear">
+        @include('front.partials.announcement-bar')
         @if ($isFrontPreview)
             <div class="card card-style bg-yellow-light mb-3">
                 <div class="content py-2">

@@ -3,7 +3,7 @@
     $customClasses = trim((string) ($translationPayload['custom_classes'] ?? ''));
     $preferWebp = (bool) ($storeSettings['images']['use_webp'] ?? false);
     $sliderId = 'full-width-slider-'.$block->id;
-    $slides = $block->getMedia('block_slides');
+    $slides = $block->slidesForLocale();
 
     if ($slides->isEmpty()) {
         $fallback = $block->getFirstMedia('block_background');

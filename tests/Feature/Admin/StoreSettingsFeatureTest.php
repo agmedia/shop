@@ -100,6 +100,58 @@ class StoreSettingsFeatureTest extends TestCase
             ]);
     }
 
+    public function test_newsletter_tab_saves_and_reloads_the_german_klaviyo_list_separately(): void
+    {
+        $admin = $this->makeUserWithRole('admin');
+
+        Livewire::actingAs($admin)
+            ->test(StoreSettings::class)
+            ->set('tab', 'newsletter')
+            ->assertSee('form.store_newsletter_klaviyo_list_id_de', false)
+            ->set('form.store_newsletter_provider', 'klaviyo')
+            ->set('form.store_newsletter_klaviyo_api_key', 'test-private-key')
+            ->set('form.store_newsletter_klaviyo_list_id', 'default-list')
+            ->set('form.store_newsletter_klaviyo_list_id_de', 'V3EEiA')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $settings = app(SystemSettingsService::class);
+        $this->assertSame('default-list', $settings->get('store_newsletter_klaviyo_list_id'));
+        $this->assertSame('V3EEiA', $settings->get('store_newsletter_klaviyo_list_id_de'));
+        $this->assertSame('V3EEiA', app(FrontStoreSettingsService::class)->newsletter()['klaviyo_list_id_de']);
+
+        Livewire::actingAs($admin)
+            ->test(StoreSettings::class)
+            ->assertSet('form.store_newsletter_klaviyo_list_id_de', 'V3EEiA');
+    }
+
+    public function test_german_klaviyo_list_can_remain_empty_for_other_storefront_languages(): void
+    {
+        $admin = $this->makeUserWithRole('admin');
+
+        Livewire::actingAs($admin)
+            ->test(StoreSettings::class)
+            ->set('tab', 'newsletter')
+            ->set('form.store_newsletter_provider', 'klaviyo')
+            ->set('form.store_newsletter_klaviyo_api_key', 'test-private-key')
+            ->set('form.store_newsletter_klaviyo_list_id', 'default-list')
+            ->set('form.store_newsletter_klaviyo_list_id_de', '')
+            ->call('save')
+            ->assertHasNoErrors();
+    }
+
+    public function test_german_klaviyo_list_rejects_overlong_values(): void
+    {
+        $admin = $this->makeUserWithRole('admin');
+
+        Livewire::actingAs($admin)
+            ->test(StoreSettings::class)
+            ->set('tab', 'newsletter')
+            ->set('form.store_newsletter_klaviyo_list_id_de', str_repeat('a', 256))
+            ->call('save')
+            ->assertHasErrors(['form.store_newsletter_klaviyo_list_id_de' => 'max']);
+    }
+
     public function test_announcement_tab_saves_scroll_and_color_settings(): void
     {
         $admin = $this->makeUserWithRole('admin');

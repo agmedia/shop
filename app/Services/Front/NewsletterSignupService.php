@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Models\User\NewsletterSignup;
 use App\Services\Integrations\Newsletter\KlaviyoNewsletterService;
 use App\Services\Integrations\Newsletter\MailchimpNewsletterService;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -17,8 +16,7 @@ class NewsletterSignupService
         private readonly StoreSettingsService $storeSettings,
         private readonly MailchimpNewsletterService $mailchimp,
         private readonly KlaviyoNewsletterService $klaviyo,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{signup: NewsletterSignup|null, synced: bool}
@@ -36,6 +34,7 @@ class NewsletterSignupService
         $newsletterSettings = $this->storeSettings->newsletter();
         $provider = $this->normalizeProvider((string) ($newsletterSettings['provider'] ?? NewsletterSignup::PROVIDER_NONE));
         $normalizedEmail = Str::lower(trim($email));
+        $effectiveLocale = trim((string) $locale) ?: (app()->getLocale() ?: config('app.locale', 'hr'));
         $now = now();
 
         if ($provider === NewsletterSignup::PROVIDER_NONE) {
@@ -54,7 +53,7 @@ class NewsletterSignupService
                 'user_id' => $signup->user_id ?: $user?->id,
                 'email' => $normalizedEmail,
                 'source' => $source,
-                'locale' => trim((string) ($locale ?: app()->getLocale() ?: config('app.locale', 'hr'))) ?: 'hr',
+                'locale' => $effectiveLocale,
                 'provider' => $provider,
                 'sync_status' => NewsletterSignup::SYNC_SYNCED,
                 'consent_accepted' => $consentAccepted,
@@ -75,7 +74,7 @@ class NewsletterSignupService
 
         match ($provider) {
             NewsletterSignup::PROVIDER_MAILCHIMP => $this->mailchimp->subscribe($normalizedEmail, $newsletterSettings),
-            NewsletterSignup::PROVIDER_KLAVIYO => $this->klaviyo->subscribe($normalizedEmail, $newsletterSettings),
+            NewsletterSignup::PROVIDER_KLAVIYO => $this->klaviyo->subscribe($normalizedEmail, $newsletterSettings, $effectiveLocale),
             default => throw new RuntimeException('Newsletter provider nije podržan.'),
         };
 

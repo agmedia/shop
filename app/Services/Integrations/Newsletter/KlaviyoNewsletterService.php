@@ -7,16 +7,18 @@ use RuntimeException;
 
 class KlaviyoNewsletterService
 {
-    private const REVISION = '2024-10-15';
+    private const REVISION = '2026-10-15';
 
     /**
      * @param  array<string, mixed>  $settings
      * @return array{provider_reference: string}
      */
-    public function subscribe(string $email, array $settings): array
+    public function subscribe(string $email, array $settings, ?string $locale = null): array
     {
         $apiKey = trim((string) ($settings['klaviyo_api_key'] ?? ''));
-        $listId = trim((string) ($settings['klaviyo_list_id'] ?? ''));
+        $locale = strtolower(str_replace('_', '-', trim((string) $locale) ?: app()->getLocale()));
+        $listKey = explode('-', $locale)[0] === 'de' ? 'klaviyo_list_id_de' : 'klaviyo_list_id';
+        $listId = trim((string) ($settings[$listKey] ?? ''));
 
         if ($apiKey === '' || $listId === '') {
             throw new RuntimeException('Klaviyo postavke nisu potpune.');
@@ -40,6 +42,13 @@ class KlaviyoNewsletterService
                                     'type' => 'profile',
                                     'attributes' => [
                                         'email' => trim($email),
+                                        'subscriptions' => [
+                                            'email' => [
+                                                'marketing' => [
+                                                    'consent' => 'SUBSCRIBED',
+                                                ],
+                                            ],
+                                        ],
                                     ],
                                 ],
                             ],

@@ -1681,7 +1681,7 @@ BLADE,
     $translationPayload = is_array($translation?->payload ?? null) ? $translation->payload : [];
     $customClasses = trim((string) ($translationPayload['custom_classes'] ?? ''));
     $sliderId = 'full-width-slider-'.$block->id;
-    $slides = $block->getMedia('block_slides');
+    $slides = $block->slidesForLocale();
 
     if ($slides->isEmpty()) {
         $fallback = $block->getFirstMedia('block_background');

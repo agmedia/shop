@@ -318,7 +318,14 @@
                     <div>
                         <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Klaviyo List ID') }}</label>
                         <input type="text" wire:model="form.store_newsletter_klaviyo_list_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                        <p class="mt-2 text-xs text-slate-500">{{ __('Used for newsletter signups in Croatian and other non-German languages.') }}</p>
                         @error('form.store_newsletter_klaviyo_list_id') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="klaviyo-list-id-de" class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Klaviyo List ID — German market') }}</label>
+                        <input id="klaviyo-list-id-de" type="text" wire:model="form.store_newsletter_klaviyo_list_id_de" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                        <p class="mt-2 text-xs text-slate-500">{{ __('Required for newsletter signups in German, including Austria. If empty, German signups cannot be completed.') }}</p>
+                        @error('form.store_newsletter_klaviyo_list_id_de') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Klaviyo Public API Key / Site ID') }}</label>
@@ -742,10 +749,12 @@
                     <div class="md:col-span-2">
                         <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Text') }}</label>
                         <input type="text" wire:model="form.store_announcement_text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                        @error('form.store_announcement_text') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
                     <div class="md:col-span-2">
                         <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ __('Link URL (optional)') }}</label>
                         <input type="url" wire:model="form.store_announcement_url" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                        @error('form.store_announcement_url') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
                     <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 md:col-span-2">
                         <input type="checkbox" wire:model="form.store_announcement_new_tab" class="rounded border-slate-300 text-cyan-700 focus:ring-cyan-500" />

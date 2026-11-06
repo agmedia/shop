@@ -6,6 +6,7 @@ return array_replace_recursive(
     [
         'front' => [
             'desktop' => [
+                'promo_bar' => 'Günstige Preise – besondere Angebote',
                 'account' => 'Mein Konto',
                 'customer_reviews' => 'Kundenbewertungen',
                 'newsletter' => [

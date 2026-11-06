@@ -136,6 +136,13 @@
                         </div>
                     </div>
 
+                    @if ($isLinkableSliderBlock && $collectionName === 'block_slides')
+                        <p class="mb-3 text-xs text-slate-600">
+                            {{ __('Nove slike učitavaju se za odabrani jezik: :locale.', ['locale' => strtoupper($locale)]) }}
+                            {{ __('Slike za taj jezik zamjenjuju zajedničke slike. Ako ih nema, prikazuju se zajedničke slike.') }}
+                        </p>
+                    @endif
+
                     <div class="grid gap-3 lg:grid-cols-[1fr_auto]">
                         @if ($isInstagramCuratedBlock && $collectionName === 'block_slides')
                             <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
@@ -264,6 +271,18 @@
                                             <p class="mt-1 text-[11px] text-slate-500">{{ $media->file_name }}</p>
                                         </td>
                                         <td class="px-3 py-3 align-top">
+                                            @if ($isLinkableSliderBlock && $collectionName === 'block_slides')
+                                                <div class="mb-3">
+                                                    <label for="media-locale-{{ $media->id }}" class="mb-1 block text-xs font-semibold text-slate-600">{{ __('Jezik slike') }}</label>
+                                                    <select id="media-locale-{{ $media->id }}" wire:model="meta.{{ $media->id }}.locale" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs">
+                                                        <option value="">{{ __('Svi jezici (zajednička slika)') }}</option>
+                                                        @foreach (array_unique(array_filter([...($adminLocaleOptions ?? []), $locale, (string) ($mediaMeta['locale'] ?? '')])) as $imageLocale)
+                                                            <option value="{{ $imageLocale }}">{{ strtoupper($imageLocale) }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('meta.'.$media->id.'.locale') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                                </div>
+                                            @endif
                                             @if ($isDualImageCtaBlock && $collectionName === 'block_slides')
                                                 <div class="grid gap-2 md:grid-cols-2">
                                                     <input type="text" wire:model.blur="meta.{{ $media->id }}.block_title" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs md:col-span-2" placeholder="{{ __('Block title') }} ({{ $locale }})" />
